@@ -22,7 +22,7 @@ export function ToolsScreen() {
   const { colors, spacing, radius } = useTheme();
   const toast = useToast();
   const flags = useRemoteConfig((s) => s.config.flags);
-  const { importPhotos } = useImport();
+  const { importPhotos, overlay: importOverlay } = useImport();
   const scan = (mode: CaptureMode, docType: DocumentType) => () => openScanner({ mode, docType, source: 'tools' });
 
   const sections: { title: string; tools: Tool[] }[] = [
@@ -68,7 +68,7 @@ export function ToolsScreen() {
   ];
 
   return (
-    <TScreen scroll header={<TNavigationBar title={t('tools.title')} onBack={() => router.back()} />}>
+    <TScreen scroll footer={importOverlay} header={<TNavigationBar title={t('tools.title')} onBack={() => router.back()} />}>
       {sections.map((s) => (
         <View key={s.title}>
           <TSectionHeader title={s.title} />

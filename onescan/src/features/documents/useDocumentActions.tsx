@@ -47,6 +47,16 @@ export function useDocumentActions() {
         return setPending({ kind: 'move', doc });
       case 'delete':
         return setPending({ kind: 'delete', doc });
+      case 'duplicate':
+        close();
+        try {
+          await DocumentEngine.duplicate(doc, t('documents.copy_name', { name: doc.title }));
+          await refresh();
+          toast(t('documents.duplicated'), 'success');
+        } catch {
+          toast(t('errors.generic'), 'error');
+        }
+        return;
       default:
         close();
         toast(t('common.comingSoon'));

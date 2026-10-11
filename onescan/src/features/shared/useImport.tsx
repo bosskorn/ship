@@ -3,7 +3,8 @@ import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
-import { useToast } from '@/design-system';
+import { StyleSheet, View } from 'react-native';
+import { TProgress, TText, useTheme, useToast } from '@/design-system';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { useScanSession } from '@/features/scanner/scanSession';
 import { useDocuments } from '@/features/documents/documentsStore';
@@ -13,7 +14,9 @@ import { track } from '@/services/analytics/analytics';
 export function useImport() {
   const { t } = useTranslation();
   const toast = useToast();
+  const { colors, spacing, radius } = useTheme();
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const importPdf = useCallback(async () => {
     try {
@@ -21,13 +24,14 @@ export function useImport() {
       if (res.canceled || !res.assets[0]) return;
       setBusy(true);
       track('import_started', { kind: 'pdf' });
-      const doc = await DocumentEngine.importPdf(res.assets[0].uri, res.assets[0].name);
+      const doc = await DocumentEngine.importPdf(res.assets[0].uri, res.assets[0].name, (_stage, p) => setProgress(p));
       await useDocuments.getState().refresh();
       router.push({ pathname: '/document/[id]', params: { id: doc.id } });
     } catch {
       toast(t('errors.import_failed'), 'error');
     } finally {
       setBusy(false);
+      setProgress(0);
     }
   }, [t, toast]);
 
@@ -52,5 +56,16 @@ export function useImport() {
     }
   }, [t, toast]);
 
-  return { importPdf, importPhotos, busy };
+  const overlay = busy ? (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgMask, alignItems: 'center', justifyContent: 'center', padding: spacing.xxl }]}>
+      <View style={{ width: '100%', maxWidth: 320, backgroundColor: colors.bgContainer, borderRadius: radius.lg, padding: spacing.xl, gap: spacing.md }}>
+        <TText variant="title" align="center">
+          {t('documents.importing')}
+        </TText>
+        <TProgress value={0.1 + progress * 0.85} />
+      </View>
+    </View>
+  ) : null;
+
+  return { importPdf, importPhotos, busy, overlay };
 }

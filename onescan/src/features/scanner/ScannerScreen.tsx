@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
@@ -6,18 +6,30 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { TButton, TDialog, TIcon, TIconButton, TText, useTheme, useToast } from '@/design-system';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
+import { frameQuadToView } from '@/core/document-engine/capture/quadDetector';
+import type { CaptureHint } from '@/core/document-engine/capture/autoCapture';
 import type { CaptureMode } from '@/core/document-engine/model';
 import { useSettings } from '@/core/config/settingsStore';
+import { OneScanCameraView, OneScanCameraViewRef } from '@/native/OneScanCameraView';
 import { track } from '@/services/analytics/analytics';
+import { useImport } from '@/features/shared/useImport';
 import { useScanSession } from './scanSession';
 import { ScannerOverlay } from './ScannerOverlay';
-import { useImport } from '@/features/shared/useImport';
+import { useLiveDetection } from './useLiveDetection';
 
 const modes: CaptureMode[] = ['document', 'id', 'book', 'whiteboard'];
+const hintKey: Record<CaptureHint, 'scanner.hint_searching' | 'scanner.hint_hold_still' | 'scanner.hint_too_dark' | 'scanner.hint_blurry' | 'scanner.hint_capturing'> = {
+  searching: 'scanner.hint_searching',
+  hold_still: 'scanner.hint_hold_still',
+  too_dark: 'scanner.hint_too_dark',
+  blurry: 'scanner.hint_blurry',
+  ready: 'scanner.hint_capturing',
+};
 
 /**
- * Full-screen camera (spec §11). Opens straight into Document + Auto.
- * No document-type picker before capture; detection happens on device.
+ * Full-screen camera (spec §11–12). Opens straight into Document + Auto.
+ * With the native vision module: live border + auto capture when steady.
+ * Without it (Expo Go / web): expo-camera with manual capture.
  */
 export function ScannerScreen() {
   const { t } = useTranslation();
@@ -25,7 +37,8 @@ export function ScannerScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const [permission, requestPermission] = useCameraPermissions();
-  const camera = useRef<CameraView>(null);
+  const nativeCamera = useRef<OneScanCameraViewRef>(null);
+  const expoCamera = useRef<CameraView>(null);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [torch, setTorch] = useState(false);
@@ -34,15 +47,13 @@ export function ScannerScreen() {
 
   const scanner = useSettings((s) => s.scanner);
   const setScanner = useSettings((s) => s.setScanner);
-  const { mode, setMode, pages, addPage, replacePage, rescanIndex, setRescan, fromEditor, setFromEditor, clear } = useScanSession();
+  const { mode, setMode, pages, addPage, replacePage, setRescan, fromEditor, setFromEditor, clear } = useScanSession();
   const { importPhotos } = useImport();
+  const busyRef = useRef(false);
 
-  // Live boundary + auto capture require the native vision camera view.
-  const liveDetection = DocumentEngine.capture.hasNativeDetection();
-  const autoActive = scanner.autoCapture && liveDetection;
-  const hint = busy ? t('scanner.processing') : autoActive ? t('scanner.hint_searching') : t('scanner.hint_manual');
+  const live = Boolean(OneScanCameraView);
+  const autoActive = scanner.autoCapture && live;
 
-  /** Go to review: pop back to the existing editor, or open one. */
   const toEditor = () => {
     if (fromEditor) {
       setFromEditor(false);
@@ -59,25 +70,44 @@ export function ScannerScreen() {
     router.back();
   };
 
-  const capture = async () => {
-    if (!camera.current || !ready || busy) return;
-    setBusy(true);
-    try {
-      const photo = await camera.current.takePictureAsync({ quality: 0.92, shutterSound: true });
-      const page = await DocumentEngine.processCapture(photo.uri);
-      track('page_captured', { mode, auto: autoActive });
-      if (rescanIndex !== null) {
-        replacePage(rescanIndex, page);
-        return toEditor();
+  const capture = useCallback(
+    async (auto: boolean) => {
+      if (!ready || busyRef.current) return;
+      busyRef.current = true;
+      setBusy(true);
+      try {
+        const photo = live
+          ? await nativeCamera.current!.takePhoto()
+          : await expoCamera.current!.takePictureAsync({ quality: 0.92, shutterSound: true });
+        const page = await DocumentEngine.processCapture(photo.uri);
+        track('page_captured', { mode, auto });
+        const s = useScanSession.getState();
+        if (s.rescanIndex !== null) {
+          replacePage(s.rescanIndex, page);
+          return toEditor();
+        }
+        addPage(page);
+        if (!useSettings.getState().scanner.multiPage) toEditor();
+      } catch {
+        toast(t('errors.generic'), 'error');
+      } finally {
+        busyRef.current = false;
+        setBusy(false);
       }
-      addPage(page);
-      if (!scanner.multiPage) toEditor();
-    } catch {
-      toast(t('errors.generic'), 'error');
-    } finally {
-      setBusy(false);
-    }
-  };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- store actions are stable
+    [ready, live, mode],
+  );
+
+  const detection = useLiveDetection({ autoCapture: autoActive, paused: busy || !ready, onFire: () => void capture(true) });
+  const viewPoints = detection.quad && detection.frame ? frameQuadToView(detection.quad, detection.frame, size) : null;
+  const hint = busy
+    ? t('scanner.processing')
+    : !live
+      ? t('scanner.hint_manual')
+      : autoActive || detection.quad
+        ? t(hintKey[detection.hint])
+        : t('scanner.hint_manual');
 
   if (!permission) return <View style={{ flex: 1, backgroundColor: colors.mediaBg }} />;
 
@@ -106,6 +136,8 @@ export function ScannerScreen() {
     );
   }
 
+  const CameraSurface = OneScanCameraView;
+
   return (
     <View style={[styles.fill, { backgroundColor: colors.mediaBg }]}>
       {/* Top bar */}
@@ -122,17 +154,22 @@ export function ScannerScreen() {
             color={torch ? colors.warning : colors.mediaText}
             onPress={() => setTorch((v) => !v)}
           />
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityState={{ checked: scanner.autoCapture }}
-            accessibilityLabel={t('scanner.auto_capture')}
-            onPress={() => setScanner({ autoCapture: !scanner.autoCapture })}
-            style={{ paddingHorizontal: spacing.xs, height: 40, justifyContent: 'center' }}
-          >
-            <TText variant="body" weight="600" style={{ color: scanner.autoCapture ? colors.brandHover : colors.mediaText }}>
-              {scanner.autoCapture ? t('scanner.auto') : t('scanner.manual')}
-            </TText>
-          </Pressable>
+          {live ? (
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: scanner.autoCapture }}
+              accessibilityLabel={t('scanner.auto_capture')}
+              onPress={() => {
+                detection.reset();
+                setScanner({ autoCapture: !scanner.autoCapture });
+              }}
+              style={{ paddingHorizontal: spacing.xs, height: 40, justifyContent: 'center' }}
+            >
+              <TText variant="body" weight="600" style={{ color: scanner.autoCapture ? colors.brandHover : colors.mediaText }}>
+                {scanner.autoCapture ? t('scanner.auto') : t('scanner.manual')}
+              </TText>
+            </Pressable>
+          ) : null}
           <TIconButton
             icon="grid"
             accessibilityLabel={t('scanner.grid')}
@@ -144,16 +181,30 @@ export function ScannerScreen() {
 
       {/* Camera */}
       <View style={styles.fill} onLayout={(e) => setSize(e.nativeEvent.layout)}>
-        <CameraView
-          ref={camera}
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          enableTorch={torch}
-          animateShutter
-          onCameraReady={() => setReady(true)}
-          onMountError={() => toast(t('scanner.unavailable'), 'error')}
-        />
-        <ScannerOverlay quad={null} grid={scanner.showGrid} width={size.width} height={size.height} />
+        {CameraSurface ? (
+          <CameraSurface
+            ref={nativeCamera}
+            style={StyleSheet.absoluteFill}
+            torch={torch}
+            active
+            frameMaxEdge={192}
+            frameIntervalMs={150}
+            onCameraReady={() => setReady(true)}
+            onFrame={detection.onFrame}
+            onCameraError={() => toast(t('scanner.unavailable'), 'error')}
+          />
+        ) : (
+          <CameraView
+            ref={expoCamera}
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            enableTorch={torch}
+            animateShutter
+            onCameraReady={() => setReady(true)}
+            onMountError={() => toast(t('scanner.unavailable'), 'error')}
+          />
+        )}
+        <ScannerOverlay points={viewPoints} grid={scanner.showGrid} width={size.width} height={size.height} locked={detection.hint === 'ready' || (detection.hint === 'hold_still' && autoActive)} />
         <View style={[styles.hint, { top: spacing.md }]} pointerEvents="none">
           <View style={{ backgroundColor: colors.mediaOverlay, paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: radius.md }}>
             <TText variant="bodySmall" color="mediaText">
@@ -182,7 +233,12 @@ export function ScannerScreen() {
       {/* Bottom controls */}
       <View style={[styles.row, { paddingHorizontal: spacing.xl, paddingBottom: insets.bottom + spacing.md, paddingTop: spacing.xs }]}>
         <View style={{ width: 72, alignItems: 'flex-start' }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('scanner.gallery')} onPress={async () => (await importPhotos({ append: true })) && toEditor()} style={styles.sideBtn}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('scanner.gallery')}
+            onPress={async () => (await importPhotos({ append: true })) && toEditor()}
+            style={styles.sideBtn}
+          >
             <TIcon name="gallery" color={colors.mediaText} />
             <TText variant="caption" color="mediaText">
               {t('scanner.gallery')}
@@ -194,7 +250,7 @@ export function ScannerScreen() {
           accessibilityRole="button"
           accessibilityLabel={t('scanner.shutter')}
           disabled={!ready || busy}
-          onPress={capture}
+          onPress={() => capture(false)}
           style={({ pressed }) => [styles.shutterOuter, { borderColor: colors.mediaText, opacity: !ready ? 0.5 : 1 }, pressed && { transform: [{ scale: 0.94 }] }]}
         >
           <View style={[styles.shutterInner, { backgroundColor: colors.mediaText }]} />

@@ -27,7 +27,7 @@ export const defaultAutoCaptureConfig: AutoCaptureConfig = {
   maxDrift: 0.02,
   minConfidence: 0.7,
   minBrightness: 0.18,
-  minSharpness: 0.35,
+  minSharpness: 0.15,
   cooldownMs: 1500,
 };
 

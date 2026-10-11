@@ -53,6 +53,19 @@
         {
           "photosPermission": "OneScan imports photos you choose to create documents on your device."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": [
+              "https://jitpack.io"
+            ]
+          },
+          "ios": {
+            "deploymentTarget": "16.4"
+          }
+        }
       ]
     ],
     "experiments": {

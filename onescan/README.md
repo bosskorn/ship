@@ -46,24 +46,37 @@ src/
 | E2E encrypted vault | `core/document-engine/security/vaultCrypto.ts` — AES-256-GCM with a Keychain/Keystore key |
 | No hard-coded strings / colors | i18n keys everywhere; components read tokens via `useTheme()` |
 
-## Status (V1.0 foundation)
+## Native vision module (`modules/onescan-vision`)
 
-Working: design system (light/dark), navigation (5 tabs, Scan opens camera), onboarding,
-Home, camera with permission flow / flash / grid / modes / multi-page / gallery import,
-multi-page editor (rotate, filters, reorder, duplicate, rescan, delete), PDF generation
-(on-device via the print engine), local DB + Documents/Folders/Recent, viewer, Trash with
-retention, local search (title, OCR text, folder, type, month/year incl. Thai months/BE years),
-Share, Privacy & Data, language/appearance, Tools center, AI consent flow (gateway call gated
-by the `ai` flag).
+Local Expo module, autolinked. Contract: `src/native/OneScanVision.ts`.
 
-**Requires the native vision module** (`src/native/OneScanVision.ts` describes the contract):
-live edge detection + auto capture, perspective correction, pixel-level filters/shadow
-removal, on-device OCR, image redaction. Until it ships, the app falls back to full-frame
-capture, CSS-applied filters in the PDF, and "OCR unavailable". `AutoCaptureController`
-(tested) is ready to consume native detections.
+| Capability | Android (Kotlin) | iOS (Swift) |
+| --- | --- | --- |
+| Scanner camera + live frames | CameraX `PreviewView` + `ImageAnalysis` (Y plane) | `AVCaptureSession` + video data output (Y plane) |
+| Edge detection / auto capture | shared JS detector `core/document-engine/capture/quadDetector.ts` + `AutoCaptureController` | same |
+| Perspective correction | `Matrix.setPolyToPoly` | `CIPerspectiveCorrection` |
+| Enhance / shadow removal / filters | per-block paper estimate + division, Otsu B&W | morphology + blur + divide kernel, Otsu B&W |
+| OCR | ML Kit (Latin) + Tesseract `tha+eng` (bundled models) | Vision `VNRecognizeTextRequest` |
+| PDF import | `PdfRenderer` | PDFKit |
+| Image redaction | Canvas | UIGraphicsImageRenderer |
 
-Not built yet (routed to `/unavailable`, behind remote flags): manual crop/markup/clean,
-redaction UI (V1.1), App Lock (V1.1), AI chat/results + credits (V1.2), cloud sync (V1.3),
-Pro PDF tools/convert (V1.4), account/sign-in.
+Requires a development build (`npx expo run:android` / `npx expo run:ios`); Expo Go and web
+fall back to expo-camera, manual capture and no OCR.
+
+## Status
+
+V1.0 per spec §68: open → scan (live border, auto capture) → perspective crop → enhance →
+multi-page → on-device OCR (Thai + English) → PDF → local search → share — no login, no upload.
+
+Also built: manual crop, Clean, filters, reorder/duplicate/rescan, PDF import with page
+rendering + OCR, duplicate document, sensitive-data detection and on-device redacted copies,
+Trash, AI consent gate (gateway call behind the `ai` flag).
+
+Verification: unit tests (JS engine, detector, privacy guards, i18n parity, Android pixel
+algorithms); the Android module compiles (`:onescan-vision:compileDebugKotlin`). The iOS module is written against
+AVFoundation/Core Image/Vision/PDFKit but has not been compiled in CI (no macOS runner).
+
+Not built yet (behind remote flags, routed to `/unavailable`): markup, App Lock (V1.1),
+AI chat/results + credits (V1.2), cloud sync (V1.3), Pro PDF tools/convert (V1.4), sign-in.
 
 Web is a development preview target only (`npx expo start --web`); the product is native.

@@ -58,7 +58,8 @@ export const fallbackConfig: RemoteConfig = {
   version: 0,
   plans: [],
   creditCosts: {},
-  flags: { ocr: true },
+  // Local-only features that are built and need no backend.
+  flags: { ocr: true, sensitiveDetection: true, redaction: true },
   trashRetentionDays: 30,
 };
 

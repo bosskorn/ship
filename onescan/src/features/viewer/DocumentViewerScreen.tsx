@@ -11,6 +11,7 @@ import type { PageRecord } from '@/core/document-engine/model';
 import { track } from '@/services/analytics/analytics';
 import { useDocumentActions } from '@/features/documents/useDocumentActions';
 import { useDocument } from './useDocument';
+import { useScanSession } from '@/features/scanner/scanSession';
 
 export function DocumentViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -71,7 +72,16 @@ export function DocumentViewerScreen() {
         right={
           <>
             <TIconButton icon="search" accessibilityLabel={t('viewer.search')} onPress={() => router.push({ pathname: '/ocr/[id]', params: { id: doc.id } })} />
-            <TIconButton icon="edit" accessibilityLabel={t('viewer.edit')} onPress={() => toast(t('common.comingSoon'))} />
+            {pages.length ? (
+              <TIconButton
+                icon="edit"
+                accessibilityLabel={t('viewer.edit')}
+                onPress={async () => {
+                  useScanSession.getState().edit(doc.id, await DocumentEngine.draftsFor(doc.id));
+                  router.push('/editor');
+                }}
+              />
+            ) : null}
           </>
         }
       />

@@ -4,14 +4,16 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  IconName, TActionSheet, TDialog, TIcon, TNavigationBar, TProgress, TText, useTheme, useToast,
+  IconName, TActionSheet, TDialog, TIcon, TLoading, TNavigationBar, TProgress, TText, useTheme, useToast,
 } from '@/design-system';
 import { DocumentEngine, SaveStage } from '@/core/document-engine/DocumentEngine';
 import { cssFilterFor, pageFilters } from '@/core/document-engine/image/filters';
-import type { DraftPage, PageFilter, Rotation } from '@/core/document-engine/model';
+import type { DraftPage, PageFilter, Quad, Rotation } from '@/core/document-engine/model';
 import { formatDateTimeCompact } from '@/core/i18n/format';
 import { useScanSession } from '@/features/scanner/scanSession';
 import { useDocuments } from '@/features/documents/documentsStore';
+import { CropEditor } from './CropEditor';
+import { documentRepository } from '@/core/database/repositories/documentRepository';
 import { track } from '@/services/analytics/analytics';
 
 type Tool = 'crop' | 'rotate' | 'filter' | 'clean' | 'markup' | 'redact';
@@ -34,7 +36,7 @@ const filterLabelKey: Record<PageFilter, `editor.filter_${string}`> = {
 
 /** Preview the chosen filter where the platform supports style filters; PDF output always applies it. */
 function previewFilter(page: DraftPage) {
-  return DocumentEngine.capture.hasNativeDetection() ? undefined : ({ filter: cssFilterFor[page.filter] } as object);
+  return DocumentEngine.capture.hasNativeVision() ? undefined : ({ filter: cssFilterFor[page.filter] } as object);
 }
 
 export function EditorScreen() {
@@ -50,6 +52,8 @@ export function EditorScreen() {
   const [pageMenu, setPageMenu] = useState<number | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [saving, setSaving] = useState<{ stage: SaveStage; progress: number } | null>(null);
+  const [cropping, setCropping] = useState(false);
+  const [working, setWorking] = useState(false);
   const current = pages[Math.min(index, pages.length - 1)];
 
   const goTo = (i: number) => {
@@ -57,27 +61,54 @@ export function EditorScreen() {
     pager.current?.scrollToIndex({ index: i, animated: true });
   };
 
-  const update = async (i: number, patch: { filter?: PageFilter; rotation?: Rotation }) => {
+  const update = async (i: number, patch: { filter?: PageFilter; rotation?: Rotation; quad?: Quad | null }) => {
+    setWorking(true);
     try {
       replacePage(i, await DocumentEngine.reprocess(pages[i], patch));
+      return true;
     } catch {
       toast(t('errors.generic'), 'error');
+      return false;
+    } finally {
+      setWorking(false);
     }
   };
 
-  const onTool = (k: Tool) => {
-    if (!current) return;
-    if (k === 'rotate') return update(index, { rotation: (((current.rotation + 90) % 360) as Rotation) });
-    if (k === 'filter') return setTool(tool === 'filter' ? null : 'filter');
-    toast(t('common.comingSoon'));
+  const nativeVision = DocumentEngine.capture.hasNativeVision();
+
+  const onTool = async (k: Tool) => {
+    if (!current || working) return;
+    switch (k) {
+      case 'rotate':
+        return update(index, { rotation: (((current.rotation + 90) % 360) as Rotation) });
+      case 'filter':
+        return setTool(tool === 'filter' ? null : 'filter');
+      case 'crop':
+        return nativeVision ? setCropping(true) : toast(t('common.comingSoon'));
+      case 'clean':
+        // Shadow + background normalisation with document contrast.
+        if (await update(index, { filter: 'document' })) toast(t('editor.clean_applied'), 'success');
+        return;
+      default:
+        // Markup ships later; redaction runs on saved documents (Sensitive data screen).
+        toast(t('common.comingSoon'));
+    }
   };
 
   const save = async () => {
     if (!pages.length || saving) return;
     setSaving({ stage: 'pdf', progress: 0 });
     try {
-      const title = t('editor.default_name', { date: formatDateTimeCompact(Date.now(), i18n.language) });
-      const doc = await DocumentEngine.save(pages, { title, docType, onStage: (stage, progress) => setSaving({ stage, progress }) });
+      const onStage = (stage: SaveStage, progress: number) => setSaving({ stage, progress });
+      const editingId = useScanSession.getState().editingDocumentId;
+      const existing = editingId ? await documentRepository.get(editingId) : null;
+      const doc = existing
+        ? await DocumentEngine.saveEdits(existing, pages, onStage)
+        : await DocumentEngine.save(pages, {
+            title: t('editor.default_name', { date: formatDateTimeCompact(Date.now(), i18n.language) }),
+            docType,
+            onStage,
+          });
       track('scan_completed', { pages: pages.length, doc_type: docType });
       clear();
       await useDocuments.getState().refresh();
@@ -117,7 +148,7 @@ export function EditorScreen() {
     }
   };
 
-  const progressValue = saving ? ({ pdf: 0.2, ocr: 0.3 + saving.progress * 0.6, index: 0.95 } as const)[saving.stage] : 0;
+  const progressValue = saving ? { pages: 0.05, pdf: 0.2, ocr: 0.3 + saving.progress * 0.6, index: 0.95 }[saving.stage] : 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bgPage, paddingTop: insets.top }}>
@@ -264,6 +295,25 @@ export function EditorScreen() {
           },
         ]}
       />
+
+      {cropping && current ? (
+        <CropEditor
+          page={current}
+          onCancel={() => setCropping(false)}
+          onDone={(quad) => {
+            setCropping(false);
+            void update(index, { quad });
+          }}
+        />
+      ) : null}
+
+      {working ? (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+          <View style={{ backgroundColor: colors.mediaOverlay, borderRadius: radius.md, padding: spacing.md }}>
+            <TLoading inverse />
+          </View>
+        </View>
+      ) : null}
 
       {saving ? (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgMask, alignItems: 'center', justifyContent: 'center', padding: spacing.xxl }]}>

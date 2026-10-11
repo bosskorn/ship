@@ -13,6 +13,9 @@ interface ScanSessionState {
   /** Camera was opened from the editor (add/rescan): return with back(), don't stack a new editor. */
   fromEditor: boolean;
   setFromEditor: (v: boolean) => void;
+  /** Set when editing a saved document (save updates it in place). */
+  editingDocumentId: string | null;
+  edit: (documentId: string, pages: DraftPage[]) => void;
   start: (opts?: { mode?: CaptureMode; docType?: DocumentType }) => void;
   setMode: (m: CaptureMode) => void;
   addPage: (p: DraftPage) => void;
@@ -39,6 +42,8 @@ export const useScanSession = create<ScanSessionState>((set) => ({
   rescanIndex: null,
   fromEditor: false,
   setFromEditor: (fromEditor) => set({ fromEditor }),
+  editingDocumentId: null,
+  edit: (editingDocumentId, pages) => set({ sessionId: newId(), editingDocumentId, pages, rescanIndex: null, fromEditor: false }),
   start: (opts) =>
     set({
       sessionId: newId(),
@@ -47,6 +52,7 @@ export const useScanSession = create<ScanSessionState>((set) => ({
       pages: [],
       rescanIndex: null,
       fromEditor: false,
+      editingDocumentId: null,
     }),
   setMode: (mode) => set((s) => ({ mode, docType: s.docType === docTypeForMode[s.mode] ? docTypeForMode[mode] : s.docType })),
   addPage: (p) => set((s) => ({ pages: [...s.pages, p] })),
@@ -68,5 +74,5 @@ export const useScanSession = create<ScanSessionState>((set) => ({
       return { pages };
     }),
   setRescan: (rescanIndex) => set({ rescanIndex }),
-  clear: () => set({ pages: [], rescanIndex: null, fromEditor: false, sessionId: newId() }),
+  clear: () => set({ pages: [], rescanIndex: null, fromEditor: false, editingDocumentId: null, sessionId: newId() }),
 }));

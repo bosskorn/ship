@@ -1,0 +1,26 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml:1:1-4:12
+INJECTED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml:1:1-4:12
+	package
+		INJECTED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml:1:11-69
+uses-permission#android.permission.CAMERA
+ADDED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml:2:3-63
+	android:name
+		ADDED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml:2:20-60
+uses-feature#android.hardware.camera
+ADDED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml:3:3-83
+	android:required
+		ADDED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml:3:56-80
+	android:name
+		ADDED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml:3:17-55
+uses-sdk
+INJECTED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml
+INJECTED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /home/user/ship/onescan/modules/onescan-vision/android/src/main/AndroidManifest.xml

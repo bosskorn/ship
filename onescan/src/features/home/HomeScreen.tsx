@@ -31,7 +31,7 @@ export function HomeScreen() {
   const recent = useDocuments((s) => s.recent);
   const refresh = useDocuments((s) => s.refresh);
   const actions = useDocumentActions();
-  const { importPdf, importPhotos } = useImport();
+  const { importPdf, importPhotos, overlay: importOverlay } = useImport();
 
   useFocusEffect(
     useCallback(() => {
@@ -48,7 +48,7 @@ export function HomeScreen() {
   ];
 
   return (
-    <TScreen scroll>
+    <TScreen scroll footer={importOverlay}>
       {/* Header */}
       <View style={{ backgroundColor: colors.bgContainer, paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48 }}>

@@ -63,6 +63,8 @@ export interface NewDocument {
   pageCount?: number;
   hasSensitive?: boolean;
   ocrText?: string;
+  isRedactedCopy?: boolean;
+  sourceDocumentId?: string | null;
 }
 
 export const documentRepository = {
@@ -72,10 +74,11 @@ export const documentRepository = {
     const now = Date.now();
     await db.withTransactionAsync(async () => {
       await db.runAsync(
-        `INSERT INTO documents (id, title, doc_type, folder_id, page_count, size_bytes, pdf_uri, thumbnail_uri, has_sensitive, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO documents (id, title, doc_type, folder_id, page_count, size_bytes, pdf_uri, thumbnail_uri, has_sensitive,
+           is_redacted_copy, source_document_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         id, input.title, input.docType, input.folderId ?? null, input.pageCount ?? input.pages.length, input.sizeBytes,
-        input.pdfUri, input.thumbnailUri, input.hasSensitive ? 1 : 0, now, now,
+        input.pdfUri, input.thumbnailUri, input.hasSensitive ? 1 : 0, input.isRedactedCopy ? 1 : 0, input.sourceDocumentId ?? null, now, now,
       );
       for (const p of input.pages) {
         await db.runAsync(
@@ -126,6 +129,28 @@ export const documentRepository = {
       filter: r.filter as PageFilter,
       rotation: r.rotation as Rotation,
     }));
+  },
+
+  /** Replace a document's pages, files and OCR index after editing (in place). */
+  async replaceContent(
+    id: string,
+    input: Pick<NewDocument, 'pdfUri' | 'thumbnailUri' | 'sizeBytes' | 'pages' | 'ocrText' | 'hasSensitive'>,
+  ) {
+    const db = await getDatabase();
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM pages WHERE document_id = ?', id);
+      for (const p of input.pages) {
+        await db.runAsync(
+          `INSERT INTO pages (id, document_id, page_index, image_uri, width, height, filter, rotation) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          newId(), id, p.pageIndex, p.imageUri, p.width, p.height, p.filter, p.rotation,
+        );
+      }
+      await db.runAsync(
+        `UPDATE documents SET page_count = ?, size_bytes = ?, pdf_uri = ?, thumbnail_uri = ?, has_sensitive = ?, updated_at = ? WHERE id = ?`,
+        input.pages.length, input.sizeBytes, input.pdfUri, input.thumbnailUri, input.hasSensitive ? 1 : 0, Date.now(), id,
+      );
+      await db.runAsync('UPDATE document_fts SET body = ? WHERE document_id = ?', input.ocrText ?? '', id);
+    });
   },
 
   async ocrText(documentId: string): Promise<string> {
