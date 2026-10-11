@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "OneScan",
+    "slug": "onescan",
+    "scheme": "onescan",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.onescan.mobile",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Unlock your private documents."
+      }
+    },
+    "android": {
+      "package": "app.onescan.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-localization",
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": true
+        }
+      ],
+      "expo-sharing",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "OneScan uses the camera to scan documents. Images are processed on your device.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "OneScan imports photos you choose to create documents on your device."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
