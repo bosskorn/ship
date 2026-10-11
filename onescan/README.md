@@ -73,7 +73,7 @@ rendering + OCR, duplicate document, sensitive-data detection and on-device reda
 Trash, AI consent gate (gateway call behind the `ai` flag).
 
 Verification: unit tests (JS engine, detector, privacy guards, i18n parity, Android pixel
-algorithms); the Android module compiles (`:onescan-vision:compileDebugKotlin`). The iOS module is written against
+algorithms incl. JVM tests for the Android pixel pipeline); Android `assembleDebug`/`assembleRelease` build. The iOS module is written against
 AVFoundation/Core Image/Vision/PDFKit but has not been compiled in CI (no macOS runner).
 
 Not built yet (behind remote flags, routed to `/unavailable`): markup, App Lock (V1.1),
