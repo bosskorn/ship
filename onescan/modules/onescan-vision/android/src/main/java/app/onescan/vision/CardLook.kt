@@ -8,8 +8,9 @@ import kotlin.math.roundToInt
  * "Card" filter for ID cards, passports and other colour cards: an enhanced colour scan,
  * never black-and-white. White balance from the card's light, low-chroma areas (partial and
  * bounded, so a genuinely tinted card keeps its colour) → even out the lighting and soften
- * shadows with a capped gain from a dilated illumination map (photos and print aren't
- * mistaken for shadow) → local contrast → levels → a little saturation → mild sharpen.
+ * shadows with a capped gain from an illumination map that skips non-base areas (portrait,
+ * emblem, dark print — see PaperGrid) → local contrast → levels anchored on the card base →
+ * a little saturation → mild sharpen.
  * Prototype and tuning: tools/scanquality/cardlook.py.
  *
  * Intermediate values are packed into the pixel array at 10 bits per channel (value × 2,
@@ -25,6 +26,7 @@ internal object CardLook {
   private const val SATURATION = 1.12f
   private const val SHARPEN = 0.5f
   private const val Q = 4
+  private const val BASE_LEVEL = 236f
 
   private fun lum(r: Float, g: Float, b: Float) = 0.299f * r + 0.587f * g + 0.114f * b
 
@@ -74,29 +76,38 @@ internal object CardLook {
     val refL = lum(ref[0], ref[1], ref[2])
     val wb = FloatArray(3) { k -> 1f + ((refL / max(ref[k], 1f)).coerceIn(WB_MIN, WB_MAX) - 1f) * WB_MIX }
 
-    // 2–3. Illumination map (90th pct of balanced luminance per block), dilated, smoothed.
+    // 2–3. Illumination map: 90th pct of the balanced colour per block; blocks that aren't
+    // card base (portrait, emblem, dark print) are filled from the surrounding base, then smoothed.
     val block = max(8, max(w, h) / 12)
     val gw = (w + block - 1) / block
     val gh = (h + block - 1) / block
-    var grid = FloatArray(gw * gh)
-    val bh = IntArray(256)
+    val gr = FloatArray(gw * gh)
+    val gg = FloatArray(gw * gh)
+    val gb = FloatArray(gw * gh)
+    val bh = Array(3) { IntArray(256) }
     for (gy in 0 until gh) for (gx in 0 until gw) {
-      java.util.Arrays.fill(bh, 0)
+      for (hh in bh) java.util.Arrays.fill(hh, 0)
       var m = 0L
       var y = gy * block
       while (y < min(h, (gy + 1) * block)) {
         var x = gx * block
         while (x < min(w, (gx + 1) * block)) {
           val c = px[y * w + x]
-          bh[lum(((c shr 16) and 0xff) * wb[0], ((c shr 8) and 0xff) * wb[1], (c and 0xff) * wb[2]).roundToInt().coerceIn(0, 255)]++
+          bh[0][(((c shr 16) and 0xff) * wb[0]).roundToInt().coerceIn(0, 255)]++
+          bh[1][(((c shr 8) and 0xff) * wb[1]).roundToInt().coerceIn(0, 255)]++
+          bh[2][((c and 0xff) * wb[2]).roundToInt().coerceIn(0, 255)]++
           m++
           x += 2
         }
         y += 2
       }
-      grid[gy * gw + gx] = percentile(bh, m, 0.90)
+      val i = gy * gw + gx
+      gr[i] = percentile(bh[0], m, 0.90)
+      gg[i] = percentile(bh[1], m, 0.90)
+      gb[i] = percentile(bh[2], m, 0.90)
     }
-    grid = dilate(grid, gw, gh)
+    PaperGrid.fillNonPaper(gr, gg, gb, gw, gh)
+    var grid = FloatArray(gw * gh) { lum(gr[it], gg[it], gb[it]) }
     repeat(2) { grid = mean3(grid, gw, gh) }
     val target = grid.sortedArray().let { it[min(it.size - 1, (it.size * 0.9).toInt())] }
 
@@ -150,7 +161,11 @@ internal object CardLook {
     // 5. Levels (luminance-based, same for all channels) + saturation → final ARGB.
     val lo = min(percentile(hist, n.toLong(), 0.005, 2f), 60f)
     val hi = max(percentile(hist, n.toLong(), 0.995, 2f), 180f)
-    val k = 248f / max(1f, hi - lo)
+    // Anchor the card base (the illumination level) at a light, natural BASE_LEVEL, but never
+    // stretch so far that more than 2 % of the card clips to white.
+    val kBase = BASE_LEVEL / max(target - lo, 1f)
+    val kClip = 255f / max(percentile(hist, n.toLong(), 0.98, 2f) - lo, 1f)
+    val k = max(248f / max(1f, hi - lo), min(kBase, kClip))
     for (i in 0 until n) {
       val p = px[i]
       val r = (ur(p) - lo) * k
@@ -172,16 +187,6 @@ internal object CardLook {
       hs[0][(c shr 16) and 0xff]++; hs[1][(c shr 8) and 0xff]++; hs[2][c and 0xff]++
     }
     return FloatArray(3) { percentile(hs[it], px.size.toLong(), q) }
-  }
-
-  private fun dilate(g: FloatArray, gw: Int, gh: Int) = FloatArray(g.size) { i ->
-    val x = i % gw; val y = i / gw
-    var m = g[i]
-    for (dy in -1..1) for (dx in -1..1) {
-      val yy = (y + dy).coerceIn(0, gh - 1); val xx = (x + dx).coerceIn(0, gw - 1)
-      m = max(m, g[yy * gw + xx])
-    }
-    m
   }
 
   private fun mean3(g: FloatArray, gw: Int, gh: Int) = FloatArray(g.size) { i ->

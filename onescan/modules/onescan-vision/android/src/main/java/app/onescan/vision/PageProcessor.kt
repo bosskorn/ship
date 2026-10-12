@@ -27,6 +27,9 @@ internal object PageProcessor {
   private const val SCAN_GAMMA = 1.25
   private const val SCAN_SATURATION = 1.2
   private const val SCAN_SHARPEN = 0.4f
+  /** White-balance correction range for paper (wider than for cards: paper should be white). */
+  private const val SCAN_WB_MIN = 0.7f
+  private const val SCAN_WB_MAX = 1.5f
 
   data class Result(val file: File, val width: Int, val height: Int, val quality: Int, val degraded: Boolean)
 
@@ -155,6 +158,8 @@ internal object PageProcessor {
         bg[c][gy * gw + gx] = max(v, 24).toFloat()
       }
     }
+    // Logos, photos and dark areas aren't paper: fill them from the surrounding paper.
+    PaperGrid.fillNonPaper(bg[0], bg[1], bg[2], gw, gh)
     // Smooth the grid (3×3 mean, twice) to avoid block seams.
     repeat(2) {
       for (c in 0 until 3) {
@@ -247,7 +252,7 @@ internal object PageProcessor {
         var out = c and (0xff shl 24)
         for (ch in 0 until 3) {
           val shift = 16 - 8 * ch
-          val gain = gainL * (pl / pb[ch]).coerceIn(0.8f, 1.25f)
+          val gain = gainL * (pl / pb[ch]).coerceIn(SCAN_WB_MIN, SCAN_WB_MAX)
           val v = (((c shr shift) and 0xff) * gain).roundToInt().coerceAtMost(255)
           out = out or (v shl shift)
         }
@@ -266,20 +271,30 @@ internal object PageProcessor {
       }
     }
     black = min(black, 80)
-    val lut = IntArray(256) { v ->
-      val t = ((v - black).toDouble() / (SCAN_WHITE - black)).coerceIn(0.0, 1.0)
-      (Math.pow(t, SCAN_GAMMA) * 255).roundToInt()
+    // Tone curve on luminance, applied to RGB as a ratio, so colour print keeps its hue and
+    // saturation; paper that reaches white goes fully neutral. LUT in quarter levels.
+    val lut = FloatArray(1024) { i ->
+      val t = ((i / 4.0 - black) / (SCAN_WHITE - black)).coerceIn(0.0, 1.0)
+      (Math.pow(t, SCAN_GAMMA) * 255).toFloat()
     }
     for (i in px.indices) {
       val c = px[i]
-      val r = lut[(c shr 16) and 0xff].toDouble()
-      val g = lut[(c shr 8) and 0xff].toDouble()
-      val b = lut[c and 0xff].toDouble()
-      val l = 0.299 * r + 0.587 * g + 0.114 * b
+      var r = ((c shr 16) and 0xff).toFloat()
+      var g = ((c shr 8) and 0xff).toFloat()
+      var b = (c and 0xff).toFloat()
+      val ln = 0.299f * r + 0.587f * g + 0.114f * b
+      val lt = lut[(ln * 4).roundToInt().coerceIn(0, 1023)]
+      if (lt >= 254.5f) {
+        r = 255f; g = 255f; b = 255f
+      } else {
+        val k = lt / max(ln, 1f)
+        r *= k; g *= k; b *= k
+      }
+      val l = 0.299f * r + 0.587f * g + 0.114f * b
       px[i] = (c and (0xff shl 24)) or
-        ((l + (r - l) * SCAN_SATURATION).roundToInt().coerceIn(0, 255) shl 16) or
-        ((l + (g - l) * SCAN_SATURATION).roundToInt().coerceIn(0, 255) shl 8) or
-        (l + (b - l) * SCAN_SATURATION).roundToInt().coerceIn(0, 255)
+        ((l + (r - l) * SCAN_SATURATION.toFloat()).roundToInt().coerceIn(0, 255) shl 16) or
+        ((l + (g - l) * SCAN_SATURATION.toFloat()).roundToInt().coerceIn(0, 255) shl 8) or
+        (l + (b - l) * SCAN_SATURATION.toFloat()).roundToInt().coerceIn(0, 255)
     }
     unsharp(px, w, h, SCAN_SHARPEN)
   }

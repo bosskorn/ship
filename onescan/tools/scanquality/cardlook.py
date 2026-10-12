@@ -20,7 +20,7 @@ def grid_upsample(g, h, w, block):
     ty = (ys - y0)[:, None]; tx = (xs - x0)[None, :]
     return (g[y0][:, x0] * (1 - tx) + g[y0][:, x1] * tx) * (1 - ty) + (g[y1][:, x0] * (1 - tx) + g[y1][:, x1] * tx) * ty
 
-def card(img, wb_lo=0.75, wb_hi=1.4, wb_mix=0.85, gain_hi=1.8, local=0.35, sat=1.12, sharp=0.5):
+def card(img, wb_lo=0.75, wb_hi=1.4, wb_mix=0.85, gain_hi=1.8, local=0.35, sat=1.12, sharp=0.5, robust=True, base_to=236):
     a = np.asarray(img.convert('RGB')).astype(np.float32)
     h, w, _ = a.shape
     L = a @ LW
@@ -37,12 +37,20 @@ def card(img, wb_lo=0.75, wb_hi=1.4, wb_mix=0.85, gain_hi=1.8, local=0.35, sat=1
     # count as shadow), smoothed; even the brightness out with a capped gain.
     block = max(8, max(w, h) // 12)
     gh, gw = -(-h // block), -(-w // block)
-    m = np.zeros((gh, gw), np.float32)
-    for y in range(gh):
-        for x in range(gw):
-            m[y, x] = np.percentile(L[y*block:(y+1)*block:2, x*block:(x+1)*block:2], 90)
-    p = np.pad(m, 1, mode='edge')
-    m = np.max([p[dy:dy+gh, dx:dx+gw] for dy in range(3) for dx in range(3)], axis=0)  # dilate
+    if robust:
+        from robustgrid import robust_fill
+        gr = np.zeros((gh, gw, 3), np.float32)
+        for y in range(gh):
+            for x in range(gw):
+                gr[y, x] = np.percentile(a[y*block:(y+1)*block:2, x*block:(x+1)*block:2].reshape(-1, 3), 90, axis=0)
+        m = robust_fill(gr) @ LW
+    else:
+        m = np.zeros((gh, gw), np.float32)
+        for y in range(gh):
+            for x in range(gw):
+                m[y, x] = np.percentile(L[y*block:(y+1)*block:2, x*block:(x+1)*block:2], 90)
+        p = np.pad(m, 1, mode='edge')
+        m = np.max([p[dy:dy+gh, dx:dx+gw] for dy in range(3) for dx in range(3)], axis=0)  # dilate
     for _ in range(2):
         p = np.pad(m, 1, mode='edge'); m = sum(p[dy:dy+gh, dx:dx+gw] for dy in range(3) for dx in range(3)) / 9
     illum = grid_upsample(m, h, w, block)
@@ -61,7 +69,14 @@ def card(img, wb_lo=0.75, wb_hi=1.4, wb_mix=0.85, gain_hi=1.8, local=0.35, sat=1
     # 5. Levels (luminance-based, same for all channels) + a touch of saturation.
     L = a @ LW
     lo = min(np.percentile(L, 0.5), 60); hi = max(np.percentile(L, 99.5), 180)
-    a = (a - lo) * (248 / (hi - lo))
+    k = 248 / (hi - lo)
+    if base_to:
+        # The card's base (paper level of the illumination map) should land at a light,
+        # natural level; never stretch so far that more than 2 % of the card clips to white.
+        k_base = base_to / max(target - lo, 1)
+        k_clip = 255 / max(np.percentile(L, 98) - lo, 1)
+        k = max(k, min(k_base, k_clip))
+    a = (a - lo) * k
     L = (a @ LW)[..., None]
     a = L + (a - L) * sat
     # 6. Mild sharpen (3×3).
