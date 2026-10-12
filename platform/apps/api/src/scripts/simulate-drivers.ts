@@ -35,6 +35,8 @@ const pick = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 interface Bot {
   id: string;
   token: string;
+  refreshToken: string;
+  deviceId: string;
   socket: Socket;
   pos: LatLng;
   target: LatLng | null;
@@ -102,7 +104,7 @@ async function main() {
     const pos = jitter(pick(HOTSPOTS), 0.02);
     const socket = await connect(d.token);
     await call('POST', '/driver/presence', d.token, { online: true, location: pos });
-    const bot: Bot = { id: d.id, token: d.token, socket, pos, target: null, busy: false };
+    const bot: Bot = { id: d.id, token: d.token, refreshToken: d.refreshToken, deviceId: d.deviceId, socket, pos, target: null, busy: false };
     socket.on(WsEvent.OFFER_NEW, (offer: JobOfferPayload) => {
       if (bot.busy) return;
       const r = Math.random();
@@ -117,6 +119,25 @@ async function main() {
   }
 
   const customers = await Promise.all(Array.from({ length: 5 }, () => otpLogin(`09${Math.floor(Math.random() * 1e8).toString().padStart(8, '0')}`, 'CUSTOMER')));
+  // access tokens live 15 min: rotate bot tokens well before that
+  const refresher = setInterval(() => {
+    for (const b of bots) {
+      void call('POST', '/auth/refresh', undefined, { refreshToken: b.refreshToken, deviceId: b.deviceId })
+        .then((p) => {
+          b.token = p.accessToken;
+          b.refreshToken = p.refreshToken;
+        })
+        .catch((e) => console.log(`  ! refresh failed for ${b.id.slice(0, 8)}: ${(e as Error).message.slice(0, 80)}`));
+    }
+    for (const c of customers) {
+      void call('POST', '/auth/refresh', undefined, { refreshToken: c.refreshToken, deviceId: c.deviceId })
+        .then((p) => {
+          c.accessToken = p.accessToken;
+          c.refreshToken = p.refreshToken;
+        })
+        .catch(() => undefined);
+    }
+  }, 10 * 60_000);
   const end = Date.now() + MINUTES * 60_000;
   let nextOrder = Date.now();
   console.log(`simulating for ${MINUTES} min, ~${ORDERS_PER_MIN} orders/min, speedup ×${SPEEDUP}`);
@@ -156,6 +177,7 @@ async function main() {
     await call('POST', '/driver/presence', b.token, { online: false }).catch(() => undefined);
     b.socket.disconnect();
   }
+  clearInterval(refresher);
   console.log('simulation finished');
   process.exit(0);
 }
