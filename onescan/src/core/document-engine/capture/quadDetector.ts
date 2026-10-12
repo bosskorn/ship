@@ -764,6 +764,20 @@ function edgeCrispness(quad: Point[], mag: Uint8Array, w: number, h: number, ste
   return n ? Math.min(1, sum / n / step) : 0;
 }
 
+/**
+ * Documents are not slivers: the short dimension must be a reasonable part
+ * of the frame and the aspect ratio within what receipts/cards/pages have.
+ * Rejects thin quads formed by e.g. the edges of sticky notes or cables.
+ */
+function plausibleShape(q: Point[], w: number, h: number): boolean {
+  const len = (a: Point, b: Point) => Math.hypot(b.x - a.x, b.y - a.y);
+  const s1 = (len(q[0], q[1]) + len(q[3], q[2])) / 2;
+  const s2 = (len(q[1], q[2]) + len(q[0], q[3])) / 2;
+  const short = Math.min(s1, s2);
+  const long = Math.max(s1, s2);
+  return short >= 0.15 * Math.max(w, h) && long / short <= 4.5;
+}
+
 function isConvexQuad(q: Point[]): boolean {
   let sign = 0;
   for (let i = 0; i < 4; i++) {
@@ -946,6 +960,7 @@ export function detectQuad(img: GrayImage, debug?: (msg: string) => void): QuadD
     const size = polygonArea(quad) / imageArea;
     if (size < 0.1 || size > 0.97) continue;
     if (!isConvexQuad(quad) || !plausibleAngles(quad) || quadness < 0.85) continue;
+    if (!plausibleShape(quad, w, h)) continue;
     // A corner on the frame border means the page continues outside the frame.
     const mx = Math.max(2, w * 0.015);
     const my = Math.max(2, h * 0.015);
