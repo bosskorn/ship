@@ -2,7 +2,10 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
-| `OneScan-v1.0.5-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.0.5 (versionCode 6), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+| `OneScan-v1.0.6-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.0.6 (versionCode 7), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+
+## Changes in 1.0.6
+- ID cards (Home → Scan ID card) are saved as enhanced colour scans: white balance, even lighting, softer shadows, sharper text; the photo and card colours are kept. New "Card" filter in the editor.
 
 ## Changes in 1.0.5
 - Full-resolution scans: the scanner's original is kept, the saved page is rendered once at full resolution (JPEG 95), PDFs embed it unchanged. Previously pages were shrunk to 2480 px at JPEG 88.
