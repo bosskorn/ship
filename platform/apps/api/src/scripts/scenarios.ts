@@ -319,6 +319,21 @@ async function main() {
       await expectError('REFRESH_INVALID', () => call('POST', '/auth/refresh', undefined, { refreshToken: r2.refreshToken, deviceId: c.deviceId }));
     });
 
+    await scenario('uploads: signed URLs, type restrictions, sandboxed serving', async () => {
+      const c = (await newCustomer()).accessToken;
+      await expectError('UNSUPPORTED_TYPE', () => call('POST', '/uploads/sign', c, { purpose: 'POD', contentType: 'image/svg+xml' }));
+      await expectError('UNSUPPORTED_TYPE', () => call('POST', '/uploads/sign', c, { purpose: 'PARCEL', contentType: 'text/html' }));
+      await expectError('FORBIDDEN', () => call('POST', '/uploads/sign', c, { purpose: 'KYC', contentType: 'image/jpeg' }));
+      const signed = await call('POST', '/uploads/sign', c, { purpose: 'SIGNATURE', contentType: 'image/svg+xml' });
+      const tampered = signed.uploadUrl.replace(/sig=[0-9a-f]+/, 'sig=' + '0'.repeat(64));
+      const bad = await fetch(tampered, { method: 'PUT', headers: signed.headers, body: '<svg/>' });
+      assert(bad.status === 403, `tampered signature rejected, got ${bad.status}`);
+      const ok = await fetch(signed.uploadUrl, { method: 'PUT', headers: signed.headers, body: '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>' });
+      assert(ok.ok, 'signature upload ok');
+      const again = await fetch(signed.uploadUrl, { method: 'PUT', headers: signed.headers, body: '<svg/>' });
+      assert(again.status === 409, 'signed URL is single-use');
+    });
+
     await scenario('wrong OTP attempts are limited', async () => {
       const phone = `09${Date.now().toString().slice(-8)}`;
       await call('POST', '/auth/otp/request', undefined, { phone, role: 'CUSTOMER' });

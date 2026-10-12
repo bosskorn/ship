@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DriverPublicInfo, numericToSatang, OrderView, TimelineEvent } from '@ship/shared';
+import { ACTIVE_DRIVER_STATUSES, DriverPublicInfo, numericToSatang, OrderStatus, OrderView, TimelineEvent } from '@ship/shared';
 import type { AuthUser } from '../../common/auth';
 import { FieldCipher } from '../../common/crypto';
 import { DbService, Queryable } from '../../common/db.service';
@@ -25,7 +25,8 @@ export class OrderViewService {
     return this.db.query(`SELECT ${STOP_COLUMNS} FROM order_stops s WHERE s.order_id = $1 ORDER BY s.seq`, [orderId], client);
   }
 
-  async driverPublic(driverId: string): Promise<DriverPublicInfo | null> {
+  /** Public driver card. The real phone is only revealed to the order owner while the job is active. */
+  async driverPublic(driverId: string, revealPhone = false): Promise<DriverPublicInfo | null> {
     const d = await this.db.one(
       `SELECT d.id, d.first_name, d.last_name, d.photo_key, d.rating_sum, d.rating_count, u.phone,
               v.type, v.plate_number, v.plate_province, v.brand, v.model, v.color
@@ -39,6 +40,7 @@ export class OrderViewService {
       id: d.id,
       name: [d.first_name, d.last_name ? `${d.last_name.slice(0, 1)}.` : ''].filter(Boolean).join(' ') || 'คนขับ',
       phoneMasked: maskPhone(d.phone),
+      phone: revealPhone ? d.phone : undefined,
       photoUrl: null,
       rating: d.rating_count > 0 ? Math.round((d.rating_sum / d.rating_count) * 10) / 10 : null,
       vehicle: {
@@ -91,7 +93,7 @@ export class OrderViewService {
         arrivedAt: s.arrived_at?.toISOString() ?? null,
         completedAt: s.completed_at?.toISOString() ?? null,
       })),
-      driver: o.driver_id ? await this.driverPublic(o.driver_id) : null,
+      driver: o.driver_id ? await this.driverPublic(o.driver_id, showOtp && ACTIVE_DRIVER_STATUSES.includes(o.status as OrderStatus)) : null,
       parcel: { ...o.parcel, items: items.length },
       rating: rating ? { score: rating.score, comment: rating.comment } : null,
     };

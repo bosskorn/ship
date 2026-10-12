@@ -53,6 +53,8 @@ export interface DriverPublicInfo {
   id: string;
   name: string;
   phoneMasked: string;
+  /** Only for the order owner during an active job (Phase 2: masked calling via a voice proxy). */
+  phone?: string;
   photoUrl?: string | null;
   rating: number | null;
   vehicle: { type: VehicleType; plateNumber: string; plateProvince: string; brand?: string | null; model?: string | null; color?: string | null };

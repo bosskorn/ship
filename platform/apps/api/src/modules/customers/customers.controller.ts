@@ -65,6 +65,19 @@ export class CustomersController {
     if (!rows.length) throw NotFound('Address');
   }
 
+  /** Activity feed (in-app copy of push/SMS notifications). */
+  @Get('me/notifications')
+  @Auth()
+  notifications(@CurrentUser() user: AuthUser) {
+    return this.db.query(
+      `SELECT DISTINCT ON (event, data->>'orderId', date_trunc('second', created_at)) id, event, title, body, data, created_at
+         FROM notifications WHERE user_id = $1 AND created_at > now() - interval '30 days'
+        ORDER BY date_trunc('second', created_at) DESC, event, data->>'orderId', id
+        LIMIT 100`,
+      [user.id],
+    );
+  }
+
   /** Is this point serviceable, and with which vehicles? */
   @Get('zones/lookup')
   @Auth()
