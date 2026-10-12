@@ -72,7 +72,54 @@ internal object ImageIO {
 
   fun outputDir(context: Context): File = File(context.cacheDir, "onescan").apply { mkdirs() }
 
-  fun saveJpeg(context: Context, bmp: Bitmap, prefix: String, quality: Int = 88): File {
+  /**
+   * Decode for a document master: full resolution unless the long edge exceeds
+   * [maxEdge] by more than [SLACK] (≤ 0 = never downscale). A small overshoot is kept
+   * as is, because resampling by a few percent only blurs text. Large reductions use
+   * a power-of-two inSampleSize first (clean box filter), then one smooth scale.
+   */
+  fun decodeForOutput(file: File, maxEdge: Int): Bitmap {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IllegalArgumentException("Unreadable image: ${file.name}")
+    val long = max(bounds.outWidth, bounds.outHeight)
+    val target = if (maxEdge <= 0 || long <= maxEdge * SLACK) long else maxEdge
+    var sample = 1
+    while (long / (sample * 2) >= target) sample *= 2
+    val opts = BitmapFactory.Options().apply {
+      inSampleSize = sample
+      inPreferredConfig = Bitmap.Config.ARGB_8888
+      inMutable = true
+    }
+    var bmp = BitmapFactory.decodeFile(file.absolutePath, opts) ?: throw IllegalArgumentException("Unreadable image: ${file.name}")
+    val decodedLong = max(bmp.width, bmp.height)
+    if (decodedLong > target * SLACK) {
+      val s = target.toFloat() / decodedLong
+      val scaled = Bitmap.createScaledBitmap(bmp, max(1, (bmp.width * s).roundToInt()), max(1, (bmp.height * s).roundToInt()), true)
+      if (scaled != bmp) bmp.recycle()
+      bmp = scaled
+    }
+    return rotate(bmp, exifRotation(file))
+  }
+
+  private const val SLACK = 1.15f
+
+  /** Upright size, file size and type, without decoding pixels. */
+  fun info(file: File): Map<String, Any> {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.absolutePath, bounds)
+    val rot = exifRotation(file)
+    val swap = rot == 90 || rot == 270
+    return mapOf(
+      "width" to if (swap) bounds.outHeight else bounds.outWidth,
+      "height" to if (swap) bounds.outWidth else bounds.outHeight,
+      "bytes" to file.length().toDouble(),
+      "mimeType" to (bounds.outMimeType ?: "unknown"),
+      "orientation" to rot,
+    )
+  }
+
+  fun saveJpeg(context: Context, bmp: Bitmap, prefix: String, quality: Int): File {
     val file = File(outputDir(context), "$prefix-${UUID.randomUUID()}.jpg")
     FileOutputStream(file).use { bmp.compress(Bitmap.CompressFormat.JPEG, quality, it) }
     return file

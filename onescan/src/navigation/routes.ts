@@ -11,7 +11,7 @@ export type RouteName =
   | 'AITools' | 'AIConsent' | 'AIChat' | 'AIResult' | 'Tools' | 'PDFTools' | 'ConvertTools'
   | 'Cloud' | 'CloudProviders' | 'CloudSettings' | 'Pricing' | 'Subscription' | 'AICredits'
   | 'Profile' | 'Account' | 'Privacy' | 'Security' | 'Devices' | 'Language' | 'Appearance'
-  | 'Notifications' | 'Help' | 'About';
+  | 'Notifications' | 'Help' | 'About' | 'ScanQuality' | 'ScanDiagnostics';
 
 export interface RouteDef {
   path: string;
@@ -55,6 +55,8 @@ export const routes: Record<RouteName, RouteDef> = {
   Devices: { path: '/unavailable', release: '1.3', built: false },
   Language: { path: '/language', release: '1.0', built: true },
   Appearance: { path: '/appearance', release: '1.0', built: true },
+  ScanQuality: { path: '/scan-quality', release: '1.0', built: true },
+  ScanDiagnostics: { path: '/scan-diagnostics', release: '1.0', built: true },
   Notifications: { path: '/unavailable', release: '1.2', built: false },
   Help: { path: '/unavailable', release: '1.0', built: false },
   About: { path: '/about', release: '1.0', built: true },

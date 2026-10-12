@@ -5,6 +5,7 @@ import {
   FolderRecord,
   PageRecord,
   PageFilter,
+  Quad,
   Rotation,
   SyncState,
   SystemFolderKey,
@@ -12,6 +13,28 @@ import {
 } from '@/core/document-engine/model';
 import { newId } from '@/core/document-engine/ids';
 import { monthRange, parseSearchQuery, toFtsMatch } from '../searchQuery';
+
+const INSERT_PAGE = `INSERT INTO pages (id, document_id, page_index, image_uri, width, height, filter, rotation, source_uri, preview_uri, quad)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+type NewPage = Omit<PageRecord, 'id' | 'documentId'>;
+
+function pageValues(documentId: string, p: NewPage) {
+  return [
+    newId(), documentId, p.pageIndex, p.imageUri, p.width, p.height, p.filter, p.rotation,
+    p.sourceUri ?? null, p.previewUri ?? null, p.quad ? JSON.stringify(p.quad) : null,
+  ] as const;
+}
+
+function parseQuad(s: string | null): Quad | null {
+  if (!s) return null;
+  try {
+    const q = JSON.parse(s) as Quad;
+    return Array.isArray(q) && q.length === 4 && q.every((p) => typeof p?.x === 'number' && typeof p?.y === 'number') ? q : null;
+  } catch {
+    return null;
+  }
+}
 
 interface DocumentRow {
   id: string;
@@ -58,7 +81,7 @@ export interface NewDocument {
   pdfUri: string;
   thumbnailUri: string | null;
   sizeBytes: number;
-  pages: Omit<PageRecord, 'id' | 'documentId'>[];
+  pages: NewPage[];
   /** Defaults to `pages.length`; imported PDFs have no page images. */
   pageCount?: number;
   hasSensitive?: boolean;
@@ -82,8 +105,8 @@ export const documentRepository = {
       );
       for (const p of input.pages) {
         await db.runAsync(
-          `INSERT INTO pages (id, document_id, page_index, image_uri, width, height, filter, rotation) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          newId(), id, p.pageIndex, p.imageUri, p.width, p.height, p.filter, p.rotation,
+          INSERT_PAGE,
+          ...pageValues(id, p),
         );
       }
       await db.runAsync(`INSERT INTO document_fts (document_id, title, body) VALUES (?, ?, ?)`, id, input.title, input.ocrText ?? '');
@@ -118,6 +141,7 @@ export const documentRepository = {
     const db = await getDatabase();
     const rows = await db.getAllAsync<{
       id: string; document_id: string; page_index: number; image_uri: string; width: number; height: number; filter: string; rotation: number;
+      source_uri: string | null; preview_uri: string | null; quad: string | null;
     }>('SELECT * FROM pages WHERE document_id = ? ORDER BY page_index', documentId);
     return rows.map((r) => ({
       id: r.id,
@@ -128,6 +152,9 @@ export const documentRepository = {
       height: r.height,
       filter: r.filter as PageFilter,
       rotation: r.rotation as Rotation,
+      sourceUri: r.source_uri,
+      previewUri: r.preview_uri,
+      quad: parseQuad(r.quad),
     }));
   },
 
@@ -141,8 +168,8 @@ export const documentRepository = {
       await db.runAsync('DELETE FROM pages WHERE document_id = ?', id);
       for (const p of input.pages) {
         await db.runAsync(
-          `INSERT INTO pages (id, document_id, page_index, image_uri, width, height, filter, rotation) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          newId(), id, p.pageIndex, p.imageUri, p.width, p.height, p.filter, p.rotation,
+          INSERT_PAGE,
+          ...pageValues(id, p),
         );
       }
       await db.runAsync(

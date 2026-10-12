@@ -11,6 +11,7 @@ export function ProfileScreen() {
   const { colors, spacing, radius } = useTheme();
   const language = useSettings((s) => s.language);
   const appearance = useSettings((s) => s.appearance);
+  const scanQuality = useSettings((s) => s.scanner.quality);
   const langLabel = language ? supportedLanguages.find((l) => l.code === language)?.nativeName : t('language.system');
   const go = (path: Parameters<typeof router.push>[0]) => () => router.push(path);
 
@@ -46,6 +47,7 @@ export function ProfileScreen() {
       <TCellGroup>
         <TCell icon="translate" title={t('profile.language')} note={langLabel} arrow onPress={go('/language')} />
         <TCell icon="appearance" title={t('profile.appearance')} note={t(`appearance.${appearance}`)} arrow onPress={go('/appearance')} />
+        <TCell icon="camera" title={t('scan_quality.title')} note={t(`scan_quality.${scanQuality}`)} arrow onPress={go('/scan-quality')} />
         <TCell icon="bell" title={t('profile.notifications')} arrow onPress={go('/unavailable')} />
       </TCellGroup>
 

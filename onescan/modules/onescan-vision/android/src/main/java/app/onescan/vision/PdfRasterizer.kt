@@ -25,7 +25,7 @@ internal object PdfRasterizer {
             val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             bmp.eraseColor(Color.WHITE)
             page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-            val saved = ImageIO.saveJpeg(context, bmp, "pdfpage", 85)
+            val saved = ImageIO.saveJpeg(context, bmp, "pdfpage", 95)
             out.add(mapOf("uri" to ImageIO.uriOf(saved), "width" to w, "height" to h))
             bmp.recycle()
           } finally {

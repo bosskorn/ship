@@ -34,7 +34,28 @@ enum OneScanImageIO {
     return out.transformed(by: CGAffineTransform(translationX: -out.extent.minX, y: -out.extent.minY))
   }
 
-  static func saveJpeg(_ image: CIImage, prefix: String, quality: CGFloat = 0.88) throws -> (URL, Int, Int) {
+  /// Upright size, file size and type, without decoding pixels.
+  static func info(_ url: URL) -> [String: Any] {
+    var out: [String: Any] = ["width": 0, "height": 0, "bytes": 0.0, "mimeType": "unknown", "orientation": 0]
+    if let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? NSNumber {
+      out["bytes"] = size.doubleValue
+    }
+    guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+          let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] else { return out }
+    let w = (props[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue ?? 0
+    let h = (props[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue ?? 0
+    let orientation = (props[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+    let swap = (5...8).contains(orientation)
+    out["width"] = swap ? h : w
+    out["height"] = swap ? w : h
+    out["orientation"] = [1: 0, 3: 180, 6: 90, 8: 270][orientation] ?? 0
+    if let type = CGImageSourceGetType(src) as String? {
+      out["mimeType"] = type == "public.jpeg" ? "image/jpeg" : type
+    }
+    return out
+  }
+
+  static func saveJpeg(_ image: CIImage, prefix: String, quality: CGFloat) throws -> (URL, Int, Int) {
     let url = outputDir().appendingPathComponent("\(prefix)-\(UUID().uuidString).jpg")
     let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
     let opts: [CIImageRepresentationOption: Any] = [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: quality]

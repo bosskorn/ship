@@ -16,6 +16,15 @@ export interface NativeOcrBlock {
   confidence: number;
 }
 
+export interface ImageInfo {
+  width: number;
+  height: number;
+  bytes: number;
+  mimeType: string;
+  /** EXIF rotation in degrees. */
+  orientation: number;
+}
+
 export interface NativeImage {
   uri: string;
   width: number;
@@ -40,8 +49,24 @@ export interface OneScanVisionModule {
    * rejects with `E_SCANNER_UNAVAILABLE` when the device has no system scanner.
    */
   scanDocumentsAsync(pageLimit: number, allowGallery: boolean): Promise<{ pages: NativeImage[] }>;
-  /** Perspective-correct `quad`, rotate, enhance, filter. Writes a new file; source untouched. */
-  processPageAsync(imageUri: string, quad: Quad | null, filter: PageFilter, rotation: number): Promise<NativeImage>;
+  /**
+   * Perspective-correct `quad`, rotate, enhance, filter — decoded once at full resolution
+   * (unless `maxEdge` > 0 asks for less; never upscales) and encoded once at `quality`.
+   * Writes a new file; the source is untouched. `degraded` = memory forced a smaller size.
+   */
+  processPageAsync(
+    imageUri: string,
+    quad: Quad | null,
+    filter: PageFilter,
+    rotation: number,
+    options?: { maxEdge: number; quality: number },
+  ): Promise<NativeImage & { bytes?: number; quality?: number; degraded?: boolean }>;
+  /** Smaller copy (preview / thumbnail); never used as a master. */
+  resizeAsync(imageUri: string, maxEdge: number, quality: number): Promise<NativeImage & { bytes: number }>;
+  /** Upright pixel size, file size, type and EXIF rotation — without decoding pixels. */
+  imageInfoAsync(imageUri: string): Promise<ImageInfo>;
+  /** PDF embedding each page JPEG unchanged (A4, fitted); pages streamed from disk. */
+  writePdfAsync(pageUris: string[]): Promise<{ uri: string; pageCount: number; bytes: number }>;
   recognizeTextAsync(imageUri: string, languages: string[]): Promise<NativeOcrBlock[]>;
   /** Draws opaque boxes over regions; writes a new file (original untouched). */
   redactRegionsAsync(imageUri: string, boxes: NativeOcrBlock['box'][]): Promise<{ uri: string }>;

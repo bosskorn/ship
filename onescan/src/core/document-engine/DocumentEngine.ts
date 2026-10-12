@@ -8,10 +8,16 @@ import { ExportEngine } from './export/ExportEngine';
 import { DocumentFileStore } from './storage/DocumentFileStore';
 import { newId } from './ids';
 import { OneScanVision } from '@/native/OneScanVision';
-import type { DocumentRecord, DocumentType, DraftPage, PageFilter, Quad, Rotation, SystemFolderKey } from './model';
+import { defaultScanQuality, masterProfiles, masterSize, PREVIEW, ScanQuality } from './image/quality';
+import { toStage, useScanDiagnostics } from './image/diagnostics';
+import type { ProcessedImage } from './image/ImageEngine';
+import type { DocumentRecord, DocumentType, DraftPage, PageFilter, PageRecord, Quad, Rotation, SystemFolderKey } from './model';
 
 export type SaveStage = 'pages' | 'pdf' | 'ocr' | 'index';
 type StageCallback = (s: SaveStage, progress: number) => void;
+
+/** PDF import raster width: A4 at 300 dpi. */
+const PDF_RENDER_WIDTH = 2480;
 
 /** OCR languages: Thailand-first with English, per the regional pack (spec §51). */
 const OCR_LANGUAGES = ['th', 'en'];
@@ -24,12 +30,40 @@ const folderForType: Partial<Record<DocumentType, SystemFolderKey>> = {
   id_card: 'personal',
 };
 
+/** A filed page: `uri` is the full-resolution master. */
 interface StoredPage {
   uri: string;
+  sourceUri: string | null;
+  previewUri: string | null;
   width: number;
   height: number;
   filter: PageFilter;
   rotation: Rotation;
+  quad: Quad | null;
+}
+
+const toPageRow = (p: StoredPage, i: number): Omit<PageRecord, 'id' | 'documentId'> => ({
+  pageIndex: i,
+  imageUri: p.uri,
+  width: p.width,
+  height: p.height,
+  filter: p.filter,
+  rotation: p.rotation,
+  sourceUri: p.sourceUri,
+  previewUri: p.previewUri,
+  quad: p.quad,
+});
+
+/** Diagnostics for a freshly captured page: original vs. its preview render. */
+async function recordDraft(sourceUri: string, preview: ProcessedImage, scanner: 'system' | 'camera', filter: PageFilter) {
+  const [src, prev] = await Promise.all([ImageEngine.info(sourceUri), ImageEngine.info(preview.uri)]);
+  useScanDiagnostics.getState().record({
+    page: 0,
+    scanner,
+    filter,
+    profile: 'preview',
+    stages: { source: toStage(src), preview: toStage(prev, { quality: preview.quality }) },
+  });
 }
 
 /**
@@ -45,21 +79,23 @@ export const DocumentEngine = {
   redaction: RedactionEngine,
   export: ExportEngine,
 
-  /** Capture → detect edges → perspective correction → enhance (spec §13). */
+  /** Capture → detect edges → preview render (the master is rendered on save, spec §13). */
   async processCapture(sourceUri: string, filter: PageFilter = 'auto'): Promise<DraftPage> {
     const det = await CaptureEngine.detect(sourceUri);
     const quad = det.detected ? det.quad : null;
-    const out = await ImageEngine.process(sourceUri, { quad, filter, rotation: 0 });
+    const out = await ImageEngine.preview(sourceUri, { quad, filter, rotation: 0 });
+    await recordDraft(sourceUri, out, 'camera', filter);
     return { id: newId(), sourceUri, processedUri: out.uri, width: out.width, height: out.height, quad: quad ?? undefined, filter, rotation: 0 };
   },
 
   /** Page from the system scanner: already cropped and perspective-corrected, so only enhance. */
   async processScanned(uri: string, filter: PageFilter = 'auto'): Promise<DraftPage> {
-    const out = await ImageEngine.process(uri, { quad: null, filter, rotation: 0 });
+    const out = await ImageEngine.preview(uri, { quad: null, filter, rotation: 0 });
+    await recordDraft(uri, out, 'system', filter);
     return { id: newId(), sourceUri: uri, processedUri: out.uri, width: out.width, height: out.height, filter, rotation: 0 };
   },
 
-  /** Re-run processing from the original capture (filter, rotation or manual crop changed). */
+  /** New preview from the original capture (filter, rotation or manual crop changed). */
   async reprocess(page: DraftPage, patch: { filter?: PageFilter; rotation?: Rotation; quad?: Quad | null }): Promise<DraftPage> {
     const next: DraftPage = {
       ...page,
@@ -67,17 +103,64 @@ export const DocumentEngine = {
       ...(patch.rotation !== undefined ? { rotation: patch.rotation } : {}),
       ...(patch.quad !== undefined ? { quad: patch.quad ?? undefined } : {}),
     };
-    const out = await ImageEngine.process(page.sourceUri, { quad: next.quad ?? null, filter: next.filter, rotation: next.rotation });
+    const out = await ImageEngine.preview(page.sourceUri, { quad: next.quad ?? null, filter: next.filter, rotation: next.rotation });
     return { ...next, processedUri: out.uri, width: out.width, height: out.height };
   },
 
-  /** Upright, uncropped copy of the original capture for the crop editor (EXIF applied). */
+  /** Upright, uncropped preview of the original capture for the crop editor (EXIF applied). */
   async uprightPreview(page: DraftPage): Promise<{ uri: string; width: number; height: number }> {
     if (!OneScanVision) throw new Error('No native vision');
-    return OneScanVision.processPageAsync(page.sourceUri, null, 'original', 0);
+    return OneScanVision.processPageAsync(page.sourceUri, null, 'original', 0, PREVIEW);
   },
 
-  /** Build PDF, thumbnail and OCR index from stored page images (page by page). */
+  /**
+   * Render each page's master once from its original (decode once → crop/rotate/filter →
+   * encode once at the quality setting) and file all tiers under `docId`.
+   */
+  async renderPages(draft: DraftPage[], docId: string, tier: ScanQuality, onStage?: StageCallback): Promise<StoredPage[]> {
+    const profile = masterProfiles[tier];
+    const pages: StoredPage[] = [];
+    for (let i = 0; i < draft.length; i++) {
+      onStage?.('pages', i / draft.length);
+      const p = draft[i];
+      const n = i + 1;
+      const params = { quad: p.quad ?? null, filter: p.filter, rotation: p.rotation };
+      const sourceInfo = await ImageEngine.info(p.sourceUri);
+      // "Original" with no crop/rotation: the master *is* the scanner's JPEG (no re-encode).
+      const untouched =
+        !params.quad && params.rotation === 0 && p.filter === 'original' && sourceInfo !== null &&
+        sourceInfo.mimeType === 'image/jpeg' && sourceInfo.orientation === 0 &&
+        masterSize(sourceInfo, profile).width === sourceInfo.width;
+      const master = untouched
+        ? { uri: p.sourceUri, width: sourceInfo!.width, height: sourceInfo!.height, quality: undefined, degraded: false }
+        : await ImageEngine.process(p.sourceUri, params, profile);
+      const stored: StoredPage = {
+        uri: DocumentFileStore.adopt(master.uri, docId, `processed/page-${n}.jpg`).uri,
+        sourceUri: DocumentFileStore.adopt(p.sourceUri, docId, `original/page-${n}.jpg`).uri,
+        previewUri: DocumentFileStore.adopt(p.processedUri, docId, `preview/page-${n}.jpg`).uri,
+        width: master.width,
+        height: master.height,
+        filter: p.filter,
+        rotation: p.rotation,
+        quad: p.quad ?? null,
+      };
+      pages.push(stored);
+      const [mInfo, pInfo] = await Promise.all([ImageEngine.info(stored.uri), ImageEngine.info(stored.previewUri!)]);
+      useScanDiagnostics.getState().record({
+        page: n,
+        filter: p.filter,
+        profile: tier,
+        stages: {
+          source: toStage(sourceInfo),
+          master: toStage(mInfo, { quality: master.quality, degraded: master.degraded }),
+          preview: toStage(pInfo, { quality: PREVIEW.quality }),
+        },
+      });
+    }
+    return pages;
+  },
+
+  /** Build PDF (from masters), thumbnail (from a preview) and OCR index, page by page. */
   async finalize(
     docId: string,
     pages: StoredPage[],
@@ -88,31 +171,28 @@ export const DocumentEngine = {
     const filterApplied = CaptureEngine.hasNativeVision();
     const pdf = await PDFEngine.create(pages.map((p) => ({ ...p, filterApplied })), title);
     const pdfFile = DocumentFileStore.adopt(pdf.uri, docId, 'document.pdf');
-    const thumbFile = DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].uri), docId, 'thumb.jpg');
+    const thumbFile = DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri ?? pages[0].uri), docId, 'thumbnail/thumb.jpg');
 
     onStage?.('ocr', 0);
+    // OCR decodes its own working copy natively; coordinates are normalised to the master.
     const ocr = await OCREngine.recognize(pages.map((p) => p.uri), OCR_LANGUAGES, (d, t) => onStage?.('ocr', d / t));
     return {
       pdfUri: pdfFile.uri,
       thumbUri: thumbFile.uri,
-      sizeBytes: DocumentFileStore.size(pdfFile.uri),
+      sizeBytes: pages.reduce((n, p) => n + DocumentFileStore.size(p.uri), 0) + DocumentFileStore.size(pdfFile.uri),
       ocrText: ocr.text,
       hasSensitive: ocr.available && RedactionEngine.detect(ocr.text).length > 0,
     };
   },
 
-  async save(draft: DraftPage[], opts: { title: string; docType: DocumentType; onStage?: StageCallback }): Promise<DocumentRecord> {
+  async save(
+    draft: DraftPage[],
+    opts: { title: string; docType: DocumentType; quality?: ScanQuality; onStage?: StageCallback },
+  ): Promise<DocumentRecord> {
     if (!draft.length) throw new Error('Cannot save an empty document');
     // Files are written under `docId`; the DB rows reference these URIs.
     const docId = newId();
-    opts.onStage?.('pages', 0);
-    const pages: StoredPage[] = draft.map((p, i) => ({
-      uri: DocumentFileStore.adopt(p.processedUri, docId, `page-${i + 1}.jpg`).uri,
-      width: p.width,
-      height: p.height,
-      filter: p.filter,
-      rotation: p.rotation,
-    }));
+    const pages = await this.renderPages(draft, docId, opts.quality ?? defaultScanQuality, opts.onStage);
     const out = await this.finalize(docId, pages, opts.title, opts.onStage);
     opts.onStage?.('index', 1);
     const folderKey = folderForType[opts.docType];
@@ -125,37 +205,43 @@ export const DocumentEngine = {
       sizeBytes: out.sizeBytes,
       ocrText: out.ocrText,
       hasSensitive: out.hasSensitive,
-      pages: pages.map((p, i) => ({ pageIndex: i, imageUri: p.uri, width: p.width, height: p.height, filter: p.filter, rotation: p.rotation })),
+      pages: pages.map(toPageRow),
     });
   },
 
-  /** Load a saved document's pages as editable drafts. */
+  /** Load a saved document's pages as editable drafts (from the originals when kept). */
   async draftsFor(docId: string): Promise<DraftPage[]> {
     const pages = await documentRepository.pages(docId);
-    return pages.map((p) => ({
-      id: newId(),
-      sourceUri: p.imageUri,
-      processedUri: p.imageUri,
-      width: p.width,
-      height: p.height,
-      // Saved pages are already processed; further edits start from them.
-      filter: 'original' as const,
-      rotation: 0 as const,
-    }));
+    return pages.map((p) =>
+      p.sourceUri
+        ? {
+            id: newId(),
+            sourceUri: p.sourceUri,
+            processedUri: p.previewUri ?? p.imageUri,
+            width: p.width,
+            height: p.height,
+            quad: p.quad ?? undefined,
+            filter: p.filter,
+            rotation: p.rotation,
+          }
+        : {
+            // Saved before 1.0.5: only the processed page exists; edits start from it.
+            id: newId(),
+            sourceUri: p.imageUri,
+            processedUri: p.imageUri,
+            width: p.width,
+            height: p.height,
+            filter: 'original' as const,
+            rotation: 0 as const,
+          },
+    );
   },
 
   /** Save edits back into an existing document (new files; old files removed). */
-  async saveEdits(doc: DocumentRecord, draft: DraftPage[], onStage?: StageCallback): Promise<DocumentRecord> {
+  async saveEdits(doc: DocumentRecord, draft: DraftPage[], onStage?: StageCallback, quality: ScanQuality = defaultScanQuality): Promise<DocumentRecord> {
     if (!draft.length) throw new Error('Cannot save an empty document');
     const fileId = newId();
-    onStage?.('pages', 0);
-    const pages: StoredPage[] = draft.map((p, i) => ({
-      uri: DocumentFileStore.adopt(p.processedUri, fileId, `page-${i + 1}.jpg`).uri,
-      width: p.width,
-      height: p.height,
-      filter: p.filter,
-      rotation: p.rotation,
-    }));
+    const pages = await this.renderPages(draft, fileId, quality, onStage);
     const out = await this.finalize(fileId, pages, doc.title, onStage);
     onStage?.('index', 1);
     await documentRepository.replaceContent(doc.id, {
@@ -164,7 +250,7 @@ export const DocumentEngine = {
       sizeBytes: out.sizeBytes,
       ocrText: out.ocrText,
       hasSensitive: out.hasSensitive,
-      pages: pages.map((p, i) => ({ pageIndex: i, imageUri: p.uri, width: p.width, height: p.height, filter: p.filter, rotation: p.rotation })),
+      pages: pages.map(toPageRow),
     });
     const oldDir = doc.pdfUri?.match(/docs\/([^/]+)\//)?.[1];
     if (oldDir && oldDir !== fileId) DocumentFileStore.deleteDocument(oldDir);
@@ -186,13 +272,25 @@ export const DocumentEngine = {
       });
     }
     onStage?.('pages', 0);
-    const rendered = await OneScanVision.renderPdfAsync(pdfFile.uri, 1654);
-    const pages = rendered.pages.map((p, i) => ({
-      uri: DocumentFileStore.adopt(p.uri, docId, `page-${i + 1}.jpg`).uri,
-      width: p.width,
-      height: p.height,
-    }));
-    const thumbUri = pages.length ? DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].uri), docId, 'thumb.jpg').uri : null;
+    // 2480 px wide ≈ A4 at 300 dpi; each rendered page is that page's master.
+    const rendered = await OneScanVision.renderPdfAsync(pdfFile.uri, PDF_RENDER_WIDTH);
+    const pages: StoredPage[] = [];
+    for (let i = 0; i < rendered.pages.length; i++) {
+      const p = rendered.pages[i];
+      const master = DocumentFileStore.adopt(p.uri, docId, `processed/page-${i + 1}.jpg`).uri;
+      const preview = await ImageEngine.resize(master, PREVIEW);
+      pages.push({
+        uri: master,
+        sourceUri: master,
+        previewUri: DocumentFileStore.adopt(preview.uri, docId, `preview/page-${i + 1}.jpg`).uri,
+        width: p.width,
+        height: p.height,
+        filter: 'original',
+        rotation: 0,
+        quad: null,
+      });
+    }
+    const thumbUri = pages.length ? DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri!), docId, 'thumbnail/thumb.jpg').uri : null;
     onStage?.('ocr', 0);
     const ocr = await OCREngine.recognize(pages.map((p) => p.uri), OCR_LANGUAGES, (d, t) => onStage?.('ocr', d / t));
     return documentRepository.create({
@@ -203,7 +301,7 @@ export const DocumentEngine = {
       sizeBytes: DocumentFileStore.size(pdfFile.uri),
       ocrText: ocr.text,
       hasSensitive: ocr.available && RedactionEngine.detect(ocr.text).length > 0,
-      pages: pages.map((p, i) => ({ pageIndex: i, imageUri: p.uri, width: p.width, height: p.height, filter: 'original' as const, rotation: 0 as const })),
+      pages: pages.map(toPageRow),
       pageCount: pages.length,
     });
   },
@@ -211,17 +309,22 @@ export const DocumentEngine = {
   async duplicate(doc: DocumentRecord, title: string): Promise<DocumentRecord> {
     const docId = newId();
     const pages = await documentRepository.pages(doc.id);
-    const copy = (uri: string | null, name: string) => (uri ? DocumentFileStore.adopt(uri, docId, name).uri : null);
+    const copy = (uri: string | null | undefined, name: string) => (uri ? DocumentFileStore.adopt(uri, docId, name).uri : null);
     return documentRepository.create({
       title,
       docType: doc.docType,
       folderId: doc.folderId,
       pdfUri: copy(doc.pdfUri, 'document.pdf')!,
-      thumbnailUri: copy(doc.thumbnailUri, 'thumb.jpg'),
+      thumbnailUri: copy(doc.thumbnailUri, 'thumbnail/thumb.jpg'),
       sizeBytes: doc.sizeBytes,
       ocrText: await documentRepository.ocrText(doc.id),
       hasSensitive: doc.hasSensitive,
-      pages: pages.map((p, i) => ({ ...p, imageUri: copy(p.imageUri, `page-${i + 1}.jpg`)! })),
+      pages: pages.map((p, i) => ({
+        ...p,
+        imageUri: copy(p.imageUri, `processed/page-${i + 1}.jpg`)!,
+        sourceUri: copy(p.sourceUri, `original/page-${i + 1}.jpg`),
+        previewUri: copy(p.previewUri, `preview/page-${i + 1}.jpg`),
+      })),
       pageCount: doc.pageCount,
     });
   },
@@ -244,12 +347,18 @@ export const DocumentEngine = {
       const matches = RedactionEngine.detect(text);
       const boxes = RedactionEngine.blocksToRedact(blocks, matches);
       const out = boxes.length ? (await OneScanVision.redactRegionsAsync(source[i].imageUri, boxes)).uri : source[i].imageUri;
+      const master = DocumentFileStore.adopt(out, docId, `processed/page-${i + 1}.jpg`).uri;
+      const preview = await ImageEngine.resize(master, PREVIEW);
       pages.push({
-        uri: DocumentFileStore.adopt(out, docId, `page-${i + 1}.jpg`).uri,
+        uri: master,
+        // The redacted master is this copy's original: unredacted pixels must not be kept.
+        sourceUri: master,
+        previewUri: DocumentFileStore.adopt(preview.uri, docId, `preview/page-${i + 1}.jpg`).uri,
         width: source[i].width,
         height: source[i].height,
-        filter: source[i].filter,
-        rotation: source[i].rotation,
+        filter: 'original',
+        rotation: 0,
+        quad: null,
       });
       texts.push(RedactionEngine.redactText(text, matches));
     }
@@ -257,7 +366,7 @@ export const DocumentEngine = {
     onStage?.('pdf', 0);
     const pdf = await PDFEngine.create(pages.map((p) => ({ ...p, filterApplied })), title);
     const pdfFile = DocumentFileStore.adopt(pdf.uri, docId, 'document.pdf');
-    const thumb = DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].uri), docId, 'thumb.jpg');
+    const thumb = DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri ?? pages[0].uri), docId, 'thumbnail/thumb.jpg');
     onStage?.('index', 1);
     return documentRepository.create({
       title,
@@ -270,7 +379,7 @@ export const DocumentEngine = {
       hasSensitive: false,
       isRedactedCopy: true,
       sourceDocumentId: doc.id,
-      pages: pages.map((p, i) => ({ pageIndex: i, imageUri: p.uri, width: p.width, height: p.height, filter: p.filter, rotation: p.rotation })),
+      pages: pages.map(toPageRow),
     });
   },
 

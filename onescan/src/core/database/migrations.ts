@@ -82,4 +82,9 @@ export const migrations: string[] = [
     updated_at INTEGER NOT NULL
   );
   `,
+  /* v2 — non-destructive pages: original capture, preview render and edit parameters */ `
+  ALTER TABLE pages ADD COLUMN source_uri TEXT;
+  ALTER TABLE pages ADD COLUMN preview_uri TEXT;
+  ALTER TABLE pages ADD COLUMN quad TEXT;
+  `,
 ];

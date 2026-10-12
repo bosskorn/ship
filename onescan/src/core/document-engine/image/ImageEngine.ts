@@ -1,6 +1,7 @@
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
-import { OneScanVision } from '@/native/OneScanVision';
+import { ImageInfo, OneScanVision } from '@/native/OneScanVision';
 import type { PageFilter, Quad, Rotation } from '../model';
+import { PREVIEW, QualityProfile, THUMBNAIL } from './quality';
 
 export interface ProcessedImage {
   uri: string;
@@ -8,39 +9,70 @@ export interface ProcessedImage {
   height: number;
   /** True when the filter is baked into pixels; otherwise apply `cssFilterFor` at render. */
   filterApplied: boolean;
+  /** File size in bytes, when known. */
+  bytes?: number;
+  /** JPEG quality used for the single encode. */
+  quality: number;
+  /** Memory forced a smaller size than the profile asked for. */
+  degraded?: boolean;
 }
 
-const MAX_EDGE = 2480; // ~A4 @ 300dpi long edge; caps memory per page.
+export interface PageParams {
+  quad: Quad | null;
+  filter: PageFilter;
+  rotation: Rotation;
+}
+
+/** Without the native module (Expo Go / web): rotate + optional downscale, one encode. */
+async function fallbackProcess(sourceUri: string, rotation: Rotation, p: QualityProfile): Promise<ProcessedImage> {
+  const ctx = ImageManipulator.manipulate(sourceUri);
+  if (rotation) ctx.rotate(rotation);
+  let ref = await ctx.renderAsync();
+  if (p.maxEdge > 0 && Math.max(ref.width, ref.height) > p.maxEdge) {
+    const scale = p.maxEdge / Math.max(ref.width, ref.height);
+    ref = await ImageManipulator.manipulate(ref).resize({ width: Math.round(ref.width * scale) }).renderAsync();
+  }
+  const out = await ref.saveAsync({ format: SaveFormat.JPEG, compress: p.quality / 100 });
+  return { uri: out.uri, width: out.width, height: out.height, filterApplied: false, quality: p.quality };
+}
 
 export const ImageEngine = {
   /**
-   * Edge-corrected, rotated, enhanced page. Entirely on device.
-   * Native path: perspective warp + filter + denoise/shadow removal.
-   * Fallback: rotate + downscale only.
+   * Render a page from its original: perspective warp + rotate + filter, decoded once
+   * and encoded once at the profile's size/quality. Entirely on device.
    */
-  async process(sourceUri: string, opts: { quad: Quad | null; filter: PageFilter; rotation: Rotation }): Promise<ProcessedImage> {
-    if (OneScanVision) {
-      const r = await OneScanVision.processPageAsync(sourceUri, opts.quad, opts.filter, opts.rotation);
-      return { ...r, filterApplied: true };
-    }
-    const ctx = ImageManipulator.manipulate(sourceUri);
-    if (opts.rotation) ctx.rotate(opts.rotation);
-    const ref = await ctx.renderAsync();
-    if (Math.max(ref.width, ref.height) > MAX_EDGE) {
-      const scale = MAX_EDGE / Math.max(ref.width, ref.height);
-      const resized = await ImageManipulator.manipulate(ref)
-        .resize({ width: Math.round(ref.width * scale) })
-        .renderAsync();
-      const out = await resized.saveAsync({ format: SaveFormat.JPEG, compress: 0.85 });
-      return { uri: out.uri, width: out.width, height: out.height, filterApplied: false };
-    }
-    const out = await ref.saveAsync({ format: SaveFormat.JPEG, compress: 0.85 });
-    return { uri: out.uri, width: out.width, height: out.height, filterApplied: false };
+  async process(sourceUri: string, params: PageParams, profile: QualityProfile): Promise<ProcessedImage> {
+    if (!OneScanVision) return fallbackProcess(sourceUri, params.rotation, profile);
+    const r = await OneScanVision.processPageAsync(sourceUri, params.quad, params.filter, params.rotation, profile);
+    return { ...r, filterApplied: true, quality: r.quality ?? profile.quality };
   },
 
-  async thumbnail(uri: string, width = 240): Promise<string> {
-    const ref = await ImageManipulator.manipulate(uri).resize({ width }).renderAsync();
-    const out = await ref.saveAsync({ format: SaveFormat.JPEG, compress: 0.7 });
-    return out.uri;
+  /** Fast preview render for the editor (the master is rendered on save). */
+  preview(sourceUri: string, params: PageParams): Promise<ProcessedImage> {
+    return this.process(sourceUri, params, PREVIEW);
+  },
+
+  /** Downscaled copy of a finished image (preview / thumbnail). */
+  async resize(uri: string, p: QualityProfile): Promise<{ uri: string; width: number; height: number }> {
+    if (OneScanVision) return OneScanVision.resizeAsync(uri, p.maxEdge, p.quality);
+    const ref = await ImageManipulator.manipulate(uri).renderAsync();
+    const long = Math.max(ref.width, ref.height);
+    const scaled = long > p.maxEdge ? await ImageManipulator.manipulate(ref).resize({ width: Math.round((ref.width * p.maxEdge) / long) }).renderAsync() : ref;
+    const out = await scaled.saveAsync({ format: SaveFormat.JPEG, compress: p.quality / 100 });
+    return { uri: out.uri, width: out.width, height: out.height };
+  },
+
+  async thumbnail(uri: string): Promise<string> {
+    return (await this.resize(uri, THUMBNAIL)).uri;
+  },
+
+  /** Pixel size / file size / type without decoding (null without the native module). */
+  async info(uri: string): Promise<ImageInfo | null> {
+    if (!OneScanVision) return null;
+    try {
+      return await OneScanVision.imageInfoAsync(uri);
+    } catch {
+      return null;
+    }
   },
 };

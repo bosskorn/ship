@@ -6,6 +6,12 @@ struct PointRecord: Record {
   @Field var y: Double = 0
 }
 
+struct ProcessOptions: Record {
+  /// Master long-edge cap in px; 0 = keep the source resolution.
+  @Field var maxEdge: Int = 0
+  @Field var quality: Int = 95
+}
+
 struct BoxRecord: Record {
   @Field var x: Double = 0
   @Field var y: Double = 0
@@ -37,10 +43,30 @@ public class OneScanVisionModule: Module {
       return out
     }
 
-    AsyncFunction("processPageAsync") { (uri: String, quad: [PointRecord]?, filter: String, rotation: Int) -> [String: Any] in
+    AsyncFunction("processPageAsync") { (uri: String, quad: [PointRecord]?, filter: String, rotation: Int, options: ProcessOptions?) -> [String: Any] in
       let points = quad?.map { CGPoint(x: $0.x, y: $0.y) }
-      let (url, w, h) = try OneScanPageProcessor.process(uri: uri, quad: points, filter: filter, rotation: rotation)
-      return ["uri": url.absoluteString, "width": w, "height": h]
+      let o = options ?? ProcessOptions()
+      let (url, w, h) = try OneScanPageProcessor.process(uri: uri, quad: points, filter: filter, rotation: rotation, maxEdge: o.maxEdge, quality: o.quality)
+      let bytes = (OneScanImageIO.info(url)["bytes"] as? Double) ?? 0
+      return ["uri": url.absoluteString, "width": w, "height": h, "bytes": bytes, "quality": min(max(o.quality, 50), 100), "degraded": false]
+    }
+
+    /// Smaller copy (preview / thumbnail / OCR working image); never used as the master.
+    AsyncFunction("resizeAsync") { (uri: String, maxEdge: Int, quality: Int) -> [String: Any] in
+      let image = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: CGFloat(maxEdge))
+      let (url, w, h) = try OneScanImageIO.saveJpeg(image, prefix: "copy", quality: CGFloat(min(max(quality, 50), 100)) / 100)
+      return ["uri": url.absoluteString, "width": w, "height": h, "bytes": (OneScanImageIO.info(url)["bytes"] as? Double) ?? 0]
+    }
+
+    AsyncFunction("imageInfoAsync") { (uri: String) -> [String: Any] in
+      OneScanImageIO.info(OneScanImageIO.url(from: uri))
+    }
+
+    /// PDF that embeds each page JPEG unchanged (see PdfWriter.swift).
+    AsyncFunction("writePdfAsync") { (pageUris: [String]) -> [String: Any] in
+      let out = OneScanImageIO.outputDir().appendingPathComponent("document-\(UUID().uuidString).pdf")
+      try OneScanPdfWriter.write(to: out, pages: pageUris.map { OneScanImageIO.url(from: $0) })
+      return ["uri": out.absoluteString, "pageCount": pageUris.count, "bytes": (OneScanImageIO.info(out)["bytes"] as? Double) ?? 0]
     }
 
     // VisionKit has no gallery import; `allowGallery` only applies on Android.

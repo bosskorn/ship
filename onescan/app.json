@@ -3,7 +3,7 @@
     "name": "OneScan",
     "slug": "onescan",
     "scheme": "onescan",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 5
+      "versionCode": 6
     },
     "web": {
       "bundler": "metro",

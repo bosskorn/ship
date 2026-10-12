@@ -3,17 +3,20 @@ import UIKit
 
 /// Perspective correction → rotate → enhance → filter (spec §13), via Core Image on GPU.
 enum OneScanPageProcessor {
-  static let workEdge: CGFloat = 3200
-  static let maxOutputEdge: CGFloat = 2480
-
+  /// Master render: decode once at full resolution (unless `maxEdge` > 0 asks for less;
+  /// a few percent over is kept, resampling that little only blurs text), warp, rotate,
+  /// filter, encode once at `quality` (0–100). Never upscales.
   /// `quad` is normalised TL, TR, BR, BL with a top-left origin.
-  static func process(uri: String, quad: [CGPoint]?, filter: String, rotation: Int) throws -> (URL, Int, Int) {
-    var image = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: workEdge)
+  static func process(uri: String, quad: [CGPoint]?, filter: String, rotation: Int, maxEdge: Int, quality: Int) throws -> (URL, Int, Int) {
+    var image = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: .greatestFiniteMagnitude)
+    let long = max(image.extent.width, image.extent.height)
+    if maxEdge > 0, long > CGFloat(maxEdge) * 1.15 {
+      image = OneScanImageIO.scaled(image, maxEdge: CGFloat(maxEdge))
+    }
     if let q = quad, q.count == 4 { image = warp(image, quad: q) }
     image = rotate(image, degrees: rotation)
-    image = OneScanImageIO.scaled(image, maxEdge: maxOutputEdge)
     image = applyFilter(image, filter: filter)
-    return try OneScanImageIO.saveJpeg(image, prefix: "page")
+    return try OneScanImageIO.saveJpeg(image, prefix: "page", quality: CGFloat(min(max(quality, 50), 100)) / 100)
   }
 
   static func warp(_ image: CIImage, quad: [CGPoint]) -> CIImage {

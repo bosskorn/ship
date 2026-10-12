@@ -4,6 +4,9 @@
  * scan pipeline wires detection → processing → PDF → OCR → index.
  */
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
+import { PDFEngine } from '@/core/document-engine/pdf/PDFEngine';
+import { documentRepository } from '@/core/database/repositories/documentRepository';
+import { useScanDiagnostics } from '@/core/document-engine/image/diagnostics';
 
 const created: any[] = [];
 const nativeCalls: { fn: string; args: unknown[] }[] = [];
@@ -28,8 +31,15 @@ jest.mock('@/native/OneScanVision', () => {
     switch (fn) {
       case 'grayscaleAsync':
         return Promise.resolve(gray);
-      case 'processPageAsync':
-        return Promise.resolve({ uri: `file:///cache/processed-${nativeCalls.length}.jpg`, width: 1240, height: 1754 });
+      case 'processPageAsync': {
+        const o = args[4] as { maxEdge: number } | undefined;
+        const big = !o || o.maxEdge === 0 || o.maxEdge >= 4000;
+        return Promise.resolve({ uri: `file:///cache/processed-${nativeCalls.length}.jpg`, width: big ? 3024 : 1200, height: big ? 4032 : 1600, quality: 95 });
+      }
+      case 'imageInfoAsync':
+        return Promise.resolve({ width: 3024, height: 4032, bytes: 3_800_000, mimeType: 'image/jpeg', orientation: 0 });
+      case 'resizeAsync':
+        return Promise.resolve({ uri: `file:///cache/resized-${nativeCalls.length}.jpg`, width: 1200, height: 1600, bytes: 200_000 });
       case 'recognizeTextAsync':
         return Promise.resolve([
           { text: 'Invoice 42', box: { x: 0.1, y: 0.1, width: 0.5, height: 0.05 }, confidence: 0.9 },
@@ -48,6 +58,8 @@ jest.mock('@/native/OneScanVision', () => {
       recognizeTextAsync: record('recognizeTextAsync'),
       redactRegionsAsync: record('redactRegionsAsync'),
       renderPdfAsync: record('renderPdfAsync'),
+      imageInfoAsync: record('imageInfoAsync'),
+      resizeAsync: record('resizeAsync'),
     },
   };
 });
@@ -79,15 +91,6 @@ jest.mock('@/core/document-engine/pdf/PDFEngine', () => ({
   PDFEngine: { create: jest.fn(async () => ({ uri: 'file:///cache/out.pdf', pageCount: 1 })) },
 }));
 
-jest.mock('@/core/document-engine/image/ImageEngine', () => {
-  const { OneScanVision } = jest.requireMock('@/native/OneScanVision');
-  return {
-    ImageEngine: {
-      process: async (uri: string, o: any) => ({ ...(await OneScanVision.processPageAsync(uri, o.quad, o.filter, o.rotation)), filterApplied: true }),
-      thumbnail: async () => 'file:///cache/thumb.jpg',
-    },
-  };
-});
 
 jest.mock('expo-sharing', () => ({}));
 jest.mock('expo-print', () => ({}));
@@ -129,4 +132,82 @@ test('redacted copy blacks out PII lines and keeps the original intact', async (
   expect(copy.ocrText).toContain('08X-XXX-XXXX');
   expect(copy.ocrText).not.toContain('234-5678');
   expect(copy.pages[0].imageUri).not.toContain('/orig/');
+});
+
+describe('v1.0.5 image tiers', () => {
+  const draftPage = (over: Partial<Record<string, unknown>> = {}) => ({
+    id: 'd1',
+    sourceUri: 'file:///cache/mlkit-scan.jpg',
+    processedUri: 'file:///cache/preview.jpg',
+    width: 1200,
+    height: 1600,
+    filter: 'auto' as const,
+    rotation: 0 as const,
+    ...over,
+  });
+
+  test('capture renders only a fast preview; the master waits for save', async () => {
+    await DocumentEngine.processScanned('file:///cache/mlkit-scan.jpg');
+    const calls = nativeCalls.filter((c) => c.fn === 'processPageAsync');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args[4]).toEqual({ maxEdge: 1600, quality: 85 });
+  });
+
+  test('save renders the master once from the original at High quality and files every tier', async () => {
+    await DocumentEngine.save([draftPage()], { title: 'Doc', docType: 'document' });
+    const renders = nativeCalls.filter((c) => c.fn === 'processPageAsync');
+    expect(renders).toHaveLength(1);
+    expect(renders[0].args[0]).toBe('file:///cache/mlkit-scan.jpg'); // from the original, not the preview
+    expect(renders[0].args[4]).toEqual({ maxEdge: 4000, quality: 95 });
+    const page = created[0].pages[0];
+    expect(page).toMatchObject({ width: 3024, height: 4032 });
+    expect(page.imageUri).toMatch(/^file:\/\/\/docs\/[^/]+\/processed\/page-1\.jpg$/);
+    expect(page.sourceUri).toMatch(/\/original\/page-1\.jpg$/);
+    expect(page.previewUri).toMatch(/\/preview\/page-1\.jpg$/);
+    // PDF from masters, never previews or thumbnails.
+    const pdfPages = (PDFEngine.create as jest.Mock).mock.calls.at(-1)[0];
+    expect(pdfPages.map((p: { uri: string }) => p.uri)).toEqual([page.imageUri]);
+    // OCR reads the master (it decodes its own working copy natively).
+    expect(nativeCalls.find((c) => c.fn === 'recognizeTextAsync')!.args[0]).toBe(page.imageUri);
+    // Diagnostics: master keeps all of the source's pixels.
+    const d = useScanDiagnostics.getState().pages[0];
+    expect(d.stages.master).toMatchObject({ width: 3024, height: 4032, quality: 95 });
+    expect(d.stages.source).toMatchObject({ width: 3024, height: 4032 });
+  });
+
+  test('Standard quality asks for a smaller master', async () => {
+    await DocumentEngine.save([draftPage()], { title: 'Doc', docType: 'document', quality: 'standard' });
+    expect(nativeCalls.find((c) => c.fn === 'processPageAsync')!.args[4]).toEqual({ maxEdge: 2200, quality: 88 });
+  });
+
+  test('Original filter without edits keeps the scanner JPEG as the master (no re-encode)', async () => {
+    await DocumentEngine.save([draftPage({ filter: 'original' })], { title: 'Doc', docType: 'document' });
+    expect(nativeCalls.filter((c) => c.fn === 'processPageAsync')).toHaveLength(0);
+    expect(created[0].pages[0]).toMatchObject({ width: 3024, height: 4032 });
+    expect(created[0].pages[0].imageUri).toMatch(/\/processed\/page-1\.jpg$/);
+  });
+
+  test('editing a saved page starts again from its original and edit parameters', async () => {
+    const quad = [{ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.1 }, { x: 0.9, y: 0.9 }, { x: 0.1, y: 0.9 }];
+    (documentRepository.pages as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'p1', documentId: 'doc', pageIndex: 0, imageUri: 'file:///docs/doc/processed/page-1.jpg', width: 3024, height: 4032,
+        filter: 'gray', rotation: 90, sourceUri: 'file:///docs/doc/original/page-1.jpg', previewUri: 'file:///docs/doc/preview/page-1.jpg', quad,
+      },
+    ]);
+    const [d] = await DocumentEngine.draftsFor('doc');
+    expect(d).toMatchObject({ sourceUri: 'file:///docs/doc/original/page-1.jpg', processedUri: 'file:///docs/doc/preview/page-1.jpg', filter: 'gray', rotation: 90, quad });
+  });
+
+  test('pages saved before 1.0.5 (no original) stay editable', async () => {
+    const [d] = await DocumentEngine.draftsFor('orig');
+    expect(d).toMatchObject({ sourceUri: 'file:///docs/orig/page-1.jpg', filter: 'original', rotation: 0 });
+  });
+
+  test('a redacted copy keeps no unredacted original', async () => {
+    await DocumentEngine.createRedactedCopy({ id: 'orig', title: 'Bill', docType: 'invoice', folderId: null } as any, 'Bill (redacted)');
+    const page = created[0].pages[0];
+    expect(page.sourceUri).toBe(page.imageUri);
+    expect(page.sourceUri).not.toContain('/orig/');
+  });
 });

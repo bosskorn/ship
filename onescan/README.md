@@ -69,6 +69,13 @@ it (e.g. no Google Play services) fall back to the in-app camera with DocSeg / e
 Requires a development build (`npx expo run:android` / `npx expo run:ios`); Expo Go and web
 fall back to expo-camera, manual capture and no OCR.
 
+Image tiers (1.0.5): each page keeps the scanner's original JPEG (never re-encoded), a
+full-resolution master rendered once from it (zoom, PDF, export; JPEG 95 at the default
+High quality), a ~1600 px preview and a ~400 px thumbnail. Edits are stored as parameters
+and re-rendered from the original. PDFs embed the master JPEGs unchanged (`PdfWriter`).
+Settings → Scan quality, and Scan diagnostics shows each tier's size.
+Sharpness test set: `tools/scanquality`.
+
 The page detector is a small learned model trained with `tools/docseg` (see its README for
 data, licensing and the real-photo benchmark).
 

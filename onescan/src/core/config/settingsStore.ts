@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { defaultScanQuality, ScanQuality } from '@/core/document-engine/image/quality';
 import { persist } from 'zustand/middleware';
 import { persistentJSONStorage } from '../storage/kvStorage';
 import type { LanguageCode } from '../i18n/languages';
@@ -30,6 +31,8 @@ export interface ScannerSettings {
   autoCapture: boolean;
   multiPage: boolean;
   showGrid: boolean;
+  /** Master resolution / JPEG quality tier (see document-engine/image/quality.ts). */
+  quality: ScanQuality;
 }
 
 export const defaultPrivacy: PrivacySettings = {
@@ -66,7 +69,7 @@ export const useSettings = create<SettingsState>()(
       appearance: 'system',
       privacy: defaultPrivacy,
       security: { appLock: false, biometric: false, autoLock: 'immediately', screenshotProtection: false },
-      scanner: { autoCapture: true, multiPage: true, showGrid: false },
+      scanner: { autoCapture: true, multiPage: true, showGrid: false, quality: defaultScanQuality },
       completeOnboarding: () => set({ onboardingCompleted: true }),
       setLanguage: (language) => set({ language }),
       setAppearance: (appearance) => set({ appearance }),

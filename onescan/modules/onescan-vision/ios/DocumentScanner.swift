@@ -43,7 +43,8 @@ final class OneScanDocumentScanner: NSObject, VNDocumentCameraViewControllerDele
     do {
       for i in 0..<min(scan.pageCount, pageLimit) {
         let image = scan.imageOfPage(at: i)
-        guard let data = image.jpegData(compressionQuality: 0.92) else { continue }
+        // VisionKit hands back a UIImage, so this one encode is the original; keep it high.
+        guard let data = image.jpegData(compressionQuality: 0.97) else { continue }
         let url = OneScanImageIO.outputDir().appendingPathComponent("scan_\(UUID().uuidString).jpg")
         try data.write(to: url)
         pages.append(["uri": url.absoluteString, "width": Int(image.size.width * image.scale), "height": Int(image.size.height * image.scale)])

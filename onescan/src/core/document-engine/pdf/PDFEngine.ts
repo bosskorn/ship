@@ -1,4 +1,5 @@
 import * as Print from 'expo-print';
+import { OneScanVision } from '@/native/OneScanVision';
 import { DocumentFileStore } from '../storage/DocumentFileStore';
 import { A4, buildPdfHtml, PdfPageInput } from './pdfHtml';
 import type { PageFilter, Rotation } from '../model';
@@ -13,12 +14,17 @@ export interface PdfSourcePage {
 }
 
 /**
- * Local PDF generation via the platform print engine (WebKit/Android WebView
- * renderer — offline, no upload). A streaming native PDF writer can replace
- * this for 100+ page documents without changing callers.
+ * Local PDF generation (offline, no upload). With the native module, each page's
+ * master JPEG is embedded byte-for-byte (no decode, resample or re-compression; pages
+ * streamed from disk). Without it (Expo Go / web) the platform print engine is used,
+ * which may resample images.
  */
 export const PDFEngine = {
   async create(pages: PdfSourcePage[], title: string): Promise<{ uri: string; pageCount: number }> {
+    if (OneScanVision && pages.every((p) => p.filterApplied)) {
+      const r = await OneScanVision.writePdfAsync(pages.map((p) => p.uri));
+      return { uri: r.uri, pageCount: r.pageCount };
+    }
     const inputs: PdfPageInput[] = [];
     for (const p of pages) {
       const b64 = await DocumentFileStore.readBase64(p.uri);

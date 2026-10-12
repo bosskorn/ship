@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useSettings } from '@/core/config/settingsStore';
 import { FlatList, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -102,11 +103,13 @@ export function EditorScreen() {
       const onStage = (stage: SaveStage, progress: number) => setSaving({ stage, progress });
       const editingId = useScanSession.getState().editingDocumentId;
       const existing = editingId ? await documentRepository.get(editingId) : null;
+      const quality = useSettings.getState().scanner.quality;
       const doc = existing
-        ? await DocumentEngine.saveEdits(existing, pages, onStage)
+        ? await DocumentEngine.saveEdits(existing, pages, onStage, quality)
         : await DocumentEngine.save(pages, {
             title: t('editor.default_name', { date: formatDateTimeCompact(Date.now(), i18n.language) }),
             docType,
+            quality,
             onStage,
           });
       track('scan_completed', { pages: pages.length, doc_type: docType });

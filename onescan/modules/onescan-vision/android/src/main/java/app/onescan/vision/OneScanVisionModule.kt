@@ -14,6 +14,12 @@ class PointRecord : Record {
   @Field val y: Double = 0.0
 }
 
+class ProcessOptions : Record {
+  /** Master long-edge cap in px; 0 = keep the source resolution. */
+  @Field val maxEdge: Int = 0
+  @Field val quality: Int = 95
+}
+
 class BoxRecord : Record {
   @Field val x: Double = 0.0
   @Field val y: Double = 0.0
@@ -52,15 +58,47 @@ class OneScanVisionModule : Module() {
       }
     }
 
-    AsyncFunction("processPageAsync") { uri: String, quad: List<PointRecord>?, filter: String, rotation: Int ->
+    AsyncFunction("processPageAsync") { uri: String, quad: List<PointRecord>?, filter: String, rotation: Int, options: ProcessOptions? ->
+      val o = options ?: ProcessOptions()
       val r = PageProcessor.process(
         context,
         ImageIO.fileFromUri(uri),
         quad?.map { doubleArrayOf(it.x, it.y) },
         filter,
         rotation,
+        o.maxEdge,
+        o.quality,
       )
-      mapOf("uri" to ImageIO.uriOf(r.file), "width" to r.width, "height" to r.height)
+      mapOf(
+        "uri" to ImageIO.uriOf(r.file),
+        "width" to r.width,
+        "height" to r.height,
+        "bytes" to r.file.length().toDouble(),
+        "quality" to r.quality,
+        "degraded" to r.degraded,
+      )
+    }
+
+    /** Smaller copy (preview / thumbnail / OCR working image); never used as the master. */
+    AsyncFunction("resizeAsync") { uri: String, maxEdge: Int, quality: Int ->
+      val bmp = ImageIO.loadUpright(ImageIO.fileFromUri(uri), maxEdge)
+      try {
+        val file = ImageIO.saveJpeg(context, bmp, "copy", quality.coerceIn(50, 100))
+        mapOf("uri" to ImageIO.uriOf(file), "width" to bmp.width, "height" to bmp.height, "bytes" to file.length().toDouble())
+      } finally {
+        bmp.recycle()
+      }
+    }
+
+    AsyncFunction("imageInfoAsync") { uri: String ->
+      ImageIO.info(ImageIO.fileFromUri(uri))
+    }
+
+    /** PDF that embeds each page JPEG unchanged (see PdfWriter). */
+    AsyncFunction("writePdfAsync") { pageUris: List<String> ->
+      val out = java.io.File(ImageIO.outputDir(context), "document-${java.util.UUID.randomUUID()}.pdf")
+      PdfWriter.write(out, pageUris.map { ImageIO.fileFromUri(it) })
+      mapOf("uri" to ImageIO.uriOf(out), "pageCount" to pageUris.size, "bytes" to out.length().toDouble())
     }
 
     AsyncFunction("scanDocumentsAsync") { pageLimit: Int, allowGallery: Boolean, promise: Promise ->
@@ -81,7 +119,8 @@ class OneScanVisionModule : Module() {
     }
 
     AsyncFunction("redactRegionsAsync") { uri: String, boxes: List<BoxRecord> ->
-      val src = ImageIO.loadUpright(ImageIO.fileFromUri(uri), 4096)
+      // Full resolution: a redacted copy must stay as legible as the original.
+      val src = ImageIO.decodeForOutput(ImageIO.fileFromUri(uri), 0)
       val bmp = if (src.isMutable) src else src.copy(android.graphics.Bitmap.Config.ARGB_8888, true).also { src.recycle() }
       val canvas = android.graphics.Canvas(bmp)
       val paint = android.graphics.Paint().apply { color = android.graphics.Color.BLACK }
@@ -95,7 +134,7 @@ class OneScanVisionModule : Module() {
           paint,
         )
       }
-      val file = ImageIO.saveJpeg(context, bmp, "redacted", 90)
+      val file = ImageIO.saveJpeg(context, bmp, "redacted", 95)
       bmp.recycle()
       mapOf("uri" to ImageIO.uriOf(file))
     }

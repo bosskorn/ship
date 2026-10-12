@@ -2,7 +2,13 @@ import { Directory, File, Paths } from 'expo-file-system';
 
 /**
  * Sandboxed, device-local file layout:
- *   <documents>/onescan/docs/<docId>/page-<n>.jpg | document.pdf | thumb.jpg
+ *   <documents>/onescan/docs/<docId>/
+ *       original/page-<n>.jpg    scanner/camera JPEG, byte-for-byte (source of re-renders)
+ *       processed/page-<n>.jpg   full-resolution master (viewer zoom, PDF, export)
+ *       preview/page-<n>.jpg     ~1600 px for on-screen display
+ *       thumbnail/thumb.jpg      ~400 px for the document list
+ *       document.pdf             built from the masters
+ *   (documents saved before 1.0.5: page-<n>.jpg + thumb.jpg in the root)
  *   <cache>/onescan/drafts/<sessionId>/…  (unsaved scans; OS may purge)
  * Files here are excluded from any automatic upload.
  */
@@ -20,9 +26,11 @@ export const DocumentFileStore = {
     return ensure(new Directory(Paths.cache, 'onescan', 'drafts', sessionId));
   },
 
-  /** Copy a file into a document folder under a stable name; returns its URI. */
+  /** Copy a file into a document folder under a stable name (may include one subfolder). */
   adopt(sourceUri: string, docId: string, name: string): File {
-    const target = new File(this.docDir(docId), name);
+    const slash = name.lastIndexOf('/');
+    const dir = slash > 0 ? ensure(new Directory(this.docDir(docId), name.slice(0, slash))) : this.docDir(docId);
+    const target = new File(dir, name.slice(slash + 1));
     if (target.exists) target.delete();
     new File(sourceUri).copySync(target);
     return target;

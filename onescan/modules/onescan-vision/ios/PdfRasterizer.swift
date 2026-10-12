@@ -25,7 +25,7 @@ enum OneScanPdfRasterizer {
           page.draw(with: .mediaBox, to: ctx.cgContext)
         }
         let url = OneScanImageIO.outputDir().appendingPathComponent("pdfpage-\(UUID().uuidString).jpg")
-        guard let data = img.jpegData(compressionQuality: 0.85) else { return }
+        guard let data = img.jpegData(compressionQuality: 0.95) else { return }
         try data.write(to: url)
         out.append(["uri": url.absoluteString, "width": Int(size.width), "height": Int(size.height)])
       }
@@ -34,7 +34,8 @@ enum OneScanPdfRasterizer {
   }
 
   static func redact(uri: String, boxes: [[String: Double]]) throws -> URL {
-    let image = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: 4096)
+    // Full resolution: a redacted copy must stay as legible as the original.
+    let image = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: .greatestFiniteMagnitude)
     guard let cg = OneScanImageIO.cgImage(image) else {
       throw NSError(domain: "OneScanVision", code: 3, userInfo: [NSLocalizedDescriptionKey: "Unreadable image"])
     }
@@ -52,7 +53,7 @@ enum OneScanPdfRasterizer {
       }
     }
     let url = OneScanImageIO.outputDir().appendingPathComponent("redacted-\(UUID().uuidString).jpg")
-    guard let data = out.jpegData(compressionQuality: 0.9) else {
+    guard let data = out.jpegData(compressionQuality: 0.95) else {
       throw NSError(domain: "OneScanVision", code: 4, userInfo: [NSLocalizedDescriptionKey: "Encode failed"])
     }
     try data.write(to: url)

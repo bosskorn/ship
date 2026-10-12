@@ -11,6 +11,7 @@ import type { PageRecord } from '@/core/document-engine/model';
 import { track } from '@/services/analytics/analytics';
 import { useDocumentActions } from '@/features/documents/useDocumentActions';
 import { useDocument } from './useDocument';
+import { PageZoomView } from './PageZoomView';
 import { useScanSession } from '@/features/scanner/scanSession';
 
 export function DocumentViewerScreen() {
@@ -24,6 +25,7 @@ export function DocumentViewerScreen() {
   const actions = useDocumentActions();
   const [current, setCurrent] = useState(0);
   const [more, setMore] = useState(false);
+  const [zoomPage, setZoomPage] = useState<PageRecord | null>(null);
 
   if (doc === undefined) return <View style={{ flex: 1, backgroundColor: colors.bgPage, paddingTop: insets.top }}><TLoading /></View>;
   if (doc === null) {
@@ -100,8 +102,15 @@ export function DocumentViewerScreen() {
             const first = viewableItems[0]?.index;
             if (typeof first === 'number') setCurrent(first);
           }}
-          renderItem={({ item }) => (
-            <Image source={{ uri: item.imageUri }} resizeMode="contain" style={{ width: '100%', height: pageHeight(item), backgroundColor: colors.bgContainer }} />
+          renderItem={({ item, index }) => (
+            // Preview for scrolling; tapping opens the full-resolution master with zoom.
+            <Pressable accessibilityRole="imagebutton" accessibilityLabel={t('viewer.zoom_page', { page: index + 1 })} onPress={() => setZoomPage(item)}>
+              <Image
+                source={{ uri: item.previewUri ?? item.imageUri }}
+                resizeMode="contain"
+                style={{ width: '100%', height: pageHeight(item), backgroundColor: colors.bgContainer }}
+              />
+            </Pressable>
           )}
         />
       ) : (
@@ -147,6 +156,7 @@ export function DocumentViewerScreen() {
         ]}
       />
       {actions.element}
+      <PageZoomView page={zoomPage} onClose={() => setZoomPage(null)} />
     </View>
   );
 }

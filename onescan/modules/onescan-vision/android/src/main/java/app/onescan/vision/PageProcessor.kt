@@ -17,8 +17,8 @@ import kotlin.math.roundToInt
  * enhance (illumination/shadow normalisation, contrast) → filter.
  */
 internal object PageProcessor {
-  private const val WORK_EDGE = 3200
-  private const val MAX_OUTPUT_EDGE = 2480 // ~A4 long edge at 300 dpi
+  /** Used only when the full-size master doesn't fit in memory (reported as degraded). */
+  private const val FALLBACK_EDGE = 2480
 
   // Scan look (tuned on real photos of A4 pages, receipts, ID cards, passports, books).
   private const val SCAN_PAPER = 250f
@@ -28,27 +28,40 @@ internal object PageProcessor {
   private const val SCAN_SATURATION = 1.2
   private const val SCAN_SHARPEN = 0.4f
 
-  data class Result(val file: File, val width: Int, val height: Int)
+  data class Result(val file: File, val width: Int, val height: Int, val quality: Int, val degraded: Boolean)
 
-  fun process(context: Context, source: File, quad: List<DoubleArray>?, filter: String, rotation: Int): Result {
-    var bmp = ImageIO.loadUpright(source, WORK_EDGE)
-    if (quad != null && quad.size == 4) bmp = warp(bmp, quad)
-    bmp = ImageIO.rotate(bmp, rotation)
-    bmp = capEdge(bmp, MAX_OUTPUT_EDGE)
-    bmp = applyFilter(bmp, filter)
-    val file = ImageIO.saveJpeg(context, bmp, "page")
-    val r = Result(file, bmp.width, bmp.height)
-    bmp.recycle()
-    return r
+  /**
+   * Master render: decode once (full resolution unless [maxEdge] asks for less),
+   * warp/rotate/filter in memory, encode once at [quality]. Never upscales.
+   */
+  fun process(context: Context, source: File, quad: List<DoubleArray>?, filter: String, rotation: Int, maxEdge: Int, quality: Int): Result {
+    return try {
+      render(context, source, quad, filter, rotation, maxEdge, quality, degraded = false)
+    } catch (_: OutOfMemoryError) {
+      System.gc()
+      render(context, source, quad, filter, rotation, FALLBACK_EDGE, quality, degraded = true)
+    }
   }
 
-  private fun capEdge(bmp: Bitmap, edge: Int): Bitmap {
-    val long = max(bmp.width, bmp.height)
-    if (long <= edge) return bmp
-    val s = edge.toFloat() / long
-    val out = Bitmap.createScaledBitmap(bmp, (bmp.width * s).roundToInt(), (bmp.height * s).roundToInt(), true)
-    if (out != bmp) bmp.recycle()
-    return out
+  private fun render(
+    context: Context,
+    source: File,
+    quad: List<DoubleArray>?,
+    filter: String,
+    rotation: Int,
+    maxEdge: Int,
+    quality: Int,
+    degraded: Boolean,
+  ): Result {
+    var bmp = ImageIO.decodeForOutput(source, maxEdge)
+    if (quad != null && quad.size == 4) bmp = warp(bmp, quad)
+    bmp = ImageIO.rotate(bmp, rotation)
+    bmp = applyFilter(bmp, filter)
+    val q = quality.coerceIn(50, 100)
+    val file = ImageIO.saveJpeg(context, bmp, "page", q)
+    val r = Result(file, bmp.width, bmp.height, q, degraded)
+    bmp.recycle()
+    return r
   }
 
   /** Quad is normalised TL, TR, BR, BL. Output size follows the page's edge lengths. */
@@ -272,30 +285,32 @@ internal object PageProcessor {
 
   private fun lum(c: Int) = (((c shr 16) and 0xff) * 77 + ((c shr 8) and 0xff) * 150 + (c and 0xff) * 29) shr 8
 
-  /** out = v + amount × (v − 3×3 mean), interior pixels. */
+  /** out = v + amount × (v − 3×3 mean), interior pixels. Keeps 3 source rows, not a full copy. */
   private fun unsharp(px: IntArray, w: Int, h: Int, amount: Float) {
     if (w < 3 || h < 3) return
-    val src = px.copyOf()
+    var above = px.copyOfRange(0, w)
+    var row = px.copyOfRange(w, 2 * w)
     val shifts = intArrayOf(16, 8, 0)
     for (y in 1 until h - 1) {
+      val below = px.copyOfRange((y + 1) * w, (y + 2) * w)
       for (x in 1 until w - 1) {
-        val i = y * w + x
-        val c = src[i]
+        val c = row[x]
         var out = c and (0xff shl 24)
         for (shift in shifts) {
-          var sum = 0
-          for (dy in -1..1) {
-            val row = i + dy * w
-            sum += ((src[row - 1] shr shift) and 0xff) + ((src[row] shr shift) and 0xff) + ((src[row + 1] shr shift) and 0xff)
-          }
+          val sum = sum3(above, x, shift) + sum3(row, x, shift) + sum3(below, x, shift)
           val v = (c shr shift) and 0xff
           val o = (v + amount * (v - sum / 9f)).roundToInt().coerceIn(0, 255)
           out = out or (o shl shift)
         }
-        px[i] = out
+        px[y * w + x] = out
       }
+      above = row
+      row = below
     }
   }
+
+  private fun sum3(r: IntArray, x: Int, shift: Int) =
+    ((r[x - 1] shr shift) and 0xff) + ((r[x] shr shift) and 0xff) + ((r[x + 1] shr shift) and 0xff)
 
   fun adjust(px: IntArray, contrast: Double, saturation: Double, brightness: Double) {
     for (i in px.indices) {

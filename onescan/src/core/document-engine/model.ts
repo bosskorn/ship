@@ -26,10 +26,14 @@ export type Quad = [Point, Point, Point, Point];
 
 export interface DraftPage {
   id: string;
-  /** Original capture, kept for re-processing. Local file URI. */
+  /** Original capture (scanner/camera JPEG, never re-encoded). Masters are rendered from it. */
   sourceUri: string;
-  /** Processed output (perspective-corrected, enhanced). */
+  /**
+   * Fast preview render (≈1600 px) for the editor. The full-resolution master is
+   * rendered once, from `sourceUri` + edit parameters, when the document is saved.
+   */
   processedUri: string;
+  /** Preview size (same aspect as the master). */
   width: number;
   height: number;
   quad?: Quad;
@@ -61,11 +65,19 @@ export interface PageRecord {
   id: string;
   documentId: string;
   pageIndex: number;
+  /** Master image (full resolution): viewer zoom, PDF, export, share, print. */
   imageUri: string;
+  /** Master size in px. */
   width: number;
   height: number;
   filter: PageFilter;
   rotation: Rotation;
+  /** Original capture (pages saved before 1.0.5 have none). */
+  sourceUri?: string | null;
+  /** ≈1600 px copy for fast on-screen display. */
+  previewUri?: string | null;
+  /** Crop applied to the original. */
+  quad?: Quad | null;
 }
 
 export interface FolderRecord {
