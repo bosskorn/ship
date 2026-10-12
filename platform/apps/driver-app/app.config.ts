@@ -41,6 +41,10 @@ const config: ExpoConfig = {
     }
   },
   "plugins": [
+    [
+      "expo-build-properties",
+      { "android": { "enableMinifyInReleaseBuilds": true, "enableShrinkResourcesInReleaseBuilds": true } }
+    ],
     "expo-router",
     "expo-secure-store",
     [
