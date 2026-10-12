@@ -80,6 +80,51 @@ enum OneScanPageProcessor {
     return out.applyingFilter("CIUnsharpMask", parameters: [kCIInputRadiusKey: 1.0, kCIInputIntensityKey: 0.4]).cropped(to: e)
   }
 
+  /// "Card" filter (ID cards, passports): colour scan with white balance, even lighting,
+  /// softened shadows, local contrast, levels, saturation, mild sharpen. Statistics come
+  /// from a small copy (`OneScanCardStats`, same maths as Android's `CardLook`); the
+  /// per-pixel work runs as a Core Image kernel on sRGB-encoded values.
+  private static let cardKernel: CIColorKernel? = CIColorKernel(source: """
+    kernel vec4 onescanCard(__sample s, __sample m, vec3 wb, float target, float lo, float hi) {
+      vec3 v = pow(max(s.rgb, vec3(0.0)), vec3(1.0 / 2.2)) * 255.0;
+      float gain = clamp(target / max(m.r, 1.0), 0.85, 1.8);
+      v = (v * wb * gain - lo) * (248.0 / max(hi - lo, 1.0));
+      float l = dot(v, vec3(0.299, 0.587, 0.114));
+      v = clamp(vec3(l) + (v - vec3(l)) * 1.12, 0.0, 255.0) / 255.0;
+      return vec4(pow(v, vec3(2.2)), s.a);
+    }
+    """)
+
+  static func cardLook(_ image: CIImage) -> CIImage {
+    let e = image.extent
+    guard let kernel = cardKernel,
+          let (sw, sh, buf) = OneScanImageIO.rgba(OneScanImageIO.scaled(image, maxEdge: 512)),
+          let st = OneScanCardStats.compute(rgba: buf, width: sw, height: sh) else {
+      return image.applyingFilter("CIColorControls", parameters: [kCIInputContrastKey: 1.1, kCIInputSaturationKey: 1.1])
+    }
+    // Illumination grid as a float image (Core Image origin is bottom-left: flip rows),
+    // stretched over the page with linear sampling.
+    var rows = [Float]()
+    rows.reserveCapacity(st.grid.count)
+    for y in (0..<st.gh).reversed() { rows.append(contentsOf: st.grid[(y * st.gw)..<((y + 1) * st.gw)]) }
+    let data = rows.withUnsafeBufferPointer { Data(buffer: $0) }
+    let grid = CIImage(bitmapData: data, bytesPerRow: st.gw * 4, size: CGSize(width: st.gw, height: st.gh), format: .Rf, colorSpace: nil)
+      .samplingLinear()
+      .transformed(by: CGAffineTransform(scaleX: e.width / CGFloat(st.gw), y: e.height / CGFloat(st.gh)))
+      .transformed(by: CGAffineTransform(translationX: e.minX, y: e.minY))
+      .clampedToExtent()
+      .cropped(to: e)
+    guard let base = kernel.apply(extent: e, arguments: [
+      image, grid, CIVector(x: CGFloat(st.wb[0]), y: CGFloat(st.wb[1]), z: CGFloat(st.wb[2])),
+      st.target, st.lo, st.hi,
+    ]) else { return image }
+    let radius = max(e.width, e.height) / 60
+    return base
+      .applyingFilter("CIUnsharpMask", parameters: [kCIInputRadiusKey: radius, kCIInputIntensityKey: 0.35]) // local contrast
+      .applyingFilter("CIUnsharpMask", parameters: [kCIInputRadiusKey: 1.0, kCIInputIntensityKey: 0.5])    // mild sharpen
+      .cropped(to: e)
+  }
+
   /// Paper colour: morphology removes thin dark text, then a wide blur.
   private static func paperEstimate(_ image: CIImage) -> CIImage {
     let e = image.extent
@@ -107,6 +152,8 @@ enum OneScanPageProcessor {
       return image
     case "auto":
       return scanLook(image)
+    case "card":
+      return cardLook(image)
     case "document":
       return normalizeIllumination(image, strength: 1)
         .applyingFilter("CIColorControls", parameters: [kCIInputContrastKey: 1.3, kCIInputSaturationKey: 0.8, kCIInputBrightnessKey: 0.02])

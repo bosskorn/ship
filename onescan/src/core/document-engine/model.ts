@@ -12,7 +12,11 @@ export type DocumentType =
 
 export type CaptureMode = 'document' | 'id' | 'book' | 'whiteboard';
 
-export type PageFilter = 'original' | 'auto' | 'document' | 'color' | 'gray' | 'bw';
+/**
+ * `auto` = "Scan" (white paper, dark text: documents, receipts); `card` = colour scan for
+ * ID cards, passports and other cards (white balance, even lighting, never black-and-white).
+ */
+export type PageFilter = 'original' | 'auto' | 'card' | 'document' | 'color' | 'gray' | 'bw';
 
 export type Rotation = 0 | 90 | 180 | 270;
 

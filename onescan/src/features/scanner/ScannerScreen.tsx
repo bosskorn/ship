@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { TButton, TDialog, TIcon, TIconButton, TText, useTheme, useToast } from '@/design-system';
+import { defaultFilterFor } from '@/core/document-engine/image/filters';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { frameQuadToView } from '@/core/document-engine/capture/quadDetector';
 import type { CaptureHint } from '@/core/document-engine/capture/autoCapture';
@@ -103,7 +104,7 @@ export function ScannerScreen() {
       setBusy(true);
       try {
         for (const p of scanned) {
-          const page = await DocumentEngine.processScanned(p.uri);
+          const page = await DocumentEngine.processScanned(p.uri, defaultFilterFor(session.docType));
           track('page_captured', { mode: session.mode, auto: true });
           const s = useScanSession.getState();
           if (s.rescanIndex !== null) replacePage(s.rescanIndex, page);
@@ -132,7 +133,7 @@ export function ScannerScreen() {
         const photo = live
           ? await nativeCamera.current!.takePhoto()
           : await expoCamera.current!.takePictureAsync({ quality: 0.92, shutterSound: true });
-        const page = await DocumentEngine.processCapture(photo.uri);
+        const page = await DocumentEngine.processCapture(photo.uri, defaultFilterFor(useScanSession.getState().docType));
         track('page_captured', { mode, auto });
         const s = useScanSession.getState();
         if (s.rescanIndex !== null) {

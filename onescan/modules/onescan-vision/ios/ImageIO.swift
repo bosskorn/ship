@@ -67,6 +67,22 @@ enum OneScanImageIO {
     ciContext.createCGImage(image, from: image.extent)
   }
 
+  /// 8-bit sRGB RGBA buffer (row-major, top-left origin).
+  static func rgba(_ image: CIImage) -> (Int, Int, [UInt8])? {
+    let w = Int(image.extent.width.rounded())
+    let h = Int(image.extent.height.rounded())
+    guard w > 0, h > 0, let cg = cgImage(image) else { return nil }
+    var buf = [UInt8](repeating: 0, count: w * h * 4)
+    let drawn: Bool = buf.withUnsafeMutableBytes { raw in
+      guard let ctx = CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
+      ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+      return true
+    }
+    return drawn ? (w, h, buf) : nil
+  }
+
   /// Full-range BT.601 Y, Cb, Cr planes (row-major, top-left origin).
   static func ycbcr(_ image: CIImage) -> (Int, Int, Data, Data, Data)? {
     let w = Int(image.extent.width.rounded())

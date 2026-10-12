@@ -29,6 +29,7 @@ const tools: { key: Tool; icon: IconName }[] = [
 const filterLabelKey: Record<PageFilter, `editor.filter_${string}`> = {
   original: 'editor.filter_original',
   auto: 'editor.filter_auto',
+  card: 'editor.filter_card',
   document: 'editor.filter_document',
   color: 'editor.filter_color',
   gray: 'editor.filter_gray',

@@ -12,3 +12,11 @@ Result on the 1.0.5 pipeline (Kotlin `PageProcessor.scanLook`, run on the JVM):
 | Scanner original | 3024 × 4277, 1.9 MB | ✓ | ✓ | 0.868 |
 | 1.0.4 (2480 px cap, JPEG 88) | 1754 × 2480, 266 KB | ✓ | **✗** | 0.826 |
 | 1.0.5 High (full res, JPEG 95) | 3024 × 4277, 764 KB | ✓ | ✓ | 0.870 |
+
+## Card filter (ID cards, passports)
+
+`cardlook.py` is the prototype of `CardLook.kt` / the iOS card kernel (Kotlin output
+matches it to ~0.5 levels on average). Tuned on ID-card and passport photos with simulated
+tungsten (yellow) and window (blue) light, hand shadows, light falloff and low contrast:
+colour cast fell from ~18 % to ~6–7 % (yellow) and ~11 % to ~5–6 % (blue); white balance
+is bounded (gains 0.75–1.4, 85 %) so a genuinely tinted card keeps some of its colour.

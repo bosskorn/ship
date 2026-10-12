@@ -121,6 +121,7 @@ const th: LocaleResource = {
     clean_applied: 'ลบเงาและพื้นหลังแล้ว',
     filter_original: 'ต้นฉบับ',
     filter_auto: 'สแกน',
+    filter_card: 'บัตร',
     filter_document: 'เอกสาร',
     filter_color: 'สี',
     filter_gray: 'สีเทา',

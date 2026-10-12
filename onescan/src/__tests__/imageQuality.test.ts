@@ -1,5 +1,6 @@
 import { masterProfiles, masterSize, PREVIEW, THUMBNAIL } from '@/core/document-engine/image/quality';
 import { pixelRetention } from '@/core/document-engine/image/diagnostics';
+import { defaultFilterFor, pageFilters } from '@/core/document-engine/image/filters';
 
 const phone12mp = { width: 3024, height: 4032 };
 
@@ -36,5 +37,15 @@ describe('master resolution (v1.0.5)', () => {
     expect(masterProfiles.maximum.quality).toBeGreaterThanOrEqual(95);
     expect(PREVIEW.maxEdge).toBeLessThan(masterProfiles.high.maxEdge);
     expect(THUMBNAIL.maxEdge).toBeLessThanOrEqual(500);
+  });
+});
+
+describe('rendering per document type', () => {
+  test('ID cards and business cards get the colour card scan, never black-and-white', () => {
+    expect(defaultFilterFor('id_card')).toBe('card');
+    expect(defaultFilterFor('business_card')).toBe('card');
+    expect(defaultFilterFor('document')).toBe('auto');
+    expect(defaultFilterFor('receipt')).toBe('auto');
+    expect(pageFilters).toContain('card');
   });
 });

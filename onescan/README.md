@@ -74,6 +74,9 @@ full-resolution master rendered once from it (zoom, PDF, export; JPEG 95 at the 
 High quality), a ~1600 px preview and a ~400 px thumbnail. Edits are stored as parameters
 and re-rendered from the original. PDFs embed the master JPEGs unchanged (`PdfWriter`).
 Settings → Scan quality, and Scan diagnostics shows each tier's size.
+Rendering depends on the document type: documents/receipts get the white-paper "Scan"
+filter; ID cards, passports and business cards get the "Card" filter — an enhanced colour
+scan (white balance, even lighting, shadow softening, local contrast), never black-and-white.
 Sharpness test set: `tools/scanquality`.
 
 The page detector is a small learned model trained with `tools/docseg` (see its README for

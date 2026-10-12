@@ -96,6 +96,7 @@ internal object PageProcessor {
     bmp.getPixels(px, 0, w, 0, 0, w, h)
     when (filter) {
       "auto" -> scanLook(px, w, h)
+      "card" -> CardLook.apply(px, w, h)
       "document" -> {
         normalizeIllumination(px, w, h, strength = 1.0)
         adjust(px, contrast = 1.3, saturation = 0.8, brightness = 4.0)
@@ -286,6 +287,8 @@ internal object PageProcessor {
   private fun lum(c: Int) = (((c shr 16) and 0xff) * 77 + ((c shr 8) and 0xff) * 150 + (c and 0xff) * 29) shr 8
 
   /** out = v + amount × (v − 3×3 mean), interior pixels. Keeps 3 source rows, not a full copy. */
+  fun unsharpRows(px: IntArray, w: Int, h: Int, amount: Float) = unsharp(px, w, h, amount)
+
   private fun unsharp(px: IntArray, w: Int, h: Int, amount: Float) {
     if (w < 3 || h < 3) return
     var above = px.copyOfRange(0, w)

@@ -92,4 +92,35 @@ class PageProcessorTest {
     val stamp = px[60 * w + 60]
     assertTrue("stamp keeps its red: $stamp", ch(stamp, 16) - ch(stamp, 8) > 100)
   }
+
+  @Test
+  fun cardLookKeepsColourEvensLightAndRemovesTungstenCast() {
+    val w = 400
+    val h = 252
+    // Light card (warm-white base, blue band, skin-toned photo, dark text) under tungsten light
+    // (blue channel ×0.7) that falls off by 40 % to the right.
+    val px = IntArray(w * h)
+    for (y in 0 until h) for (x in 0 until w) {
+      val (r, g, b) = when {
+        x in 280..370 && y in 40..170 -> Triple(205, 160, 135) // photo
+        y in 0..30 -> Triple(60, 110, 200) // blue band
+        y in 120..126 && x in 30..240 && x % 14 < 9 -> Triple(30, 30, 35) // text
+        else -> Triple(238, 236, 230)
+      }
+      val light = 1.0 - 0.4 * x / w
+      px[y * w + x] = (0xff shl 24) or ((r * light).toInt() shl 16) or ((g * 0.95 * light).toInt() shl 8) or (b * 0.7 * light).toInt()
+    }
+    CardLook.apply(px, w, h)
+    fun ch(c: Int, s: Int) = (c shr s) and 0xff
+    val left = px[80 * w + 20]
+    val right = px[80 * w + 260]
+    assertTrue("card base evened out: ${lum(left)} vs ${lum(right)}", kotlin.math.abs(lum(left) - lum(right)) < 20)
+    assertTrue("tungsten cast reduced (R−B was 77): ${ch(left, 16) - ch(left, 0)}", ch(left, 16) - ch(left, 0) < 35)
+    val band = px[15 * w + 200]
+    assertTrue("blue band stays blue", ch(band, 0) - ch(band, 16) > 60)
+    val photo = px[100 * w + 320]
+    assertTrue("photo keeps skin tone (not grey, not white)", ch(photo, 16) - ch(photo, 0) > 25 && lum(photo) < 235)
+    val text = px[123 * w + 100]
+    assertTrue("text stays dark: ${lum(text)}", lum(text) < 80)
+  }
 }

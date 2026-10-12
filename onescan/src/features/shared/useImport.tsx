@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { TProgress, TText, useTheme, useToast } from '@/design-system';
+import { defaultFilterFor } from '@/core/document-engine/image/filters';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { useScanSession } from '@/features/scanner/scanSession';
 import { useDocuments } from '@/features/documents/documentsStore';
@@ -45,7 +46,7 @@ export function useImport() {
       const session = useScanSession.getState();
       // From the camera, imported photos join the current scan session.
       if (!opts?.append) session.start();
-      for (const a of res.assets) session.addPage(await DocumentEngine.processCapture(a.uri));
+      for (const a of res.assets) session.addPage(await DocumentEngine.processCapture(a.uri, defaultFilterFor(useScanSession.getState().docType)));
       if (!opts?.append) router.push('/editor');
       return true;
     } catch {
