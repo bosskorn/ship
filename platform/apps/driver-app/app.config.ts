@@ -23,6 +23,7 @@ const config: ExpoConfig = {
     }
   },
   "android": {
+    "blockedPermissions": ["android.permission.RECORD_AUDIO", "android.permission.SYSTEM_ALERT_WINDOW"],
     "package": "th.co.ship.driver",
     "permissions": [
       "ACCESS_COARSE_LOCATION",
@@ -53,7 +54,8 @@ const config: ExpoConfig = {
     [
       "expo-camera",
       {
-        "cameraPermission": "สแกน QR และถ่ายรูปหลักฐานการรับ-ส่งสินค้า"
+        "cameraPermission": "สแกน QR และถ่ายรูปหลักฐานการรับ-ส่งสินค้า",
+        "recordAudioAndroid": false
       }
     ],
     [

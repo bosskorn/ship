@@ -18,6 +18,7 @@ const config: ExpoConfig = {
     }
   },
   "android": {
+    "blockedPermissions": ["android.permission.RECORD_AUDIO", "android.permission.SYSTEM_ALERT_WINDOW"],
     "package": "th.co.ship.customer",
     "permissions": [
       "ACCESS_COARSE_LOCATION",
