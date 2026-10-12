@@ -56,6 +56,11 @@ def mean_lab(img, r, s=1.0):
     return lab(region(img, r, s)).reshape(-1, 3).mean(0)
 
 
+def hue_shift(a, b):
+    d = abs(np.degrees(np.arctan2(a[2], a[1]) - np.arctan2(b[2], b[1]))) % 360
+    return float(min(d, 360 - d))
+
+
 def dE(a, b):
     return float(np.linalg.norm(a - b))
 
@@ -131,7 +136,19 @@ def a4_checks(out, ref, m, src=None):
     st = region(ref, R['stamp']).astype(np.int32)
     ink = (st[..., 0] > 150) & (st[..., 1] < 90)
     so = cv2.resize(region(out, R['stamp'], s), (st.shape[1], st.shape[0]), interpolation=cv2.INTER_AREA)
-    res['red stamp ΔE'] = (dE(lab(so[ink]).mean(0), lab(st[ink].astype(np.uint8)).mean(0)), '≤ 15')
+    so_lab, st_lab = lab(so[ink]).mean(0), lab(st[ink].astype(np.uint8)).mean(0)
+    res['red stamp ΔE'] = (dE(so_lab, st_lab), '≤ 15')
+    # Not darkened or desaturated, hue still red (vs the ideal page).
+    res['red stamp L* change'] = (float(so_lab[0] - st_lab[0]), '-10–10')
+    res['red stamp chroma kept'] = (float(np.hypot(*so_lab[1:]) / np.hypot(*st_lab[1:])), '0.85–1.25')
+    res['red stamp hue shift °'] = (hue_shift(so_lab, st_lab), '≤ 10')
+    # Blue signature ink: same rules.
+    sg = region(ref, R['signature']).astype(np.int32)
+    sink = (sg[..., 2] > 120) & (sg[..., 0] < 80)
+    sgo = cv2.resize(region(out, R['signature'], s), (sg.shape[1], sg.shape[0]), interpolation=cv2.INTER_AREA)
+    sg_o, sg_r = lab(sgo[sink]).mean(0), lab(sg[sink].astype(np.uint8)).mean(0)
+    res['blue signature ΔE'] = (dE(sg_o, sg_r), '≤ 15')
+    res['blue signature L* change'] = (float(sg_o[0] - sg_r[0]), '-10–10')
     for k in ('logo_blue', 'logo_orange', 'logo_green'):
         res[f'{k.split("_")[1]} logo ΔE'] = (dE(mean_lab(out, R[k], s), mean_lab(ref, R[k])), '≤ 15')
     return res
