@@ -2,7 +2,14 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
-| `OneScan-v1.1.0-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.1.0 (versionCode 8), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+| `OneScan-v1.1.1-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.1.1 (versionCode 9), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+
+## Changes in 1.1.1 (pre device-QA fixes)
+- Cancelling the system scanner returns to the OneScan camera.
+- HD ↔ MAX no longer restarts the camera when both give the same sensor size; camera originals are JPEG 97.
+- Very large photos (48/64 MP) are rendered at ~26 MP to stay within memory.
+- Settings → Scan quality: "Try the OneScan camera again" after an automatic fallback.
+- Scan diagnostics → "Copy report" for the QA sheet.
 
 ## Changes in 1.1.0 (Scanner Phase 1)
 - Scan opens the new OneScan camera (the Google/system scanner is now the fallback). Settings → Scan quality → Scanner engine: Automatic (default) / OneScan camera / System scanner.
