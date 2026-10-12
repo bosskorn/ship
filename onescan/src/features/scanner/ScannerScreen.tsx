@@ -180,7 +180,7 @@ export function ScannerScreen() {
       </View>
 
       {/* Camera */}
-      <View style={styles.fill} onLayout={(e) => setSize(e.nativeEvent.layout)}>
+      <View style={[styles.fill, { overflow: 'hidden' }]} onLayout={(e) => setSize(e.nativeEvent.layout)}>
         {CameraSurface ? (
           <CameraSurface
             ref={nativeCamera}
@@ -188,7 +188,7 @@ export function ScannerScreen() {
             torch={torch}
             active
             frameMaxEdge={192}
-            frameIntervalMs={150}
+            frameIntervalMs={250}
             onCameraReady={() => setReady(true)}
             onFrame={detection.onFrame}
             onCameraError={() => toast(t('scanner.unavailable'), 'error')}

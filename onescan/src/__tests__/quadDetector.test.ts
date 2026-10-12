@@ -1,5 +1,7 @@
 import { convexHull, detectQuad, frameQuadToView, GrayImage, maxAreaQuad, orderQuad, base64ToUint8 } from '@/core/document-engine/capture/quadDetector';
 import { bytesToBase64 } from '@/core/document-engine/security/SecurityEngine';
+import { composite, rng as seeded } from './fixtures/scenes';
+import { REAL_FLOOR, USER_SCENE } from './fixtures/realScenes';
 import type { Point } from '@/core/document-engine/model';
 
 /** Deterministic PRNG so tests are stable. */
@@ -96,6 +98,63 @@ describe('detectQuad', () => {
     expect(b.sharpness).toBeLessThan(0.3);
     expect(b.quad).not.toBeNull(); // still detectable, just not crisp enough to auto-fire
     expect(a.brightness).toBeGreaterThan(0.3);
+  });
+});
+
+describe('real-world scenes (marble floor from a device photo)', () => {
+  const floor = { width: REAL_FLOOR.width, height: REAL_FLOOR.height, data: base64ToUint8(REAL_FLOOR.base64) };
+  const W = REAL_FLOOR.width;
+  const H = REAL_FLOOR.height;
+
+  it('regression: object running off the frame with a shadow is NOT a document', () => {
+    const d = detectQuad({ width: USER_SCENE.width, height: USER_SCENE.height, data: base64ToUint8(USER_SCENE.base64) });
+    expect(d.quad).toBeNull();
+  });
+
+  it('finds a white page on a light marble floor', () => {
+    const page = [{ x: 30, y: 32 }, { x: 116, y: 44 }, { x: 110, y: 160 }, { x: 22, y: 150 }];
+    expectCorners(detectQuad(composite(floor, { page, paper: 245 })).quad, page, W, H, 4);
+  });
+
+  it('picks the page, not the shadow next to it', () => {
+    const page = [{ x: 35, y: 25 }, { x: 122, y: 42 }, { x: 108, y: 145 }, { x: 25, y: 128 }];
+    const shadow = [{ x: 25, y: 128 }, { x: 108, y: 145 }, { x: 100, y: 191 }, { x: 0, y: 191 }, { x: 0, y: 138 }];
+    expectCorners(detectQuad(composite(floor, { page, shadow })).quad, page, W, H, 4);
+  });
+
+  it('rejects a page that is cut off by the frame', () => {
+    const page = [{ x: -25, y: 40 }, { x: 95, y: 45 }, { x: 90, y: 170 }, { x: -30, y: 160 }];
+    expect(detectQuad(composite(floor, { page })).quad).toBeNull();
+  });
+
+  it('never invents a document on an empty floor', () => {
+    expect(detectQuad(composite(floor, {})).quad).toBeNull();
+  });
+
+  it('benchmark: finds most random pages and has no false positives', () => {
+    const r = seeded(99);
+    let found = 0;
+    let falsePositives = 0;
+    const N = 8;
+    for (let i = 0; i < N; i++) {
+      const cx = 60 + r() * 25;
+      const cy = 85 + r() * 25;
+      const pw = 60 + r() * 35;
+      const ph = 80 + r() * 50;
+      const a = ((r() - 0.5) * 40 * Math.PI) / 180;
+      const page = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => {
+        const x = (sx * pw) / 2;
+        const y = (sy * ph) / 2;
+        return { x: cx + x * Math.cos(a) - y * Math.sin(a), y: cy + x * Math.sin(a) + y * Math.cos(a) };
+      });
+      const d = detectQuad(composite(floor, { page, paper: 240 + r() * 12, seed: i }));
+      if (d.quad && d.quad.every((p, k) => Math.hypot(p.x * (W - 1) - page[k].x, p.y * (H - 1) - page[k].y) <= 5)) found++;
+      // Same page shifted so it runs off the frame: must be rejected.
+      const cut = page.map((p) => ({ x: p.x + (i % 2 ? 70 : -70), y: p.y }));
+      if (detectQuad(composite(floor, { page: cut, seed: i })).quad) falsePositives++;
+    }
+    expect(falsePositives).toBe(0);
+    expect(found / N).toBeGreaterThanOrEqual(0.75);
   });
 });
 

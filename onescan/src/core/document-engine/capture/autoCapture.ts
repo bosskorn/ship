@@ -23,9 +23,10 @@ export interface AutoCaptureConfig {
 }
 
 export const defaultAutoCaptureConfig: AutoCaptureConfig = {
-  stableFrames: 6,
-  maxDrift: 0.02,
-  minConfidence: 0.7,
+  // Frames arrive every ~250 ms: 4 stable frames ≈ 1 s of holding still.
+  stableFrames: 4,
+  maxDrift: 0.03,
+  minConfidence: 0.5,
   minBrightness: 0.18,
   minSharpness: 0.15,
   cooldownMs: 1500,

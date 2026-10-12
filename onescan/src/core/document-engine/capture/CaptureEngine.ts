@@ -1,6 +1,6 @@
 import { OneScanVision } from '@/native/OneScanVision';
 import type { Quad } from '../model';
-import { decodeGray, detectQuad, QuadDetection } from './quadDetector';
+import { boxBlur, decodeGray, detectQuad, QuadDetection, refineQuad, sobel } from './quadDetector';
 
 export const fullFrameQuad: Quad = [
   { x: 0, y: 0 },
@@ -18,8 +18,10 @@ export interface DetectionResult {
   sharpness: number;
 }
 
-/** Long edge of the grayscale image used for still-image detection. */
-const STILL_EDGE = 320;
+/** Detection runs at the live-preview scale (what the detector is tuned for)… */
+const DETECT_EDGE = 192;
+/** …then corners are refined on a sharper copy for an accurate crop. */
+const REFINE_EDGE = 640;
 
 /**
  * Document boundary detection. Live preview frames and captured stills both go
@@ -36,10 +38,23 @@ export const CaptureEngine = {
     if (!OneScanVision) {
       return { quad: fullFrameQuad, detected: false, confidence: 0, brightness: 1, sharpness: 1 };
     }
-    const g = await OneScanVision.grayscaleAsync(imageUri, STILL_EDGE);
+    const g = await OneScanVision.grayscaleAsync(imageUri, DETECT_EDGE);
     const d = detectQuad(decodeGray(g.width, g.height, g.data));
+    let quad = d.quad;
+    if (quad) {
+      try {
+        const big = await OneScanVision.grayscaleAsync(imageUri, REFINE_EDGE);
+        const img = decodeGray(big.width, big.height, big.data);
+        const mag = sobel(boxBlur(img.data, img.width, img.height, 1), img.width, img.height).mag;
+        const px = quad.map((p) => ({ x: p.x * (img.width - 1), y: p.y * (img.height - 1) }));
+        const refined = refineQuad(px, mag, img.width, img.height, 6);
+        quad = refined.map((p) => ({ x: p.x / (img.width - 1), y: p.y / (img.height - 1) })) as Quad;
+      } catch {
+        // Keep the coarse quad.
+      }
+    }
     return {
-      quad: d.quad ?? fullFrameQuad,
+      quad: quad ?? fullFrameQuad,
       detected: d.quad !== null,
       confidence: d.confidence,
       brightness: d.brightness,
