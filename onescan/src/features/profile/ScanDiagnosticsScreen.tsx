@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { TButton, TCellGroup, TEmpty, TNavigationBar, TScreen, TText, useTheme } from '@/design-system';
 import { DiagnosticStage, megapixels, pixelRetention, StageInfo, useScanDiagnostics } from '@/core/document-engine/image/diagnostics';
 
-const order = ['source', 'master', 'preview'] as const satisfies readonly DiagnosticStage[];
+const order = ['source', 'master', 'preview', 'thumbnail'] as const satisfies readonly DiagnosticStage[];
 
 function line(s: StageInfo) {
   const mb = s.bytes / (1024 * 1024);
@@ -44,6 +44,16 @@ export function ScanDiagnosticsScreen() {
                     </TText>
                   ) : null,
                 )}
+                {p.capture ? (
+                  <TText variant="bodySmall">
+                    {`${t('scan_diagnostics.camera')}: ${(p.capture.tier ?? '').toUpperCase()}${p.capture.jpegQuality ? ` · JPEG ${p.capture.jpegQuality}` : ''}`}
+                  </TText>
+                ) : null}
+                {p.timings ? (
+                  <TText variant="bodySmall">
+                    {t('scan_diagnostics.timings', { capture: p.timings.captureMs ?? '–', process: p.timings.processMs ?? '–' })}
+                  </TText>
+                ) : null}
                 {retention !== null ? (
                   <TText variant="bodySmall" style={{ color: low ? colors.error : colors.success }}>
                     {t('scan_diagnostics.retention', { percent: Math.round(retention * 100) })}

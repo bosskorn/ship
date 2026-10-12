@@ -31,6 +31,15 @@ export interface NativeImage {
   height: number;
 }
 
+/** A camera still (`takePhoto`): sensor capture, never a preview frame. */
+export interface CapturedPhoto extends NativeImage {
+  /** JPEG quality the camera encoded at. */
+  quality?: number;
+  bytes?: number;
+  /** Shutter → file written. */
+  captureMs?: number;
+}
+
 export interface OneScanVisionModule {
   /**
    * Upright full-range BT.601 planes, long edge ≤ maxEdge, base64: `data` = Y,

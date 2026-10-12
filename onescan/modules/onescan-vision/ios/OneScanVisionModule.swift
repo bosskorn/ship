@@ -95,6 +95,7 @@ public class OneScanVisionModule: Module {
       Prop("active") { (view: OneScanCameraView, value: Bool) in view.active = value }
       Prop("frameMaxEdge") { (view: OneScanCameraView, value: Int) in view.frameMaxEdge = min(max(value, 96), 480) }
       Prop("frameIntervalMs") { (view: OneScanCameraView, value: Int) in view.frameIntervalMs = max(value, 50) }
+      Prop("captureQuality") { (view: OneScanCameraView, value: String) in view.captureQuality = value }
 
       AsyncFunction("takePhoto") { (view: OneScanCameraView, promise: Promise) in
         view.takePhoto { result in

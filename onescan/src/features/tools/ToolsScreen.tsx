@@ -31,10 +31,10 @@ export function ToolsScreen() {
       tools: [
         { key: 'document', icon: 'scan', run: scan('document', 'document') },
         { key: 'id', icon: 'idCard', run: scan('id', 'id_card') },
-        { key: 'receipt', icon: 'receipt', run: scan('document', 'receipt') },
-        { key: 'book', icon: 'book', run: scan('book', 'book') },
-        { key: 'whiteboard', icon: 'whiteboard', run: scan('whiteboard', 'whiteboard') },
-        { key: 'business_card', icon: 'businessCard', run: scan('document', 'business_card') },
+        { key: 'receipt', icon: 'receipt', run: scan('receipt', 'receipt') },
+        { key: 'book', icon: 'book', run: scan('document', 'book') },
+        { key: 'whiteboard', icon: 'whiteboard', run: scan('document', 'whiteboard') },
+        { key: 'business_card', icon: 'businessCard', run: scan('id', 'business_card') },
       ],
     },
     {

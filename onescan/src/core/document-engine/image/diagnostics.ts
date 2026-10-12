@@ -6,7 +6,7 @@ import type { ImageInfo } from '@/native/OneScanVision';
  * most recent pages. Numbers only — no image content, file names or text — and kept in
  * memory for the Scan diagnostics screen; never persisted or sent anywhere.
  */
-export type DiagnosticStage = 'source' | 'preview' | 'master' | 'pdf';
+export type DiagnosticStage = 'source' | 'preview' | 'master' | 'thumbnail' | 'pdf';
 
 export interface StageInfo {
   width: number;
@@ -26,11 +26,17 @@ export interface PageDiagnostics {
   filter: string;
   profile: string;
   stages: Partial<Record<DiagnosticStage, StageInfo>>;
+  /** OneScan camera only: HD/MAX tier and JPEG quality the still was captured at. */
+  capture?: { tier?: string; jpegQuality?: number };
+  /** Milliseconds: shutter → file (capture), file → enhanced preview (process). */
+  timings?: { captureMs?: number; processMs?: number };
 }
 
 interface DiagnosticsState {
   pages: PageDiagnostics[];
   record: (page: Omit<PageDiagnostics, 'at'>) => void;
+  /** Add a stage to the most recent entry for `page` (e.g. the document thumbnail). */
+  attach: (page: number, stage: DiagnosticStage, info: StageInfo | undefined) => void;
   clear: () => void;
 }
 
@@ -39,6 +45,15 @@ const MAX_PAGES = 20;
 export const useScanDiagnostics = create<DiagnosticsState>((set) => ({
   pages: [],
   record: (page) => set((s) => ({ pages: [{ ...page, at: Date.now() }, ...s.pages].slice(0, MAX_PAGES) })),
+  attach: (page, stage, info) =>
+    set((s) => {
+      if (!info) return s;
+      const i = s.pages.findIndex((p) => p.page === page);
+      if (i < 0) return s;
+      const pages = [...s.pages];
+      pages[i] = { ...pages[i], stages: { ...pages[i].stages, [stage]: info } };
+      return { pages };
+    }),
   clear: () => set({ pages: [] }),
 }));
 

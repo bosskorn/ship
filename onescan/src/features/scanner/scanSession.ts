@@ -8,6 +8,9 @@ interface ScanSessionState {
   mode: CaptureMode;
   docType: DocumentType;
   pages: DraftPage[];
+  /** Multi-page capture state for this scan (starts single-page; never persisted). */
+  multi: boolean;
+  setMulti: (v: boolean) => void;
   /** Index of the page being re-scanned, if any. */
   rescanIndex: number | null;
   /** Camera was opened from the editor (add/rescan): return with back(), don't stack a new editor. */
@@ -20,6 +23,8 @@ interface ScanSessionState {
   setMode: (m: CaptureMode) => void;
   addPage: (p: DraftPage) => void;
   replacePage: (index: number, p: DraftPage) => void;
+  /** Patch a page by id (background processing finished); no-op if it was removed. */
+  updatePage: (id: string, patch: Partial<DraftPage>) => void;
   removePage: (index: number) => void;
   duplicatePage: (index: number) => void;
   movePage: (from: number, to: number) => void;
@@ -27,18 +32,27 @@ interface ScanSessionState {
   clear: () => void;
 }
 
-const docTypeForMode: Record<CaptureMode, DocumentType> = {
+export const docTypeForMode: Record<CaptureMode, DocumentType> = {
+  auto: 'document',
   document: 'document',
   id: 'id_card',
-  book: 'book',
-  whiteboard: 'whiteboard',
+  receipt: 'receipt',
 };
+
+/** Scanner mode that best fits a document type (Tools → Book opens Document mode, etc.). */
+export function modeForDocType(docType: DocumentType): CaptureMode {
+  if (docType === 'id_card') return 'id';
+  if (docType === 'receipt') return 'receipt';
+  return 'document';
+}
 
 export const useScanSession = create<ScanSessionState>((set) => ({
   sessionId: newId(),
-  mode: 'document',
+  mode: 'auto',
   docType: 'document',
   pages: [],
+  multi: false,
+  setMulti: (multi) => set({ multi }),
   rescanIndex: null,
   fromEditor: false,
   setFromEditor: (fromEditor) => set({ fromEditor }),
@@ -47,9 +61,10 @@ export const useScanSession = create<ScanSessionState>((set) => ({
   start: (opts) =>
     set({
       sessionId: newId(),
-      mode: opts?.mode ?? 'document',
-      docType: opts?.docType ?? docTypeForMode[opts?.mode ?? 'document'],
+      mode: opts?.mode ?? (opts?.docType ? modeForDocType(opts.docType) : 'auto'),
+      docType: opts?.docType ?? docTypeForMode[opts?.mode ?? 'auto'],
       pages: [],
+      multi: false,
       rescanIndex: null,
       fromEditor: false,
       editingDocumentId: null,
@@ -57,6 +72,7 @@ export const useScanSession = create<ScanSessionState>((set) => ({
   setMode: (mode) => set((s) => ({ mode, docType: s.docType === docTypeForMode[s.mode] ? docTypeForMode[mode] : s.docType })),
   addPage: (p) => set((s) => ({ pages: [...s.pages, p] })),
   replacePage: (index, p) => set((s) => ({ pages: s.pages.map((x, i) => (i === index ? p : x)) })),
+  updatePage: (id, patch) => set((s) => ({ pages: s.pages.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
   removePage: (index) => set((s) => ({ pages: s.pages.filter((_, i) => i !== index) })),
   duplicatePage: (index) =>
     set((s) => {
@@ -74,5 +90,5 @@ export const useScanSession = create<ScanSessionState>((set) => ({
       return { pages };
     }),
   setRescan: (rescanIndex) => set({ rescanIndex }),
-  clear: () => set({ pages: [], rescanIndex: null, fromEditor: false, editingDocumentId: null, sessionId: newId() }),
+  clear: () => set({ pages: [], multi: false, rescanIndex: null, fromEditor: false, editingDocumentId: null, sessionId: newId() }),
 }));

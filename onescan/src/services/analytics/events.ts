@@ -22,6 +22,13 @@ export const analyticsEvents = [
   'cloud_enabled',
   'pro_started',
   'settings_changed',
+  'scanner_open',
+  'capture_success',
+  'capture_failed',
+  'engine_fallback',
+  'hd_used',
+  'max_used',
+  'multipage_used',
 ] as const;
 
 export type AnalyticsEvent = (typeof analyticsEvents)[number];
