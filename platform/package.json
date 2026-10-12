@@ -1,0 +1,23 @@
+{
+  "name": "ship-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Thailand on-demand delivery marketplace (MVP)",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "build:shared": "pnpm --filter @ship/shared build",
+    "dev:api": "pnpm --filter @ship/api dev",
+    "dev:ops": "pnpm --filter @ship/ops-web dev",
+    "migrate": "pnpm --filter @ship/api migrate",
+    "seed": "pnpm --filter @ship/api seed",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "demo": "pnpm --filter @ship/api demo"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@swc/core"
+    ]
+  }
+}
