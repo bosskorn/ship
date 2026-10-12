@@ -56,6 +56,44 @@ export function NSteps({ items, compact }: { items: StepItem[]; compact?: boolea
   );
 }
 
+/** Compact horizontal progress: ✓────✓────●────○ with labels (directive V2 §10, §13). */
+export function NStepsInline({ items }: { items: StepItem[] }) {
+  return (
+    <View style={styles.inlineRow} accessibilityRole="progressbar">
+      {items.map((item, i) => (
+        <View key={item.key} style={styles.inlineItem}>
+          <View style={styles.inlineTrack}>
+            <View style={[styles.inlineLine, i === 0 && styles.hidden, item.state !== 'pending' && styles.lineDone]} />
+            <View
+              style={[
+                styles.inlineNode,
+                item.state === 'done' && styles.nodeDone,
+                item.state === 'current' && styles.inlineCurrent,
+              ]}
+            >
+              {item.state === 'done' ? <NIcon name="check" size={10} color={color.textOnPrimary} strokeWidth={3} /> : null}
+            </View>
+            <View
+              style={[
+                styles.inlineLine,
+                i === items.length - 1 && styles.hidden,
+                items[i + 1] && items[i + 1].state !== 'pending' && styles.lineDone,
+              ]}
+            />
+          </View>
+          <NText
+            variant="label"
+            numberOfLines={1}
+            style={{ color: item.state === 'current' ? color.primary : item.state === 'done' ? color.textPrimary : color.textPlaceholder, fontWeight: item.state === 'current' ? '600' : '400' }}
+          >
+            {item.title}
+          </NText>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const NODE = 18;
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: space.sm },
@@ -77,4 +115,11 @@ const styles = StyleSheet.create({
   line: { flex: 1, width: 1.5, backgroundColor: color.divider, marginVertical: 2 },
   lineDone: { backgroundColor: color.primary },
   body: { flex: 1 },
+  inlineRow: { flexDirection: 'row' },
+  inlineItem: { flex: 1, alignItems: 'center', gap: 6 },
+  inlineTrack: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' },
+  inlineLine: { flex: 1, height: 2, backgroundColor: color.divider },
+  hidden: { opacity: 0 },
+  inlineNode: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: color.border, backgroundColor: color.bgContainer, alignItems: 'center', justifyContent: 'center' },
+  inlineCurrent: { borderColor: color.primary, borderWidth: 5 },
 });

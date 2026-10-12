@@ -32,6 +32,7 @@ const palette = {
   gray2: '#EEEEEE',
   gray1: '#F3F3F3',
   gray0: '#F7F8FA',
+  page: '#F2F4F8', // cool off-white page canvas: white containers read clearly on it
   white: '#FFFFFF',
 } as const;
 
@@ -60,7 +61,7 @@ export const color = {
   border: palette.gray4,
   divider: palette.gray3,
 
-  bgPage: palette.gray0,
+  bgPage: palette.page,
   bgContainer: palette.white,
   bgElevated: palette.white,
   bgSecondary: palette.gray1,
@@ -68,6 +69,14 @@ export const color = {
   bgMask: 'rgba(0,0,0,0.45)',
 
   brandSplash: palette.blue6,
+  /** Brand gradient — reserved for brand moments (launch, signature graphics). Never on regular buttons. */
+  brandGradientFrom: palette.blue6,
+  brandGradientTo: palette.cyan5,
+  /** Service graphic system palette. */
+  graphicTint: '#E8F0FF',
+  graphicMid: '#7FA6FF',
+  graphicDeep: '#0A3FB0',
+  rating: '#F5A623',
 } as const;
 
 export type ColorToken = keyof typeof color;
@@ -125,6 +134,10 @@ const t = (size: number, lineHeight: number, w: Weight): TextStyle => ({
 
 export const typography = {
   display: t(30, 42, weight.semibold),
+  /** Home hero question — the single loudest line on Home. */
+  hero: t(26, 38, weight.semibold),
+  /** Prominent prices (number part). */
+  price: t(22, 30, weight.semibold),
   h1: t(24, 34, weight.semibold),
   h2: t(20, 30, weight.semibold),
   h3: t(18, 28, weight.medium),
@@ -132,6 +145,7 @@ export const typography = {
   body: t(16, 24, weight.regular),
   secondary: t(14, 22, weight.regular),
   secondaryStrong: t(14, 22, weight.medium),
+  label: t(12, 16, weight.medium),
   caption: t(12, 18, weight.regular),
 } as const;
 

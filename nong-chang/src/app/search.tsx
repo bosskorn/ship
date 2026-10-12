@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,7 +13,8 @@ const POPULAR = ['แอร์ไม่เย็น', 'น้ำรั่ว', '
 
 export default function Search() {
   const insets = useSafeAreaInsets();
-  const [query, setQuery] = useState('');
+  const params = useLocalSearchParams<{ q?: string }>();
+  const [query, setQuery] = useState(params.q ?? '');
   const results = useMemo(() => rankServices(query, SERVICES, 8), [query]);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function Search() {
       <View style={[styles.bar, { paddingTop: insets.top + space.xs }]}>
         <NIconButton icon="back" accessibilityLabel="ย้อนกลับ" onPress={() => router.back()} />
         <View style={{ flex: 1 }}>
-          <NSearch value={query} onChangeText={setQuery} autoFocus onCameraPress={() => router.push('/diagnosis')} />
+          <NSearch value={query} onChangeText={setQuery} autoFocus={!params.q} onCameraPress={() => router.push('/diagnosis')} />
         </View>
       </View>
       <NScreen keyboardDismissMode="on-drag">

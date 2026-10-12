@@ -1,6 +1,7 @@
 import type { BottomTabBarProps } from 'expo-router/tabs';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { haptic } from '@/lib/haptics';
@@ -14,10 +15,16 @@ export interface NavItem {
   name: string;
   label: string;
   icon: IconName;
+  /** Filled variant shown when selected. */
+  activeIcon: IconName;
   badge?: number;
 }
 
-/** Four-item bottom navigation (spec §15). No hamburger, no sidebar. */
+/**
+ * Four-item bottom navigation (spec §15, directive V2 §20).
+ * Selected = filled icon + brand colour + medium label, with a small native
+ * spring on change. Unselected = outline icon in neutral grey.
+ */
 export function NBottomNavigation({ state, navigation, items }: BottomTabBarProps & { items: NavItem[] }) {
   const insets = useSafeAreaInsets();
   return (
@@ -26,7 +33,6 @@ export function NBottomNavigation({ state, navigation, items }: BottomTabBarProp
         const item = items.find((i) => i.name === route.name);
         if (!item) return null;
         const focused = state.index === index;
-        const tint = focused ? color.primary : color.textSecondary;
         return (
           <Pressable
             key={route.key}
@@ -42,15 +48,8 @@ export function NBottomNavigation({ state, navigation, items }: BottomTabBarProp
               }
             }}
           >
-            <View>
-              <NIcon name={item.icon} size={24} color={tint} strokeWidth={focused ? 2 : 1.75} />
-              {item.badge ? (
-                <View style={styles.badge}>
-                  <NBadge count={item.badge} />
-                </View>
-              ) : null}
-            </View>
-            <NText variant="caption" style={{ color: tint, fontWeight: focused ? '500' : '400' }}>
+            <TabIcon item={item} focused={focused} />
+            <NText variant="label" style={{ color: focused ? color.primary : color.textSecondary, fontWeight: focused ? '600' : '400' }}>
               {item.label}
             </NText>
           </Pressable>
@@ -60,13 +59,34 @@ export function NBottomNavigation({ state, navigation, items }: BottomTabBarProp
   );
 }
 
+function TabIcon({ item, focused }: { item: NavItem; focused: boolean }) {
+  const scale = useSharedValue(1);
+  useEffect(() => {
+    if (focused) {
+      scale.value = 0.82;
+      scale.value = withSpring(1, { damping: 12, stiffness: 320 });
+    }
+  }, [focused, scale]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <Animated.View style={style}>
+      <NIcon name={focused ? item.activeIcon : item.icon} size={24} color={focused ? color.primary : color.textSecondary} />
+      {item.badge ? (
+        <View style={styles.badge}>
+          <NBadge count={item.badge} />
+        </View>
+      ) : null}
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     backgroundColor: color.bgContainer,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: color.divider,
+    borderTopColor: color.border,
   },
-  item: { flex: 1, height: layout.bottomBarHeight, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  badge: { position: 'absolute', top: -4, right: -10 },
+  item: { flex: 1, height: layout.bottomBarHeight + 4, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  badge: { position: 'absolute', top: -4, right: -12 },
 });

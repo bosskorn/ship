@@ -33,7 +33,18 @@ export type IconName =
   | 'clock'
   | 'verified'
   | 'wifi-off'
-  | 'help';
+  | 'help'
+  | 'home-filled'
+  | 'jobs-filled'
+  | 'chat-filled'
+  | 'user-filled'
+  | 'ticket'
+  | 'receipt'
+  | 'card'
+  | 'settings'
+  | 'file'
+  | 'bolt'
+  | 'edit';
 
 interface Props {
   name: IconName;
@@ -167,6 +178,48 @@ export function NIcon({ name, size = 24, color = c.textPrimary, strokeWidth = 1.
             <Circle cx={12} cy={16.8} r={1} fill={color} />
           </>
         );
+      case 'home-filled':
+        return <Path d="M4 10.5L12 4l8 6.5V20h-5.5v-5.5h-5V20H4v-9.5z" fill={color} stroke={color} strokeWidth={1.5} strokeLinejoin="round" />;
+      case 'jobs-filled':
+        return (
+          <>
+            <Rect x={4.5} y={4} width={15} height={17} rx={2} fill={color} stroke={color} strokeWidth={1.5} />
+            <Path d="M8.5 9h7M8.5 13h7M8.5 17h4" stroke="#fff" strokeWidth={1.75} strokeLinecap="round" />
+          </>
+        );
+      case 'chat-filled':
+        return <Path d="M4 5h16v11H9l-5 4V5z" fill={color} stroke={color} strokeWidth={1.5} strokeLinejoin="round" />;
+      case 'user-filled':
+        return (
+          <>
+            <Circle cx={12} cy={8.5} r={4.25} fill={color} />
+            <Path d="M4.5 20.5a7.5 7.5 0 0115 0z" fill={color} stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+          </>
+        );
+      case 'ticket':
+        return <Path d="M3.5 7.5h17v3a1.75 1.75 0 000 3.5v3h-17v-3a1.75 1.75 0 000-3.5v-3zM14 7.5v10" {...p} />;
+      case 'receipt':
+        return <Path d="M6 3.5h12v17l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5v-17zM9 8.5h6M9 12h6M9 15.5h3.5" {...p} />;
+      case 'card':
+        return (
+          <>
+            <Rect x={3} y={5.5} width={18} height={13} rx={2} {...p} />
+            <Path d="M3 10h18M7 14.5h3" {...p} />
+          </>
+        );
+      case 'settings':
+        return (
+          <>
+            <Circle cx={12} cy={12} r={3} {...p} />
+            <Path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" {...p} />
+          </>
+        );
+      case 'file':
+        return <Path d="M6 3.5h8l4 4v13H6v-17zM14 3.5v4h4M9 12.5h6M9 16h6" {...p} />;
+      case 'bolt':
+        return <Path d="M13 3L5.5 13.5H11L10 21l7.5-10.5H12L13 3z" {...p} />;
+      case 'edit':
+        return <Path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" {...p} />;
     }
   })();
   return (

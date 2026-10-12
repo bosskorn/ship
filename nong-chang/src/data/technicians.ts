@@ -6,8 +6,11 @@ export interface Technician extends Candidate {
   jobs: number;
   specialty: string;
   phone: string;
-  /** Initials used by NAvatar until photos load. */
+  /** Accessibility label / fallback. */
   initials: string;
+  /** Profile photo from KYC onboarding. Undefined until uploaded. */
+  photo?: string;
+  vehicle?: string;
   /** Offset from the customer in degrees (mock positions). */
   offset: { lat: number; lng: number };
 }
@@ -20,6 +23,7 @@ export const TECHNICIANS: Technician[] = [
     verified: true,
     jobs: 1248,
     specialty: 'เชี่ยวชาญงานแอร์',
+    vehicle: 'Honda Wave · 1กข 2345',
     phone: '0800000001',
     online: true,
     busy: false,
@@ -38,6 +42,7 @@ export const TECHNICIANS: Technician[] = [
     verified: true,
     jobs: 864,
     specialty: 'เชี่ยวชาญงานประปา',
+    vehicle: 'Yamaha Fino · 2ขค 8812',
     phone: '0800000002',
     online: true,
     busy: false,
@@ -56,6 +61,7 @@ export const TECHNICIANS: Technician[] = [
     verified: true,
     jobs: 532,
     specialty: 'ช่างไฟฟ้า มีใบอนุญาต',
+    vehicle: 'Honda Click · 3คง 4410',
     phone: '0800000003',
     online: true,
     busy: false,
@@ -74,6 +80,7 @@ export const TECHNICIANS: Technician[] = [
     verified: true,
     jobs: 1530,
     specialty: 'แม่บ้านมืออาชีพ',
+    vehicle: 'Honda Scoopy · 4งจ 1290',
     phone: '0800000004',
     online: true,
     busy: false,

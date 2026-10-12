@@ -67,14 +67,14 @@ export function NTechnicianItem({
 }) {
   return (
     <View style={styles.tech}>
-      <NAvatar initials={technician.initials} size={compact ? 44 : 56} verified={technician.verified} />
+      <NAvatar photo={technician.photo} initials={technician.name} size={compact ? 44 : 56} verified={technician.verified} />
       <View style={{ flex: 1, gap: 2 }}>
         <View style={styles.inline}>
           <NText variant="bodyStrong">{technician.name}</NText>
           {technician.verified ? <NTag tone="primary" size="small">ยืนยันตัวตนแล้ว</NTag> : null}
         </View>
         <View style={styles.inline}>
-          <NIcon name="star-filled" size={14} color="#F5A623" />
+          <NIcon name="star-filled" size={14} color={color.rating} />
           <NText variant="secondary" color="textSecondary">
             {technician.rating.toFixed(1)} · {formatBaht(technician.jobs)} งาน
           </NText>

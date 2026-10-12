@@ -1,32 +1,32 @@
-import { router, useLocalSearchParams, type Href } from 'expo-router';
-import React, { useEffect, useMemo, useRef } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type MapView from 'react-native-maps';
 import { Marker, Polyline } from 'react-native-maps';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ServiceGraphic } from '@/brand/ServiceGraphic';
 import {
-  HomeMarker,
+  NAvatar,
   NButton,
-  NDivider,
   NEmpty,
   NIcon,
   NIconButton,
-  NJobStatus,
   NMap,
   NOfflineBanner,
-  NSteps,
-  NTechnicianItem,
+  NStepsInline,
   NText,
-  StepItem,
 } from '@/components';
 import { serviceById } from '@/data/catalog';
-import { hasReached, JobStatus, TRACKING_STEPS } from '@/domain/job';
+import { hasReached } from '@/domain/job';
 import { formatTime } from '@/lib/format';
+import { compactSteps, jobHeadline, jobTarget } from '@/lib/jobView';
 import { useIsOffline } from '@/lib/network';
 import { useApp, useJob, useTechnician } from '@/store/AppStore';
 import { color, elevation, layout, radius, space } from '@/theme/tokens';
 
+/** Live tracking (spec §30–31, directive V2 §26): map ~60%, live ETA, technician trust card. */
 export default function Tracking() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const job = useJob(id);
@@ -37,24 +37,19 @@ export default function Tracking() {
   const { height } = useWindowDimensions();
   const map = useRef<MapView>(null);
 
-  // Next-screen routing for statuses that have their own page.
-  const nextHref = useMemo<Href | undefined>(() => {
-    if (!job) return undefined;
-    const map: Partial<Record<JobStatus, Href>> = {
-      quoted: `/job/${job.id}/quote`,
-      approved: `/job/${job.id}/progress`,
-      in_progress: `/job/${job.id}/progress`,
-      completed: `/job/${job.id}/complete`,
-      confirmed: `/job/${job.id}/payment`,
-    };
-    return map[job.status];
-  }, [job]);
-
   const status = job?.status;
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    // Auto-advance when the technician sends a quote: approval is blocking.
-    if (status === 'quoted' && nextHref) router.push(nextHref);
-  }, [status, nextHref]);
+    const t = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(t);
+  }, []);
+  const ownScreen = status === 'matched' || status === 'en_route' || status === 'arrived' || status === 'started';
+  const next = useMemo(() => (job && !ownScreen ? jobTarget(job) : undefined), [job, ownScreen]);
+
+  useEffect(() => {
+    // Approval is blocking: jump straight to the quote when it arrives.
+    if (status === 'quoted' && next) router.push(next);
+  }, [status, next]);
 
   if (!job || !tech) {
     return <NEmpty title="ไม่พบข้อมูลการติดตาม" action={<NButton theme="outline" size="medium" onPress={() => router.replace('/')}>กลับหน้าแรก</NButton>} />;
@@ -66,34 +61,13 @@ export default function Tracking() {
   const p = hasReached(job.status, 'arrived') ? 1 : job.routeProgress;
   const techPos = { latitude: start.latitude + (home.latitude - start.latitude) * p, longitude: start.longitude + (home.longitude - start.longitude) * p };
   const arrived = job.status === 'arrived';
-  const inspecting = job.status === 'started';
-
-  const steps: StepItem[] = TRACKING_STEPS.map((s, i) => {
-    const reached = hasReached(job.status, s.status);
-    const nextReached = i < TRACKING_STEPS.length - 1 && hasReached(job.status, TRACKING_STEPS[i + 1].status);
-    const ev = job.events.find((e) => e.status === s.status);
-    return {
-      key: s.status,
-      title: s.label,
-      description: ev ? formatTime(new Date(ev.at)) : undefined,
-      state: reached ? (nextReached || s.status === 'completed' ? 'done' : 'current') : 'pending',
-    };
-  });
-
-  const headline = arrived
-    ? `ช่าง${tech.name.split(' ')[0]}มาถึงสถานที่แล้ว`
-    : inspecting
-      ? 'ช่างกำลังตรวจหน้างาน'
-      : job.status === 'matched'
-        ? 'ช่างกำลังเตรียมออกเดินทาง'
-        : job.status === 'en_route'
-          ? 'ช่างกำลังเดินทางไปหาคุณ'
-          : undefined;
+  const enRoute = job.status === 'en_route' || job.status === 'matched';
+  const eta = job.etaMinutes ?? 0;
+  const arrivalAt = new Date(now + eta * 60_000);
 
   return (
     <View style={styles.root}>
-      {/* Map: ~60% of the screen (spec §30) */}
-      <View style={{ height: height * 0.6 }}>
+      <View style={{ height: height * 0.58 }}>
         <NMap
           ref={map}
           style={StyleSheet.absoluteFill}
@@ -103,70 +77,126 @@ export default function Tracking() {
             latitudeDelta: Math.abs(tech.offset.lat) * 2.6 + 0.01,
             longitudeDelta: Math.abs(tech.offset.lng) * 2.6 + 0.01,
           }}
-          mapPadding={{ top: insets.top + 56, right: 0, bottom: 24, left: 0 }}
+          mapPadding={{ top: insets.top + 96, right: 0, bottom: 32, left: 0 }}
         >
-          <Polyline coordinates={[techPos, home]} strokeColor={color.primary} strokeWidth={4} lineDashPattern={arrived ? undefined : [1]} />
+          <Polyline coordinates={[start, techPos]} strokeColor={color.graphicMid} strokeWidth={5} />
+          <Polyline coordinates={[techPos, home]} strokeColor={color.primary} strokeWidth={5} />
           <Marker coordinate={home} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-            <HomeMarker />
+            <View style={styles.homePin}>
+              <NIcon name="home-filled" size={16} color={color.textOnPrimary} />
+            </View>
           </Marker>
           <Marker coordinate={techPos} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
             <View style={[styles.techMarker, elevation.floating]}>
-              <NIcon name="navigation" size={18} color={color.textOnPrimary} strokeWidth={2} />
+              <NIcon name="navigation" size={18} color={color.textOnPrimary} strokeWidth={2.2} />
             </View>
           </Marker>
         </NMap>
+
         <View style={[styles.topBar, { paddingTop: insets.top + space.xs }]}>
           <NIconButton icon="back" bordered accessibilityLabel="ย้อนกลับ" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
+          {/* Live status card */}
+          <View style={[styles.etaCard, elevation.floating]}>
+            <View style={styles.inline}>
+              <LiveDot />
+              <NText variant="label" color="primary">
+                {jobHeadline(job.status)}
+              </NText>
+            </View>
+            {enRoute ? (
+              <View style={styles.etaRow}>
+                <NText variant="display" color="textPrimary">
+                  {eta}
+                </NText>
+                <NText variant="secondaryStrong" color="textSecondary">
+                  นาที · ถึง {formatTime(arrivalAt)}
+                </NText>
+              </View>
+            ) : (
+              <NText variant="h3">{arrived ? 'ยืนยันพบช่างด้วยรหัส PIN' : service?.name}</NText>
+            )}
+          </View>
           <NIconButton icon="help" bordered accessibilityLabel="ช่วยเหลือ" onPress={() => router.push('/support')} />
         </View>
-        {job.status === 'en_route' && job.etaMinutes !== undefined ? (
-          <View style={[styles.eta, elevation.floating]}>
-            <NText variant="caption" color="textSecondary">
-              ถึงประมาณ
-            </NText>
-            <NText variant="h1" color="primary">
-              {job.etaMinutes} นาที
-            </NText>
-          </View>
-        ) : null}
       </View>
 
       <View style={[styles.sheet, elevation.sheet]}>
         {offline ? <NOfflineBanner lastSyncedAt={state.lastSyncedAt} /> : null}
-        <ScrollView contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + space.md }]}>
-          <View style={styles.headRow}>
-            <NText variant="h3" style={{ flex: 1 }}>
-              {headline ?? service?.name}
-            </NText>
-            <NJobStatus status={job.status} />
-          </View>
+        <ScrollView contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + space.md }]} showsVerticalScrollIndicator={false}>
+          <View style={styles.grabber} />
+          <NStepsInline items={compactSteps(job.status)} />
 
           {arrived ? (
             <View style={styles.pin}>
               <NText variant="secondary" color="textSecondary">
-                แจ้งรหัสนี้กับช่างเพื่อเริ่มงาน
+                ช่าง{tech.name.split(' ')[0]}มาถึงสถานที่แล้ว · แจ้งรหัสนี้กับช่าง
               </NText>
-              <NText style={styles.pinText} accessibilityLabel={`รหัส ${job.pin.split('').join(' ')}`}>
-                {job.pin}
-              </NText>
+              <View style={styles.pinRow}>
+                {job.pin.split('').map((d, i) => (
+                  <View key={i} style={styles.pinCell}>
+                    <NText style={styles.pinText}>{d}</NText>
+                  </View>
+                ))}
+              </View>
             </View>
           ) : null}
 
-          <NTechnicianItem
-            technician={tech}
-            compact
-            onCall={() => Linking.openURL(`tel:${tech.phone}`)}
-            onChat={() => router.push(`/chat/${job.id}`)}
-          />
-          <NDivider />
-          <NSteps items={steps} compact />
+          {/* Technician trust card */}
+          <View style={styles.techCard}>
+            <View style={styles.techRow}>
+              <NAvatar photo={tech.photo} initials={tech.name} size={56} verified />
+              <View style={{ flex: 1, gap: 2 }}>
+                <NText variant="h3">{tech.name}</NText>
+                <View style={styles.inline}>
+                  <NIcon name="star-filled" size={14} color={color.rating} />
+                  <NText variant="secondaryStrong">{tech.rating.toFixed(1)}</NText>
+                  <NText variant="secondary" color="textSecondary">
+                    · {tech.jobs.toLocaleString()} งาน · {tech.specialty}
+                  </NText>
+                </View>
+              </View>
+            </View>
+            {tech.vehicle ? (
+              <View style={styles.vehicle}>
+                <NText variant="secondary" color="textSecondary">
+                  {tech.vehicle.split(' · ')[0]}
+                </NText>
+                <View style={styles.plate}>
+                  <NText variant="secondaryStrong">{tech.vehicle.split(' · ')[1]}</NText>
+                </View>
+              </View>
+            ) : null}
+            <View style={styles.contact}>
+              <NButton theme="default" icon="phone" style={{ flex: 1 }} onPress={() => Linking.openURL(`tel:${tech.phone}`)}>
+                โทร
+              </NButton>
+              <NButton theme="default" icon="chat" style={{ flex: 1 }} onPress={() => router.push(`/chat/${job.id}`)}>
+                ข้อความ
+              </NButton>
+            </View>
+          </View>
+
+          <View style={styles.jobRow}>
+            <ServiceGraphic category={service?.categoryId ?? 'aircon'} size={40} />
+            <View style={{ flex: 1 }}>
+              <NText variant="secondaryStrong">
+                {service?.name} · {job.quantity} {service?.unit}
+              </NText>
+              <NText variant="caption" color="textSecondary" numberOfLines={1}>
+                {job.address.label} · {job.address.line}
+              </NText>
+            </View>
+            <NText variant="caption" color="textSecondary">
+              {job.id}
+            </NText>
+          </View>
 
           {arrived ? (
             <NButton theme="primary" block haptics onPress={() => confirmArrival(job.id)}>
               ยืนยันพบช่าง
             </NButton>
-          ) : nextHref ? (
-            <NButton theme="primary" block onPress={() => router.push(nextHref)}>
+          ) : next ? (
+            <NButton theme="primary" block onPress={() => router.push(next)}>
               {job.status === 'completed' ? 'ตรวจงานและยืนยัน' : job.status === 'confirmed' ? 'ชำระเงิน' : 'ดูความคืบหน้า'}
             </NButton>
           ) : null}
@@ -176,14 +206,35 @@ export default function Tracking() {
   );
 }
 
+function LiveDot() {
+  const o = useSharedValue(1);
+  useEffect(() => {
+    o.value = withRepeat(withTiming(0.25, { duration: 800 }), -1, true);
+  }, [o]);
+  const style = useAnimatedStyle(() => ({ opacity: o.value }));
+  return <Animated.View style={[styles.liveDot, style]} />;
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: color.bgContainer },
-  topBar: { position: 'absolute', top: 0, left: layout.screenPadding, right: layout.screenPadding, flexDirection: 'row', justifyContent: 'space-between' },
-  eta: { position: 'absolute', left: layout.screenPadding, bottom: space.xl, backgroundColor: color.bgElevated, borderRadius: radius.card, paddingHorizontal: space.md, paddingVertical: space.xs },
-  techMarker: { width: 32, height: 32, borderRadius: 16, backgroundColor: color.primary, borderWidth: 2, borderColor: color.bgContainer, alignItems: 'center', justifyContent: 'center' },
-  sheet: { flex: 1, marginTop: -radius.sheet, backgroundColor: color.bgElevated, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, overflow: 'hidden' },
-  sheetContent: { paddingHorizontal: layout.screenPadding, paddingTop: space.md, gap: space.md },
-  headRow: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
-  pin: { backgroundColor: color.primaryLight, borderRadius: radius.card, padding: space.md, alignItems: 'center', gap: space.xxs },
-  pinText: { fontSize: 32, lineHeight: 40, letterSpacing: 12, fontWeight: '600', color: color.primary, fontVariant: ['tabular-nums'] },
+  topBar: { position: 'absolute', top: 0, left: layout.screenPadding, right: layout.screenPadding, flexDirection: 'row', alignItems: 'flex-start', gap: space.xs },
+  etaCard: { flex: 1, backgroundColor: color.bgElevated, borderRadius: radius.dialog, paddingHorizontal: space.md, paddingVertical: space.sm, gap: 2 },
+  etaRow: { flexDirection: 'row', alignItems: 'baseline', gap: space.xs },
+  inline: { flexDirection: 'row', alignItems: 'center', gap: space.xxs, flexWrap: 'wrap' },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: color.success },
+  homePin: { width: 30, height: 30, borderRadius: 15, backgroundColor: color.primary, borderWidth: 3, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  techMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: color.graphicDeep, borderWidth: 3, borderColor: color.bgContainer, alignItems: 'center', justifyContent: 'center' },
+  sheet: { flex: 1, marginTop: -radius.dialog * 1.5, backgroundColor: color.bgElevated, borderTopLeftRadius: radius.dialog * 1.5, borderTopRightRadius: radius.dialog * 1.5, overflow: 'hidden' },
+  grabber: { alignSelf: 'center', width: 36, height: 4, borderRadius: 2, backgroundColor: color.border, marginBottom: space.xxs },
+  sheetContent: { paddingHorizontal: layout.screenPadding, paddingTop: space.xs, gap: space.md },
+  pin: { backgroundColor: color.primaryLight, borderRadius: radius.card, padding: space.md, alignItems: 'center', gap: space.sm },
+  pinRow: { flexDirection: 'row', gap: space.xs },
+  pinCell: { width: 48, height: 56, borderRadius: radius.card, backgroundColor: color.bgContainer, alignItems: 'center', justifyContent: 'center' },
+  pinText: { fontSize: 28, lineHeight: 36, fontWeight: '600', color: color.primary },
+  techCard: { borderRadius: radius.dialog, borderWidth: StyleSheet.hairlineWidth, borderColor: color.border, padding: space.md, gap: space.sm },
+  techRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  vehicle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: color.bgPage, borderRadius: radius.card, paddingHorizontal: space.sm, paddingVertical: space.xs },
+  plate: { borderWidth: 1.5, borderColor: color.textPrimary, borderRadius: 4, paddingHorizontal: space.xs, backgroundColor: '#FFFFFF' },
+  contact: { flexDirection: 'row', gap: space.sm },
+  jobRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
 });

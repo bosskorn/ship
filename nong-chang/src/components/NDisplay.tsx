@@ -1,6 +1,8 @@
 /** Small display components: NTag, NBadge, NAvatar, NRating, NPrice, NProgress. */
+import { Image } from 'expo-image';
 import React from 'react';
 import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { formatBaht } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
@@ -82,22 +84,41 @@ export function NBadge({ count, dot, max = 99 }: { count?: number; dot?: boolean
   );
 }
 
-export function NAvatar({ initials, size = 48, verified, tone = 'primary' }: { initials: string; size?: number; verified?: boolean; tone?: 'primary' | 'neutral' }) {
+/**
+ * Person avatar. Real profile photos (KYC / profile upload) always win; until
+ * a photo exists we show a neutral silhouette, never bare initials.
+ */
+export function NAvatar({
+  photo,
+  initials,
+  size = 48,
+  verified,
+  tone = 'primary',
+}: {
+  photo?: string;
+  /** Accessibility label fallback. */
+  initials?: string;
+  size?: number;
+  verified?: boolean;
+  tone?: 'primary' | 'neutral';
+}) {
+  const bg = tone === 'primary' ? color.graphicTint : color.bgSecondary;
+  const fg = tone === 'primary' ? color.graphicMid : color.textPlaceholder;
   return (
-    <View style={{ width: size, height: size }}>
-      <View
-        style={[
-          styles.avatar,
-          { width: size, height: size, borderRadius: size / 2, backgroundColor: tone === 'primary' ? color.primaryLight : color.bgSecondary },
-        ]}
-      >
-        <NText style={{ fontSize: size * 0.36, lineHeight: size * 0.5, color: tone === 'primary' ? color.primary : color.textSecondary, fontWeight: '500' }}>
-          {initials}
-        </NText>
+    <View style={{ width: size, height: size }} accessibilityLabel={initials}>
+      <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
+        {photo ? (
+          <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} />
+        ) : (
+          <Svg width={size} height={size} viewBox="0 0 48 48">
+            <Circle cx={24} cy={19} r={8.5} fill={fg} />
+            <Path d="M8 46c0-9 7.2-15 16-15s16 6 16 15z" fill={fg} />
+          </Svg>
+        )}
       </View>
       {verified ? (
         <View style={styles.verified}>
-          <NIcon name="verified" size={size * 0.38} color={color.primary} />
+          <NIcon name="verified" size={Math.max(14, size * 0.34)} color={color.primary} />
         </View>
       ) : null}
     </View>
@@ -108,7 +129,7 @@ export function NRating({ value, size = 16, onChange, gap = 2 }: { value: number
   return (
     <View style={[styles.rating, { gap }]} accessibilityRole={onChange ? 'adjustable' : undefined} accessibilityValue={{ min: 0, max: 5, now: value }}>
       {[1, 2, 3, 4, 5].map((i) => {
-        const icon = <NIcon name={i <= Math.round(value) ? 'star-filled' : 'star'} size={size} color={i <= Math.round(value) ? '#F5A623' : color.border} />;
+        const icon = <NIcon name={i <= Math.round(value) ? 'star-filled' : 'star'} size={size} color={i <= Math.round(value) ? color.rating : color.border} />;
         return onChange ? (
           <Pressable
             key={i}
@@ -147,7 +168,7 @@ export function NPrice({
   tone?: 'textPrimary' | 'primary' | 'textSecondary' | 'success';
   prefix?: string;
 }) {
-  const num = { small: typography.bodyStrong, medium: typography.h2, large: typography.h1, display: typography.display }[size];
+  const num = { small: typography.bodyStrong, medium: typography.price, large: typography.h1, display: typography.display }[size];
   const unitStyle = size === 'small' ? typography.caption : typography.secondary;
   return (
     <View style={styles.price} accessibilityLabel={`${formatBaht(amount, { decimals })} ${unit}`}>
@@ -174,7 +195,7 @@ const styles = StyleSheet.create({
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: color.error },
   badge: { minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: 8, backgroundColor: color.error, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: color.textOnPrimary, fontSize: 10, lineHeight: 14 },
-  avatar: { alignItems: 'center', justifyContent: 'center' },
+  avatar: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   verified: { position: 'absolute', right: -2, bottom: -2, backgroundColor: color.bgContainer, borderRadius: 999 },
   rating: { flexDirection: 'row', alignItems: 'center' },
   price: { flexDirection: 'row', alignItems: 'baseline' },

@@ -14,3 +14,4 @@ export * from './NText';
 export * from './NBottomNavigation';
 export * from './NPhotoGrid';
 export * from './NMap';
+export * from './NPressable';

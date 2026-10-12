@@ -8,10 +8,10 @@ export default function TabsLayout() {
   const { state, activeJob } = useApp();
   const unread = state.notifications.filter((n) => !n.read && n.group === 'job').length;
   const items: NavItem[] = [
-    { name: 'index', label: 'หน้าแรก', icon: 'home' },
-    { name: 'jobs', label: 'งานของฉัน', icon: 'jobs', badge: activeJob ? 1 : undefined },
-    { name: 'messages', label: 'ข้อความ', icon: 'chat', badge: unread || undefined },
-    { name: 'account', label: 'บัญชี', icon: 'user' },
+    { name: 'index', label: 'หน้าแรก', icon: 'home', activeIcon: 'home-filled' },
+    { name: 'jobs', label: 'งานของฉัน', icon: 'jobs', activeIcon: 'jobs-filled', badge: activeJob ? 1 : undefined },
+    { name: 'messages', label: 'ข้อความ', icon: 'chat', activeIcon: 'chat-filled', badge: unread || undefined },
+    { name: 'account', label: 'บัญชี', icon: 'user', activeIcon: 'user-filled' },
   ];
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <NBottomNavigation {...props} items={items} />}>

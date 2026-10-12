@@ -38,6 +38,9 @@ export interface Service {
   /** Natural-language keywords used by search and photo diagnosis. */
   keywords: string[];
   recommended?: boolean;
+  /** Aggregate customer rating for the service (mock until reviews API). */
+  rating?: number;
+  reviews?: number;
 }
 
 export const CATEGORIES: Category[] = [
@@ -93,12 +96,14 @@ export const SERVICES: Service[] = [
     notIncluded: ['เติมน้ำยา', 'อะไหล่', 'ซ่อมระบบ'],
     keywords: ['ล้างแอร์', 'แอร์', 'แอร์เหม็น', 'แอร์สกปรก', 'aircon', 'ac'],
     recommended: true,
+    rating: 4.9,
+    reviews: 2184,
   },
   inspection('aircon-not-cold', 'aircon', 'แอร์ไม่เย็น', ['แอร์ไม่เย็น', 'แอร์ร้อน', 'น้ำยาแอร์', 'คอมแอร์']),
   inspection('aircon-leak', 'aircon', 'แอร์น้ำหยด', ['น้ำหยด', 'แอร์น้ำหยด', 'แอร์รั่ว', 'แอร์มีน้ำ']),
   inspection('aircon-check', 'aircon', 'ตรวจระบบแอร์', ['ตรวจแอร์', 'แอร์เสียงดัง', 'แอร์ไม่ติด']),
 
-  inspection('plumbing-leak', 'plumbing', 'น้ำรั่ว', ['น้ำรั่ว', 'ท่อรั่ว', 'น้ำซึม', 'ท่อแตก'], { recommended: true }),
+  inspection('plumbing-leak', 'plumbing', 'น้ำรั่ว', ['น้ำรั่ว', 'ท่อรั่ว', 'น้ำซึม', 'ท่อแตก'], { recommended: true, rating: 4.8, reviews: 936 }),
   inspection('plumbing-faucet', 'plumbing', 'ก๊อกน้ำรั่ว', ['ก๊อกรั่ว', 'ก๊อก', 'ก๊อกหยด', 'วาล์ว']),
   inspection('plumbing-clog', 'plumbing', 'ท่อตัน', ['ท่อตัน', 'อ่างตัน', 'ซิงค์ตัน', 'น้ำไม่ลง']),
   inspection('plumbing-toilet', 'plumbing', 'ชักโครก', ['ชักโครก', 'ส้วม', 'ชักโครกตัน', 'ชักโครกไม่ไหล']),
