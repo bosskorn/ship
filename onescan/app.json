@@ -3,7 +3,7 @@
     "name": "OneScan",
     "slug": "onescan",
     "scheme": "onescan",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -13,7 +13,7 @@
       "infoPlist": {
         "NSFaceIDUsageDescription": "Unlock your private documents."
       },
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "android": {
       "package": "app.onescan.mobile",
@@ -24,7 +24,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "bundler": "metro",

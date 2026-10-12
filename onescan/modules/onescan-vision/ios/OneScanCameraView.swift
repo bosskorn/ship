@@ -2,7 +2,7 @@ import AVFoundation
 import ExpoModulesCore
 import UIKit
 
-/// Scanner camera. Emits small upright luminance frames for the shared JS
+/// Scanner camera. Emits small upright Y/Cb/Cr frames for the shared JS
 /// detector (live border + auto capture). Frames never leave the device.
 class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate, AVCapturePhotoCaptureDelegate {
   let onCameraReady = EventDispatcher()
@@ -113,26 +113,48 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
     lastFrameAt = now
     CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
     defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
-    guard let base = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0) else { return }
+    guard CVPixelBufferGetPlaneCount(pixelBuffer) >= 2,
+          let yBase = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0),
+          let cBase = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 1) else { return }
     let srcW = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
     let srcH = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
-    let stride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+    let yStride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+    let cStride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 1) // interleaved Cb,Cr at half resolution
     let scale = Double(frameMaxEdge) / Double(max(srcW, srcH))
     let dw = max(1, Int(Double(srcW) * scale))
     let dh = max(1, Int(Double(srcH) * scale))
-    var out = Data(count: dw * dh)
-    let src = base.assumingMemoryBound(to: UInt8.self)
-    out.withUnsafeMutableBytes { raw in
-      let dst = raw.bindMemory(to: UInt8.self)
-      for y in 0..<dh {
-        let sy = min(srcH - 1, Int(Double(y) / scale))
-        for x in 0..<dw {
-          let sx = min(srcW - 1, Int(Double(x) / scale))
-          dst[y * dw + x] = src[sy * stride + sx]
+    var ys = Data(count: dw * dh)
+    var cbs = Data(count: dw * dh)
+    var crs = Data(count: dw * dh)
+    let ySrc = yBase.assumingMemoryBound(to: UInt8.self)
+    let cSrc = cBase.assumingMemoryBound(to: UInt8.self)
+    ys.withUnsafeMutableBytes { yRaw in
+      cbs.withUnsafeMutableBytes { cbRaw in
+        crs.withUnsafeMutableBytes { crRaw in
+          let yDst = yRaw.bindMemory(to: UInt8.self)
+          let cbDst = cbRaw.bindMemory(to: UInt8.self)
+          let crDst = crRaw.bindMemory(to: UInt8.self)
+          for y in 0..<dh {
+            let sy = min(srcH - 1, Int(Double(y) / scale))
+            for x in 0..<dw {
+              let sx = min(srcW - 1, Int(Double(x) / scale))
+              let o = y * dw + x
+              yDst[o] = ySrc[sy * yStride + sx]
+              let c = (sy / 2) * cStride + (sx / 2) * 2
+              cbDst[o] = cSrc[c]
+              crDst[o] = cSrc[c + 1]
+            }
+          }
         }
       }
     }
-    let payload: [String: Any] = ["width": dw, "height": dh, "data": out.base64EncodedString()]
+    let payload: [String: Any] = [
+      "width": dw,
+      "height": dh,
+      "data": ys.base64EncodedString(),
+      "cb": cbs.base64EncodedString(),
+      "cr": crs.base64EncodedString(),
+    ]
     DispatchQueue.main.async { [weak self] in self?.onFrame(payload) }
   }
 

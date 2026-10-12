@@ -6,8 +6,11 @@ import { OneScanVision, NativeImage } from './OneScanVision';
 export interface CameraFrame {
   width: number;
   height: number;
-  /** base64 8-bit luminance, upright. */
+  /** base64 8-bit luminance (Y), upright. */
   data: string;
+  /** base64 chroma planes (Cb, Cr), same size as `data`. */
+  cb?: string;
+  cr?: string;
 }
 
 export interface OneScanCameraViewProps extends ViewProps {

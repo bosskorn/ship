@@ -21,10 +21,16 @@ public class OneScanVisionModule: Module {
 
     AsyncFunction("grayscaleAsync") { (uri: String, maxEdge: Int) -> [String: Any] in
       let image = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: CGFloat(maxEdge))
-      guard let lum = OneScanImageIO.luminance(image) else {
+      guard let p = OneScanImageIO.ycbcr(image) else {
         throw NSError(domain: "OneScanVision", code: 20, userInfo: [NSLocalizedDescriptionKey: "Could not read pixels"])
       }
-      return ["width": lum.0, "height": lum.1, "data": lum.2.base64EncodedString()]
+      return [
+        "width": p.0,
+        "height": p.1,
+        "data": p.2.base64EncodedString(),
+        "cb": p.3.base64EncodedString(),
+        "cr": p.4.base64EncodedString(),
+      ]
     }
 
     AsyncFunction("processPageAsync") { (uri: String, quad: [PointRecord]?, filter: String, rotation: Int) -> [String: Any] in

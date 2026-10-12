@@ -4,5 +4,5 @@
  */
 export const env = {
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? '',
-  appVersion: '1.0.1',
+  appVersion: '1.0.2',
 } as const;

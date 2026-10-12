@@ -78,6 +78,27 @@ internal object ImageIO {
     return file
   }
 
+  /** Full-range BT.601 Y, Cb, Cr planes (same layout as camera YUV frames). */
+  fun ycbcr(bmp: Bitmap): Triple<ByteArray, ByteArray, ByteArray> {
+    val w = bmp.width
+    val h = bmp.height
+    val px = IntArray(w * h)
+    bmp.getPixels(px, 0, w, 0, 0, w, h)
+    val y = ByteArray(w * h)
+    val cb = ByteArray(w * h)
+    val cr = ByteArray(w * h)
+    for (i in px.indices) {
+      val c = px[i]
+      val r = (c shr 16) and 0xff
+      val g = (c shr 8) and 0xff
+      val b = c and 0xff
+      y[i] = ((r * 77 + g * 150 + b * 29) shr 8).toByte()
+      cb[i] = (128 + ((-43 * r - 85 * g + 128 * b) shr 8)).coerceIn(0, 255).toByte()
+      cr[i] = (128 + ((128 * r - 107 * g - 21 * b) shr 8)).coerceIn(0, 255).toByte()
+    }
+    return Triple(y, cb, cr)
+  }
+
   /** BT.601 luma of each pixel. */
   fun luminance(bmp: Bitmap): ByteArray {
     val w = bmp.width

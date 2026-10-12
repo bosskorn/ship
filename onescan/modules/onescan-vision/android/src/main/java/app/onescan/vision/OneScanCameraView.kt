@@ -30,7 +30,7 @@ import java.util.concurrent.Executors
 import kotlin.math.max
 
 /**
- * Scanner camera. Emits small upright luminance frames (`onFrame`) so the
+ * Scanner camera. Emits small upright Y/Cb/Cr frames (`onFrame`) so the
  * shared JS detector can draw the live document border and drive auto
  * capture. Frames never leave the device.
  */
@@ -133,26 +133,44 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
       val now = SystemClock.uptimeMillis()
       if (now - lastFrameAt < frameIntervalMs) return
       lastFrameAt = now
-      val plane = proxy.planes[0]
-      val buffer = plane.buffer
-      val rowStride = plane.rowStride
-      val pixelStride = plane.pixelStride
+      val yPlane = proxy.planes[0]
+      val uPlane = proxy.planes[1] // Cb
+      val vPlane = proxy.planes[2] // Cr
+      val yBuf = yPlane.buffer
+      val uBuf = uPlane.buffer
+      val vBuf = vPlane.buffer
       val srcW = proxy.width
       val srcH = proxy.height
       val scale = frameMaxEdge.toFloat() / max(srcW, srcH)
       val dw = max(1, (srcW * scale).toInt())
       val dh = max(1, (srcH * scale).toInt())
-      val small = ByteArray(dw * dh)
+      val ys = ByteArray(dw * dh)
+      val cbs = ByteArray(dw * dh)
+      val crs = ByteArray(dw * dh)
       for (y in 0 until dh) {
         val sy = minOf(srcH - 1, (y / scale).toInt())
+        val cy = sy / 2
         for (x in 0 until dw) {
           val sx = minOf(srcW - 1, (x / scale).toInt())
-          small[y * dw + x] = buffer.get(sy * rowStride + sx * pixelStride)
+          val cx = sx / 2
+          val o = y * dw + x
+          ys[o] = yBuf.get(sy * yPlane.rowStride + sx * yPlane.pixelStride)
+          cbs[o] = uBuf.get(cy * uPlane.rowStride + cx * uPlane.pixelStride)
+          crs[o] = vBuf.get(cy * vPlane.rowStride + cx * vPlane.pixelStride)
         }
       }
-      val (outW, outH, out) = rotate(small, dw, dh, proxy.imageInfo.rotationDegrees)
-      val data = Base64.encodeToString(out, Base64.NO_WRAP)
-      mainHandler.post { onFrame(mapOf("width" to outW, "height" to outH, "data" to data)) }
+      val rot = proxy.imageInfo.rotationDegrees
+      val (outW, outH, outY) = rotate(ys, dw, dh, rot)
+      val outCb = rotate(cbs, dw, dh, rot).third
+      val outCr = rotate(crs, dw, dh, rot).third
+      val payload = mapOf(
+        "width" to outW,
+        "height" to outH,
+        "data" to Base64.encodeToString(outY, Base64.NO_WRAP),
+        "cb" to Base64.encodeToString(outCb, Base64.NO_WRAP),
+        "cr" to Base64.encodeToString(outCr, Base64.NO_WRAP),
+      )
+      mainHandler.post { onFrame(payload) }
     } catch (_: Exception) {
       // Drop the frame; detection is best-effort.
     } finally {

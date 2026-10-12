@@ -1,6 +1,6 @@
 import { convexHull, detectQuad, frameQuadToView, GrayImage, maxAreaQuad, orderQuad, base64ToUint8 } from '@/core/document-engine/capture/quadDetector';
 import { bytesToBase64 } from '@/core/document-engine/security/SecurityEngine';
-import { composite, rng as seeded } from './fixtures/scenes';
+import { composite, inside as insidePoly, rng as seeded } from './fixtures/scenes';
 import { REAL_FLOOR, USER_SCENE } from './fixtures/realScenes';
 import type { Point } from '@/core/document-engine/model';
 
@@ -129,6 +129,26 @@ describe('real-world scenes (marble floor from a device photo)', () => {
 
   it('never invents a document on an empty floor', () => {
     expect(detectQuad(composite(floor, {})).quad).toBeNull();
+  });
+
+  it('uses tint when paper and floor have the same brightness (room lighting)', () => {
+    // Device photo finding: under indoor light a white invoice on light marble
+    // differed from the floor by ~0 luminance on one side but clearly in Cb.
+    const page = [{ x: 28, y: 30 }, { x: 118, y: 40 }, { x: 112, y: 160 }, { x: 22, y: 152 }];
+    let mean = 0;
+    for (const v of floor.data) mean += v;
+    mean /= floor.data.length;
+    const lum = composite(floor, { page, paper: Math.round(mean) + 4 });
+    const cb = new Uint8Array(W * H).fill(128);
+    const cr = new Uint8Array(W * H).fill(128);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        if (insidePoly(page, x, y)) {
+          cb[y * W + x] = 141; // bluish paper
+          cr[y * W + x] = 124;
+        }
+    expect(detectQuad(lum).quad).toBeNull(); // brightness alone is not enough
+    expectCorners(detectQuad({ ...lum, cb, cr }).quad, page, W, H, 4);
   });
 
   it('benchmark: finds most random pages and has no false positives', () => {

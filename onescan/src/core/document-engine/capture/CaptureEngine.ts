@@ -30,8 +30,8 @@ const REFINE_EDGE = 640;
 export const CaptureEngine = {
   hasNativeVision: () => OneScanVision !== null,
 
-  detectFrame(frame: { width: number; height: number; data: string }): QuadDetection {
-    return detectQuad(decodeGray(frame.width, frame.height, frame.data));
+  detectFrame(frame: { width: number; height: number; data: string; cb?: string; cr?: string }): QuadDetection {
+    return detectQuad(decodeGray(frame.width, frame.height, frame.data, frame.cb, frame.cr));
   },
 
   async detect(imageUri: string): Promise<DetectionResult> {
@@ -39,7 +39,7 @@ export const CaptureEngine = {
       return { quad: fullFrameQuad, detected: false, confidence: 0, brightness: 1, sharpness: 1 };
     }
     const g = await OneScanVision.grayscaleAsync(imageUri, DETECT_EDGE);
-    const d = detectQuad(decodeGray(g.width, g.height, g.data));
+    const d = detectQuad(decodeGray(g.width, g.height, g.data, g.cb, g.cr));
     let quad = d.quad;
     if (quad) {
       try {

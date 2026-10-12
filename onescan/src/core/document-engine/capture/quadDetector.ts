@@ -16,8 +16,19 @@ import type { Point, Quad } from '../model';
 export interface GrayImage {
   width: number;
   height: number;
+  /** Luminance (Y). */
   data: Uint8Array;
+  /**
+   * Optional chroma planes (Cb, Cr; 128 = neutral) at the same resolution.
+   * White paper and a light floor often have nearly equal brightness but
+   * different tint under room lighting; chroma recovers those edges.
+   */
+  cb?: Uint8Array;
+  cr?: Uint8Array;
 }
+
+/** Chroma differences are smaller than luminance ones; scale them up. */
+const CHROMA_GAIN = 2;
 
 export interface QuadDetection {
   /** Normalised (0..1) TL, TR, BR, BL — or null when no document is found. */
@@ -27,8 +38,13 @@ export interface QuadDetection {
   sharpness: number;
 }
 
-export function decodeGray(width: number, height: number, base64: string): GrayImage {
-  return { width, height, data: base64ToUint8(base64) };
+export function decodeGray(width: number, height: number, base64: string, cb?: string, cr?: string): GrayImage {
+  const img: GrayImage = { width, height, data: base64ToUint8(base64) };
+  if (cb && cr) {
+    img.cb = base64ToUint8(cb);
+    img.cr = base64ToUint8(cr);
+  }
+  return img;
 }
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -297,6 +313,23 @@ export function sobel(src: Uint8Array, w: number, h: number): Gradient {
   return { mag, dir };
 }
 
+/** Per pixel, keep the gradient of whichever plane changes most there. */
+function sobelMulti(planes: { data: Uint8Array; gain: number }[], w: number, h: number): Gradient {
+  const out = sobel(planes[0].data, w, h);
+  for (let p = 1; p < planes.length; p++) {
+    const g = sobel(planes[p].data, w, h);
+    const gain = planes[p].gain;
+    for (let i = 0; i < out.mag.length; i++) {
+      const m = Math.min(255, g.mag[i] * gain);
+      if (m > out.mag[i]) {
+        out.mag[i] = m;
+        out.dir[i] = g.dir[i];
+      }
+    }
+  }
+  return out;
+}
+
 /** Non-maximum suppression: keep pixels that are a local max across the edge. */
 export function thinEdges(g: Gradient, edges: Uint8Array, w: number, h: number): Uint8Array {
   const out = new Uint8Array(w * h);
@@ -472,6 +505,14 @@ function lineIntersect(a: HoughLine, b: HoughLine): Point | null {
   };
 }
 
+/** Mean of two line angles (mod 180°), correct across the 0/180 wrap. */
+export function meanAngle(a: number, b: number): number {
+  const r = Math.PI / 90; // angles doubled so 0° ≡ 180°
+  let m = Math.atan2(Math.sin(a * r) + Math.sin(b * r), Math.cos(a * r) + Math.cos(b * r)) / r;
+  if (m < 0) m += 180;
+  return m;
+}
+
 function angleDiff(a: number, b: number): number {
   const d = Math.abs(a - b) % 180;
   return d > 90 ? 180 - d : d;
@@ -491,7 +532,7 @@ function houghQuads(lines: HoughLine[], w: number, h: number): Point[][] {
     for (let b = a + 1; b < pairs.length; b++) {
       const [a1, a2] = pairs[a];
       const [b1, b2] = pairs[b];
-      const cross = angleDiff((a1.theta + a2.theta) / 2, (b1.theta + b2.theta) / 2);
+      const cross = angleDiff(meanAngle(a1.theta, a2.theta), meanAngle(b1.theta, b2.theta));
       if (cross < 45) continue;
       const pts = [lineIntersect(a1, b1), lineIntersect(a1, b2), lineIntersect(a2, b2), lineIntersect(a2, b1)];
       if (pts.some((p) => !p || p.x < -m || p.y < -m || p.x > w - 1 + m || p.y > h - 1 + m)) continue;
@@ -624,7 +665,7 @@ function expandQuad(q: Point[], px: number, w: number, h: number): Point[] {
  * surface on both sides and fail. Returns the weakest side's mean difference,
  * positive when the inside is brighter, negative when darker, 0 when sides disagree.
  */
-export function sideContrast(quad: Point[], lum: Uint8Array, w: number, h: number): { value: number; sides: number[] } {
+export function sideContrasts(quad: Point[], lum: Uint8Array, w: number, h: number): number[] {
   const cx = quad.reduce((a, p) => a + p.x, 0) / 4;
   const cy = quad.reduce((a, p) => a + p.y, 0) / 4;
   const median = (v: number[]) => {
@@ -665,13 +706,27 @@ export function sideContrast(quad: Point[], lum: Uint8Array, w: number, h: numbe
       if (ins.length < 3 || outs.length < 3) continue;
       diffs.push(median(ins) - median(outs));
     }
-    if (diffs.length < 4) return { value: 0, sides };
-    const m = diffs.reduce((a, d) => a + d, 0) / diffs.length;
-    // Most samples along this side must agree with its sign.
+    if (diffs.length < 4) {
+      sides.push(0);
+      continue;
+    }
+    const m = diffs.reduce((acc, d) => acc + d, 0) / diffs.length;
+    // Most samples along this side must agree with its sign; a line with the
+    // same surface on both sides (grout, vein, text) averages out to ~0.
     const agree = diffs.filter((d) => Math.sign(d) === Math.sign(m) && Math.abs(d) >= 3).length;
-    if (agree < diffs.length * 0.75) return { value: 0, sides };
-    sides.push(m);
+    sides.push(agree >= diffs.length * 0.75 ? m : 0);
   }
+  return sides;
+}
+
+/**
+ * Inside-vs-outside luminance across each side. Returns the weakest side's
+ * difference, positive when the inside is brighter on all sides, negative
+ * when darker on all sides, 0 otherwise.
+ */
+export function sideContrast(quad: Point[], lum: Uint8Array, w: number, h: number): { value: number; sides: number[] } {
+  const sides = sideContrasts(quad, lum, w, h);
+  if (sides.some((v) => v === 0)) return { value: 0, sides };
   const allPos = sides.every((d) => d > 0);
   const allNeg = sides.every((d) => d < 0);
   if (!allPos && !allNeg) return { value: 0, sides };
@@ -830,7 +885,11 @@ export function detectQuad(img: GrayImage, debug?: (msg: string) => void): QuadD
   // Gradients and side contrast on a lightly smoothed copy: faint page borders
   // survive and text stays thin (so medians ignore it).
   const light = boxBlur(data, w, h, 1);
-  const grad = sobel(light, w, h);
+  const planes = [{ data: light, gain: 1 }];
+  if (img.cb && img.cr) {
+    planes.push({ data: boxBlur(img.cb, w, h, 1), gain: CHROMA_GAIN }, { data: boxBlur(img.cr, w, h, 1), gain: CHROMA_GAIN });
+  }
+  const grad = planes.length > 1 ? sobelMulti(planes, w, h) : sobel(light, w, h);
   const mag = grad.mag;
   const edges = edgeMask(mag);
   const weak = weakEdgeMask(mag);
@@ -898,21 +957,40 @@ export function detectQuad(img: GrayImage, debug?: (msg: string) => void): QuadD
     // Every side must sit on a visible, correctly oriented edge; this is what
     // rejects shapes that run across shadows or floor, and cut-off objects.
     if (support.min < 0.55 || support.mean < 0.72) continue;
-    const { value: contrast, sides: sideValues } = sideContrast(quad, light, w, h);
-    const crisp = edgeCrispness(quad, mag, w, h, Math.abs(contrast));
-    debug?.(`  contrast=${contrast.toFixed(1)} crisp=${crisp.toFixed(2)} sides=${sideValues.map((v) => v.toFixed(0)).join(',')}`);
-    if (Math.abs(contrast) < 10) continue;
-    // Darker-than-surroundings quads are accepted only with a strong step
-    // (a dark card on a light table); shadows are moderate (≈ −15…−60).
-    if (contrast < 0 && contrast > -80) continue;
-    // Paper is almost always brighter than what it lies on; dark quads are
-    // usually shadows or objects. Soft (blurred) borders also suggest shadows.
-    const polarity = contrast > 0 ? 1 : 0.55;
+    // Per side, the plane (brightness or tint) that separates page from its
+    // surroundings best. Within each plane the page must differ with one sign
+    // on every side where that plane shows a difference (paper brighter than
+    // the table, or bluer, all the way round); a plane whose sides disagree is
+    // not evidence of a page. Different sides may rely on different planes.
+    const lumSides = sideContrasts(quad, light, w, h);
+    const planeSides = planes.map((p, k) => (k === 0 ? lumSides : sideContrasts(quad, p.data, w, h).map((v) => v * p.gain)));
+    const consistent = planeSides.map((vals) => {
+      const signs = vals.filter((v) => Math.abs(v) >= 5).map(Math.sign);
+      return signs.length > 0 && signs.every((sg) => sg === signs[0]);
+    });
+    const sideValues = [0, 1, 2, 3].map((i) => {
+      let best = 0;
+      for (let k = 0; k < planes.length; k++) {
+        if (consistent[k] && Math.abs(planeSides[k][i]) > Math.abs(best)) best = planeSides[k][i];
+      }
+      return best;
+    });
+    const sides = sideValues.map((v) => Math.abs(v));
+    const contrast = Math.min(...sides);
+    const crisp = edgeCrispness(quad, mag, w, h, contrast);
+    debug?.(`  contrast=${contrast.toFixed(1)} crisp=${crisp.toFixed(2)} sides=${sideValues.map((v) => v.toFixed(0)).join(',')} lum=${lumSides.map((v) => v.toFixed(0)).join(',')}`);
+    if (contrast < 10) continue;
+    // Uniformly darker than the surroundings in brightness = shadow or object,
+    // unless the step is strong (a dark card on a light table).
+    const darkInside = lumSides.every((v) => v < 0) && sideValues.every((v, i) => v === lumSides[i]);
+    if (darkInside && Math.max(...lumSides) > -80) continue;
+    // Paper is usually brighter than what it lies on.
+    const brighter = lumSides.filter((v) => v > 0).length;
+    const polarity = darkInside ? 0.55 : brighter >= 3 ? 1 : 0.85;
     // A real page has edges all the way round and similar contrast on every
     // side; wrong quads (page + shadow, page cut at a text line) have one weak
     // side. Edge support dominates; size only breaks ties.
-    const sides = sideValues.map((v) => Math.abs(v));
-    const balance = sides.length === 4 ? Math.min(1, Math.min(...sides) / (0.35 * Math.max(...sides))) : 0;
+    const balance = Math.min(1, contrast / (0.35 * Math.max(...sides)));
     const supMean = Math.max(0, (support.mean - 0.6) / 0.4);
     const score =
       supMean * supMean *

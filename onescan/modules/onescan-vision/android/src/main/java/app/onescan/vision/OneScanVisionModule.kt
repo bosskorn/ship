@@ -35,10 +35,13 @@ class OneScanVisionModule : Module() {
     AsyncFunction("grayscaleAsync") { uri: String, maxEdge: Int ->
       val bmp = ImageIO.loadUpright(ImageIO.fileFromUri(uri), maxEdge)
       try {
+        val (y, cb, cr) = ImageIO.ycbcr(bmp)
         mapOf(
           "width" to bmp.width,
           "height" to bmp.height,
-          "data" to Base64.encodeToString(ImageIO.luminance(bmp), Base64.NO_WRAP),
+          "data" to Base64.encodeToString(y, Base64.NO_WRAP),
+          "cb" to Base64.encodeToString(cb, Base64.NO_WRAP),
+          "cr" to Base64.encodeToString(cr, Base64.NO_WRAP),
         )
       } finally {
         bmp.recycle()
