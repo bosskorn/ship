@@ -93,7 +93,7 @@ const en = {
     crop_full: 'Full page',
     clean_applied: 'Shadows and background cleaned',
     filter_original: 'Original',
-    filter_auto: 'Auto',
+    filter_auto: 'Scan',
     filter_document: 'Document',
     filter_color: 'Color',
     filter_gray: 'Gray',

@@ -95,7 +95,7 @@ const th: LocaleResource = {
     crop_full: 'ทั้งหน้า',
     clean_applied: 'ลบเงาและพื้นหลังแล้ว',
     filter_original: 'ต้นฉบับ',
-    filter_auto: 'อัตโนมัติ',
+    filter_auto: 'สแกน',
     filter_document: 'เอกสาร',
     filter_color: 'สี',
     filter_gray: 'สีเทา',

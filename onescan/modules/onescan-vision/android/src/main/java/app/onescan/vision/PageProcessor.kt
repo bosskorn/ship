@@ -20,6 +20,14 @@ internal object PageProcessor {
   private const val WORK_EDGE = 3200
   private const val MAX_OUTPUT_EDGE = 2480 // ~A4 long edge at 300 dpi
 
+  // Scan look (tuned on real photos of A4 pages, receipts, ID cards, passports, books).
+  private const val SCAN_PAPER = 250f
+  private const val SCAN_MAX_GAIN = 2f
+  private const val SCAN_WHITE = 238.0
+  private const val SCAN_GAMMA = 1.25
+  private const val SCAN_SATURATION = 1.2
+  private const val SCAN_SHARPEN = 0.4f
+
   data class Result(val file: File, val width: Int, val height: Int)
 
   fun process(context: Context, source: File, quad: List<DoubleArray>?, filter: String, rotation: Int): Result {
@@ -74,10 +82,7 @@ internal object PageProcessor {
     val px = IntArray(w * h)
     bmp.getPixels(px, 0, w, 0, 0, w, h)
     when (filter) {
-      "auto" -> {
-        normalizeIllumination(px, w, h, strength = 0.7)
-        adjust(px, contrast = 1.08, saturation = 1.05, brightness = 0.0)
-      }
+      "auto" -> scanLook(px, w, h)
       "document" -> {
         normalizeIllumination(px, w, h, strength = 1.0)
         adjust(px, contrast = 1.3, saturation = 0.8, brightness = 4.0)
@@ -97,12 +102,10 @@ internal object PageProcessor {
     return out
   }
 
-  /**
-   * Shadow / uneven-lighting removal: estimate the paper colour per block
-   * (bright percentile, so dark text is ignored), smooth it, then divide.
-   */
-  fun normalizeIllumination(px: IntArray, w: Int, h: Int, strength: Double) {
-    val block = max(16, max(w, h) / 40)
+  private fun blockSize(w: Int, h: Int) = max(16, max(w, h) / 40)
+
+  /** Paper colour per block (90th percentile per channel, so text is ignored), smoothed. */
+  private fun paperGrid(px: IntArray, w: Int, h: Int, block: Int): Triple<Array<FloatArray>, Int, Int> {
     val gw = (w + block - 1) / block
     val gh = (h + block - 1) / block
     val bg = Array(3) { FloatArray(gw * gh) }
@@ -157,6 +160,16 @@ internal object PageProcessor {
         }
       }
     }
+    return Triple(bg, gw, gh)
+  }
+
+  /**
+   * Shadow / uneven-lighting removal: estimate the paper colour per block
+   * (bright percentile, so dark text is ignored), smooth it, then divide.
+   */
+  fun normalizeIllumination(px: IntArray, w: Int, h: Int, strength: Double) {
+    val block = blockSize(w, h)
+    val (bg, gw, gh) = paperGrid(px, w, h, block)
     for (y in 0 until h) {
       val fy = ((y + 0.5f) / block - 0.5f).coerceIn(0f, (gh - 1).toFloat())
       val y0 = fy.toInt()
@@ -179,6 +192,105 @@ internal object PageProcessor {
           val norm = min(255f, v * 245f / b)
           val mixed = (v + (norm - v) * strength).roundToInt().coerceIn(0, 255)
           out = out or (mixed shl shift)
+        }
+        px[i] = out
+      }
+    }
+  }
+
+  /**
+   * Default "scanned document" look: paper → white (shadows and lamp tint removed),
+   * text dark and crisp, colour (stamps, logos, ID photos) kept. Per-block paper
+   * division with a capped gain so photos and coloured print don't wash out, then
+   * levels + gamma, a little saturation and a light unsharp mask.
+   */
+  fun scanLook(px: IntArray, w: Int, h: Int) {
+    val block = blockSize(w, h)
+    val (bg, gw, gh) = paperGrid(px, w, h, block)
+    val hist = IntArray(256)
+    val pb = FloatArray(3)
+    for (y in 0 until h) {
+      val fy = ((y + 0.5f) / block - 0.5f).coerceIn(0f, (gh - 1).toFloat())
+      val y0 = fy.toInt()
+      val y1 = min(gh - 1, y0 + 1)
+      val ty = fy - y0
+      for (x in 0 until w) {
+        val fx = ((x + 0.5f) / block - 0.5f).coerceIn(0f, (gw - 1).toFloat())
+        val x0 = fx.toInt()
+        val x1 = min(gw - 1, x0 + 1)
+        val tx = fx - x0
+        val i = y * w + x
+        val c = px[i]
+        // Paper colour here; brightness gain is capped (photos, coloured print) and the
+        // white-balance correction is limited separately so tinted paper turns white.
+        for (ch in 0 until 3) {
+          val g = bg[ch]
+          pb[ch] = (g[y0 * gw + x0] * (1 - tx) + g[y0 * gw + x1] * tx) * (1 - ty) +
+            (g[y1 * gw + x0] * (1 - tx) + g[y1 * gw + x1] * tx) * ty
+        }
+        val pl = 0.299f * pb[0] + 0.587f * pb[1] + 0.114f * pb[2]
+        val gainL = (SCAN_PAPER / pl).coerceIn(1f, SCAN_MAX_GAIN)
+        var out = c and (0xff shl 24)
+        for (ch in 0 until 3) {
+          val shift = 16 - 8 * ch
+          val gain = gainL * (pl / pb[ch]).coerceIn(0.8f, 1.25f)
+          val v = (((c shr shift) and 0xff) * gain).roundToInt().coerceAtMost(255)
+          out = out or (v shl shift)
+        }
+        px[i] = out
+        hist[lum(out)]++
+      }
+    }
+    // Levels: darkest 0.5 % → black (capped so faint pages keep grey ink), SCAN_WHITE → white.
+    var target = (px.size * 0.005).toInt()
+    var black = 0
+    for (i in 0 until 256) {
+      target -= hist[i]
+      if (target <= 0) {
+        black = i
+        break
+      }
+    }
+    black = min(black, 80)
+    val lut = IntArray(256) { v ->
+      val t = ((v - black).toDouble() / (SCAN_WHITE - black)).coerceIn(0.0, 1.0)
+      (Math.pow(t, SCAN_GAMMA) * 255).roundToInt()
+    }
+    for (i in px.indices) {
+      val c = px[i]
+      val r = lut[(c shr 16) and 0xff].toDouble()
+      val g = lut[(c shr 8) and 0xff].toDouble()
+      val b = lut[c and 0xff].toDouble()
+      val l = 0.299 * r + 0.587 * g + 0.114 * b
+      px[i] = (c and (0xff shl 24)) or
+        ((l + (r - l) * SCAN_SATURATION).roundToInt().coerceIn(0, 255) shl 16) or
+        ((l + (g - l) * SCAN_SATURATION).roundToInt().coerceIn(0, 255) shl 8) or
+        (l + (b - l) * SCAN_SATURATION).roundToInt().coerceIn(0, 255)
+    }
+    unsharp(px, w, h, SCAN_SHARPEN)
+  }
+
+  private fun lum(c: Int) = (((c shr 16) and 0xff) * 77 + ((c shr 8) and 0xff) * 150 + (c and 0xff) * 29) shr 8
+
+  /** out = v + amount × (v − 3×3 mean), interior pixels. */
+  private fun unsharp(px: IntArray, w: Int, h: Int, amount: Float) {
+    if (w < 3 || h < 3) return
+    val src = px.copyOf()
+    val shifts = intArrayOf(16, 8, 0)
+    for (y in 1 until h - 1) {
+      for (x in 1 until w - 1) {
+        val i = y * w + x
+        val c = src[i]
+        var out = c and (0xff shl 24)
+        for (shift in shifts) {
+          var sum = 0
+          for (dy in -1..1) {
+            val row = i + dy * w
+            sum += ((src[row - 1] shr shift) and 0xff) + ((src[row] shr shift) and 0xff) + ((src[row + 1] shr shift) and 0xff)
+          }
+          val v = (c shr shift) and 0xff
+          val o = (v + amount * (v - sum / 9f)).roundToInt().coerceIn(0, 255)
+          out = out or (o shl shift)
         }
         px[i] = out
       }

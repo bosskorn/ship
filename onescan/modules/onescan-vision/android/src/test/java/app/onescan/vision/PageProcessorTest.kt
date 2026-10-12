@@ -62,4 +62,34 @@ class PageProcessorTest {
     assertEquals(r, g)
     assertEquals(g, b)
   }
+
+  @Test
+  fun scanLookGivesWhitePaperDarkTextAndKeepsColour() {
+    val w = 400
+    val h = 300
+    // Warm-tinted paper under a lamp, shadow across, text strokes, and a red stamp.
+    val px = IntArray(w * h)
+    for (y in 0 until h) for (x in 0 until w) {
+      val light = 1.0 - 0.45 * x / w
+      val isText = y in 140..146 && x % 20 < 12
+      val isStamp = x in 40..80 && y in 40..80
+      val (r, g, b) = when {
+        isText -> Triple(60, 55, 50)
+        isStamp -> Triple(200, 40, 40)
+        else -> Triple(235, 222, 195)
+      }
+      px[y * w + x] = (0xff shl 24) or ((r * light).toInt() shl 16) or ((g * light).toInt() shl 8) or (b * light).toInt()
+    }
+    PageProcessor.scanLook(px, w, h)
+    fun ch(c: Int, s: Int) = (c shr s) and 0xff
+    for (x in intArrayOf(20, 200, 380)) {
+      val c = px[20 * w + x]
+      assertTrue("paper should be white at x=$x: ${lum(c)}", lum(c) > 240)
+      assertTrue("paper tint removed at x=$x", kotlin.math.abs(ch(c, 16) - ch(c, 0)) < 12)
+    }
+    val text = px[143 * w + 365]
+    assertTrue("text in the shadow should be dark: ${lum(text)}", lum(text) < 90)
+    val stamp = px[60 * w + 60]
+    assertTrue("stamp keeps its red: $stamp", ch(stamp, 16) - ch(stamp, 8) > 100)
+  }
 }

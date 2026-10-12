@@ -49,16 +49,49 @@ enum OneScanPageProcessor {
     }
     """)
 
-  /// Divide by a heavily blurred copy to flatten shadows and uneven lighting.
-  static func normalizeIllumination(_ image: CIImage, strength: CGFloat) -> CIImage {
+  /// Scan look, mirroring `PageProcessor.scanLook` on Android: brightness gain from the
+  /// paper estimate (capped at 2× so photos and coloured print don't wash out), a limited
+  /// white-balance correction, levels + gamma, a little saturation. Core Image works in
+  /// linear light, so the maths runs on sRGB-encoded values (γ ≈ 2.2) like Android's.
+  private static let scanKernel: CIColorKernel? = CIColorKernel(source: """
+    kernel vec4 onescanScan(__sample s, __sample p) {
+      vec3 sv = pow(max(s.rgb, vec3(0.0)), vec3(1.0 / 2.2));
+      vec3 pv = max(pow(max(p.rgb, vec3(0.0)), vec3(1.0 / 2.2)), vec3(0.09));
+      float pl = dot(pv, vec3(0.299, 0.587, 0.114));
+      float gain = clamp(0.98 / pl, 1.0, 2.0);
+      vec3 wb = clamp(vec3(pl) / pv, vec3(0.8), vec3(1.25));
+      vec3 n = min(sv * gain * wb, vec3(1.0));
+      vec3 t = pow(clamp((n - 0.08) / (0.933 - 0.08), 0.0, 1.0), vec3(1.25));
+      float l = dot(t, vec3(0.299, 0.587, 0.114));
+      t = clamp(vec3(l) + (t - vec3(l)) * 1.2, 0.0, 1.0);
+      return vec4(pow(t, vec3(2.2)), s.a);
+    }
+    """)
+
+  static func scanLook(_ image: CIImage) -> CIImage {
+    let e = image.extent
+    guard let kernel = scanKernel,
+          let out = kernel.apply(extent: e, arguments: [image, paperEstimate(image)]) else {
+      return normalizeIllumination(image, strength: 1)
+    }
+    return out.applyingFilter("CIUnsharpMask", parameters: [kCIInputRadiusKey: 1.0, kCIInputIntensityKey: 0.4]).cropped(to: e)
+  }
+
+  /// Paper colour: morphology removes thin dark text, then a wide blur.
+  private static func paperEstimate(_ image: CIImage) -> CIImage {
     let e = image.extent
     let radius = max(e.width, e.height) / 30
-    // Max-like background estimate: morphology removes thin dark text before blurring.
-    let paper = image
+    return image
       .applyingFilter("CIMorphologyMaximum", parameters: [kCIInputRadiusKey: min(radius / 3, 40)])
       .clampedToExtent()
       .applyingGaussianBlur(sigma: Double(radius))
       .cropped(to: e)
+  }
+
+  /// Divide by a heavily blurred copy to flatten shadows and uneven lighting.
+  static func normalizeIllumination(_ image: CIImage, strength: CGFloat) -> CIImage {
+    let e = image.extent
+    let paper = paperEstimate(image)
     guard let kernel = divideKernel,
           let divided = kernel.apply(extent: e, arguments: [image, paper]) else { return image }
     if strength >= 1 { return divided }
@@ -70,8 +103,7 @@ enum OneScanPageProcessor {
     case "original":
       return image
     case "auto":
-      return normalizeIllumination(image, strength: 0.7)
-        .applyingFilter("CIColorControls", parameters: [kCIInputContrastKey: 1.08, kCIInputSaturationKey: 1.05])
+      return scanLook(image)
     case "document":
       return normalizeIllumination(image, strength: 1)
         .applyingFilter("CIColorControls", parameters: [kCIInputContrastKey: 1.3, kCIInputSaturationKey: 0.8, kCIInputBrightnessKey: 0.02])
