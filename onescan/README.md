@@ -52,8 +52,9 @@ Local Expo module, autolinked. Contract: `src/native/OneScanVision.ts`.
 
 | Capability | Android (Kotlin) | iOS (Swift) |
 | --- | --- | --- |
-| Scanner camera + live frames | CameraX `PreviewView` + `ImageAnalysis` (Y plane) | `AVCaptureSession` + video data output (Y plane) |
-| Edge detection / auto capture | shared JS detector `core/document-engine/capture/quadDetector.ts` + `AutoCaptureController` | same |
+| Scanner camera + live frames | CameraX `PreviewView` + `ImageAnalysis` (Y/Cb/Cr) | `AVCaptureSession` + video data output (Y/Cb/Cr) |
+| Page detection | DocSeg segmentation net (`DocSeg.kt`, plain Kotlin) on every preview frame and still → 64×64 page mask | same net in `DocSeg.swift` |
+| Mask → quad / auto capture | shared JS `capture/docSeg.ts` (`maskToQuad`) + 640 px edge refinement + `AutoCaptureController`; classical `quadDetector.ts` as fallback | same |
 | Perspective correction | `Matrix.setPolyToPoly` | `CIPerspectiveCorrection` |
 | Enhance / shadow removal / filters | per-block paper estimate + division, Otsu B&W | morphology + blur + divide kernel, Otsu B&W |
 | OCR | ML Kit (Latin) + Tesseract `tha+eng` (bundled models) | Vision `VNRecognizeTextRequest` |
@@ -62,6 +63,9 @@ Local Expo module, autolinked. Contract: `src/native/OneScanVision.ts`.
 
 Requires a development build (`npx expo run:android` / `npx expo run:ios`); Expo Go and web
 fall back to expo-camera, manual capture and no OCR.
+
+The page detector is a small learned model trained with `tools/docseg` (see its README for
+data, licensing and the real-photo benchmark).
 
 ## Status
 

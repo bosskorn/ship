@@ -25,9 +25,14 @@ export interface NativeImage {
 export interface OneScanVisionModule {
   /**
    * Upright full-range BT.601 planes, long edge ≤ maxEdge, base64: `data` = Y,
-   * `cb`/`cr` = chroma (128 neutral). Feeds the JS quad detector.
+   * `cb`/`cr` = chroma (128 neutral). With `withMask`, also `mask`: 64×64 page
+   * probabilities (0..255) from the on-device DocSeg model (absent if unavailable).
    */
-  grayscaleAsync(imageUri: string, maxEdge: number): Promise<{ width: number; height: number; data: string; cb?: string; cr?: string }>;
+  grayscaleAsync(
+    imageUri: string,
+    maxEdge: number,
+    withMask?: boolean,
+  ): Promise<{ width: number; height: number; data: string; cb?: string; cr?: string; mask?: string }>;
   /** Perspective-correct `quad`, rotate, enhance, filter. Writes a new file; source untouched. */
   processPageAsync(imageUri: string, quad: Quad | null, filter: PageFilter, rotation: number): Promise<NativeImage>;
   recognizeTextAsync(imageUri: string, languages: string[]): Promise<NativeOcrBlock[]>;

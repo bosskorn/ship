@@ -19,18 +19,22 @@ public class OneScanVisionModule: Module {
   public func definition() -> ModuleDefinition {
     Name("OneScanVision")
 
-    AsyncFunction("grayscaleAsync") { (uri: String, maxEdge: Int) -> [String: Any] in
+    AsyncFunction("grayscaleAsync") { (uri: String, maxEdge: Int, withMask: Bool?) -> [String: Any] in
       let image = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: CGFloat(maxEdge))
       guard let p = OneScanImageIO.ycbcr(image) else {
         throw NSError(domain: "OneScanVision", code: 20, userInfo: [NSLocalizedDescriptionKey: "Could not read pixels"])
       }
-      return [
+      var out: [String: Any] = [
         "width": p.0,
         "height": p.1,
         "data": p.2.base64EncodedString(),
         "cb": p.3.base64EncodedString(),
         "cr": p.4.base64EncodedString(),
       ]
+      if withMask == true, let model = DocSeg.shared() {
+        out["mask"] = model.mask(y: [UInt8](p.2), cb: [UInt8](p.3), cr: [UInt8](p.4), width: p.0, height: p.1).base64EncodedString()
+      }
+      return out
     }
 
     AsyncFunction("processPageAsync") { (uri: String, quad: [PointRecord]?, filter: String, rotation: Int) -> [String: Any] in

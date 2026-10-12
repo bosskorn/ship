@@ -11,6 +11,8 @@ export interface CameraFrame {
   /** base64 chroma planes (Cb, Cr), same size as `data`. */
   cb?: string;
   cr?: string;
+  /** base64 64×64 page probabilities (0..255) from the on-device DocSeg model. */
+  mask?: string;
 }
 
 export interface OneScanCameraViewProps extends ViewProps {

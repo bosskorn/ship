@@ -44,3 +44,4 @@ yarn-error.*
 modules/*/android/build/
 modules/*/android/.cxx/
 modules/*/ios/build/
+__pycache__/

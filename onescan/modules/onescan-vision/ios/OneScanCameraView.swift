@@ -148,13 +148,16 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
         }
       }
     }
-    let payload: [String: Any] = [
+    var payload: [String: Any] = [
       "width": dw,
       "height": dh,
       "data": ys.base64EncodedString(),
       "cb": cbs.base64EncodedString(),
       "cr": crs.base64EncodedString(),
     ]
+    if let model = DocSeg.shared() {
+      payload["mask"] = model.mask(y: [UInt8](ys), cb: [UInt8](cbs), cr: [UInt8](crs), width: dw, height: dh).base64EncodedString()
+    }
     DispatchQueue.main.async { [weak self] in self?.onFrame(payload) }
   }
 

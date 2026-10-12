@@ -163,13 +163,16 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
       val (outW, outH, outY) = rotate(ys, dw, dh, rot)
       val outCb = rotate(cbs, dw, dh, rot).third
       val outCr = rotate(crs, dw, dh, rot).third
-      val payload = mapOf(
+      val payload = mutableMapOf<String, Any>(
         "width" to outW,
         "height" to outH,
         "data" to Base64.encodeToString(outY, Base64.NO_WRAP),
         "cb" to Base64.encodeToString(outCb, Base64.NO_WRAP),
         "cr" to Base64.encodeToString(outCr, Base64.NO_WRAP),
       )
+      DocSeg.get(context)?.let { model ->
+        payload["mask"] = Base64.encodeToString(model.mask(outY, outCb, outCr, outW, outH), Base64.NO_WRAP)
+      }
       mainHandler.post { onFrame(payload) }
     } catch (_: Exception) {
       // Drop the frame; detection is best-effort.

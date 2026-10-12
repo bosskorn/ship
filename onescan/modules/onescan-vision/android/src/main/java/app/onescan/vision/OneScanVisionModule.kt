@@ -32,17 +32,21 @@ class OneScanVisionModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("OneScanVision")
 
-    AsyncFunction("grayscaleAsync") { uri: String, maxEdge: Int ->
+    AsyncFunction("grayscaleAsync") { uri: String, maxEdge: Int, withMask: Boolean? ->
       val bmp = ImageIO.loadUpright(ImageIO.fileFromUri(uri), maxEdge)
       try {
         val (y, cb, cr) = ImageIO.ycbcr(bmp)
-        mapOf(
+        val out = mutableMapOf<String, Any>(
           "width" to bmp.width,
           "height" to bmp.height,
           "data" to Base64.encodeToString(y, Base64.NO_WRAP),
           "cb" to Base64.encodeToString(cb, Base64.NO_WRAP),
           "cr" to Base64.encodeToString(cr, Base64.NO_WRAP),
         )
+        if (withMask == true) {
+          DocSeg.get(context)?.let { out["mask"] = Base64.encodeToString(it.mask(y, cb, cr, bmp.width, bmp.height), Base64.NO_WRAP) }
+        }
+        out
       } finally {
         bmp.recycle()
       }
