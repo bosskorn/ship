@@ -99,6 +99,18 @@ export class DeliveryService {
     return { otpOk, qrOk };
   }
 
+  /** Evidence files must exist and belong to the driver submitting them. */
+  private async assertOwnFiles(c: PoolClient, driverId: string, evidence: StopEvidence) {
+    const keys = [...(evidence.photoKeys ?? []), ...(evidence.signatureKey ? [evidence.signatureKey] : [])];
+    if (!keys.length) return;
+    const found = await this.db.one<{ n: string }>(
+      `SELECT count(*) AS n FROM files WHERE key = ANY($1) AND owner_id = $2 AND uploaded_at IS NOT NULL`,
+      [keys, driverId],
+      c,
+    );
+    if (Number(found!.n) !== new Set(keys).size) throw new AppError('FILE_NOT_UPLOADED', 'ไม่พบไฟล์รูปภาพที่อัปโหลด', 422);
+  }
+
   private async insertPod(
     c: PoolClient,
     order: any,
@@ -109,6 +121,7 @@ export class DeliveryService {
     distance: number,
     driverId: string,
   ) {
+    await this.assertOwnFiles(c, driverId, evidence);
     await this.db.query(
       `INSERT INTO pod (order_id, stop_id, kind, otp_verified, qr_verified, photo_keys, signature_key, recipient_name, location,
                         distance_from_stop_m, override_reason, recorded_by)
