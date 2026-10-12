@@ -35,11 +35,27 @@ export function detectFromMask(img: GrayImage, maskB64: string): QuadDetection {
   for (let i = 0; i < img.data.length; i++) sum += img.data[i];
   const brightness = img.data.length ? sum / img.data.length / 255 : 0;
   const sharpness = sharpnessOf(img);
+  const r = maskQuad(maskB64);
+  return { quad: r?.quad ?? null, confidence: r?.confidence ?? 0, brightness, sharpness };
+}
+
+function maskQuad(maskB64: string) {
   const raw = base64ToUint8(maskB64);
   const prob = new Float32Array(raw.length);
   for (let i = 0; i < raw.length; i++) prob[i] = raw[i] / 255;
-  const r = maskToQuad(prob, Math.round(Math.sqrt(raw.length)));
-  return { quad: r?.quad ?? null, confidence: r?.confidence ?? 0, brightness, sharpness };
+  return maskToQuad(prob, Math.round(Math.sqrt(raw.length)));
+}
+
+/** A live camera frame: mask + stats from native, or raw planes when there is no model. */
+export interface LiveFrame {
+  width: number;
+  height: number;
+  data?: string;
+  cb?: string;
+  cr?: string;
+  mask?: string;
+  brightness?: number;
+  sharpness?: number;
 }
 
 /**
@@ -51,7 +67,17 @@ export function detectFromMask(img: GrayImage, maskB64: string): QuadDetection {
 export const CaptureEngine = {
   hasNativeVision: () => OneScanVision !== null,
 
-  detectFrame(frame: { width: number; height: number; data: string; cb?: string; cr?: string; mask?: string }): QuadDetection {
+  /**
+   * Live frame → quad. Native builds send only the DocSeg mask plus brightness/sharpness
+   * computed on the camera thread, so this is a 64×64 mask walk; raw planes (and the
+   * classical detector) are only used when the model is missing.
+   */
+  detectFrame(frame: LiveFrame): QuadDetection {
+    if (frame.mask && frame.brightness !== undefined && frame.sharpness !== undefined) {
+      const r = maskQuad(frame.mask);
+      return { quad: r?.quad ?? null, confidence: r?.confidence ?? 0, brightness: frame.brightness, sharpness: frame.sharpness };
+    }
+    if (!frame.data) return { quad: null, confidence: 0, brightness: frame.brightness ?? 0, sharpness: frame.sharpness ?? 0 };
     const img = decodeGray(frame.width, frame.height, frame.data, frame.cb, frame.cr);
     return frame.mask ? detectFromMask(img, frame.mask) : detectQuad(img);
   },

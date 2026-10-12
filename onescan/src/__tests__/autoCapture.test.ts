@@ -10,14 +10,26 @@ const quad = (o = 0): Quad => [
 const good = (at: number, o = 0): DetectionSample => ({ quad: quad(o), confidence: 0.95, brightness: 0.6, sharpness: 0.8, at });
 
 describe('AutoCaptureController', () => {
-  it('fires after N stable frames, then respects cooldown', () => {
+  it('fires once per steady page, stays ready, and respects cooldown', () => {
     const c = new AutoCaptureController({ stableFrames: 3, maxDrift: 0.02, minConfidence: 0.7, minBrightness: 0.2, minSharpness: 0.3, cooldownMs: 1000 });
     expect(c.push(good(0)).fire).toBe(false);
     expect(c.push(good(10)).fire).toBe(false);
     expect(c.push(good(20))).toEqual({ hint: 'ready', fire: true });
-    // Within cooldown: no second shot even if stable.
-    for (let t = 30; t < 200; t += 10) expect(c.push(good(t)).fire).toBe(false);
-    expect(c.push(good(1100)).fire).toBe(true);
+    // Same page held steady: still ready, never a second shot.
+    for (let t = 30; t < 2000; t += 10) expect(c.push(good(t))).toEqual({ hint: 'ready', fire: false });
+    // Next page (moved), steady again: fires.
+    c.push(good(2010, 0.1));
+    c.push(good(2020, 0.1));
+    expect(c.push(good(2030, 0.1)).fire).toBe(true);
+  });
+
+  it('waits for the cooldown before the next page', () => {
+    const c = new AutoCaptureController({ stableFrames: 2, maxDrift: 0.02, minConfidence: 0.7, minBrightness: 0.2, minSharpness: 0.3, cooldownMs: 1000 });
+    c.push(good(0));
+    expect(c.push(good(10)).fire).toBe(true);
+    c.push(good(20, 0.1));
+    expect(c.push(good(30, 0.1))).toEqual({ hint: 'ready', fire: false });
+    expect(c.push(good(1100, 0.1)).fire).toBe(true);
   });
 
   it('resets on movement and reports quality hints', () => {

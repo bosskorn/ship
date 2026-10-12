@@ -8,7 +8,7 @@ import { ExportEngine } from './export/ExportEngine';
 import { DocumentFileStore } from './storage/DocumentFileStore';
 import { newId } from './ids';
 import { OneScanVision } from '@/native/OneScanVision';
-import { defaultScanQuality, masterProfiles, masterSize, PREVIEW, ScanQuality } from './image/quality';
+import { defaultScanQuality, masterProfiles, masterSize, PREVIEW, ScanQuality, THUMBNAIL } from './image/quality';
 import { toStage, useScanDiagnostics } from './image/diagnostics';
 import type { ProcessedImage } from './image/ImageEngine';
 import type { DocumentRecord, DocumentType, DraftPage, PageFilter, PageRecord, Quad, Rotation, SystemFolderKey } from './model';
@@ -54,8 +54,22 @@ const toPageRow = (p: StoredPage, i: number): Omit<PageRecord, 'id' | 'documentI
   quad: p.quad,
 });
 
+/** Camera facts for diagnostics (numbers only). */
+export interface CaptureMeta {
+  engine?: string;
+  tier?: string;
+  jpegQuality?: number;
+  captureMs?: number;
+}
+
 /** Diagnostics for a freshly captured page: original vs. its preview render. */
-async function recordDraft(sourceUri: string, preview: ProcessedImage, scanner: 'system' | 'camera', filter: PageFilter) {
+async function recordDraft(
+  sourceUri: string,
+  preview: ProcessedImage,
+  scanner: 'system' | 'camera',
+  filter: PageFilter,
+  meta?: CaptureMeta & { processMs?: number },
+) {
   const [src, prev] = await Promise.all([ImageEngine.info(sourceUri), ImageEngine.info(preview.uri)]);
   useScanDiagnostics.getState().record({
     page: 0,
@@ -63,6 +77,7 @@ async function recordDraft(sourceUri: string, preview: ProcessedImage, scanner: 
     filter,
     profile: 'preview',
     stages: { source: toStage(src), preview: toStage(prev, { quality: preview.quality }) },
+    ...(meta ? { capture: { engine: meta.engine, tier: meta.tier, jpegQuality: meta.jpegQuality }, timings: { captureMs: meta.captureMs, processMs: meta.processMs } } : {}),
   });
 }
 
@@ -80,18 +95,20 @@ export const DocumentEngine = {
   export: ExportEngine,
 
   /** Capture → detect edges → preview render (the master is rendered on save, spec §13). */
-  async processCapture(sourceUri: string, filter: PageFilter = 'auto'): Promise<DraftPage> {
+  async processCapture(sourceUri: string, filter: PageFilter = 'auto', meta?: CaptureMeta): Promise<DraftPage> {
+    const started = Date.now();
     const det = await CaptureEngine.detect(sourceUri);
     const quad = det.detected ? det.quad : null;
     const out = await ImageEngine.preview(sourceUri, { quad, filter, rotation: 0 });
-    await recordDraft(sourceUri, out, 'camera', filter);
+    await recordDraft(sourceUri, out, 'camera', filter, meta ? { ...meta, processMs: Date.now() - started } : undefined);
     return { id: newId(), sourceUri, processedUri: out.uri, width: out.width, height: out.height, quad: quad ?? undefined, filter, rotation: 0 };
   },
 
   /** Page from the system scanner: already cropped and perspective-corrected, so only enhance. */
   async processScanned(uri: string, filter: PageFilter = 'auto'): Promise<DraftPage> {
+    const started = Date.now();
     const out = await ImageEngine.preview(uri, { quad: null, filter, rotation: 0 });
-    await recordDraft(uri, out, 'system', filter);
+    await recordDraft(uri, out, 'system', filter, { engine: 'system', processMs: Date.now() - started });
     return { id: newId(), sourceUri: uri, processedUri: out.uri, width: out.width, height: out.height, filter, rotation: 0 };
   },
 
@@ -118,11 +135,12 @@ export const DocumentEngine = {
    * encode once at the quality setting) and file all tiers under `docId`.
    */
   async renderPages(draft: DraftPage[], docId: string, tier: ScanQuality, onStage?: StageCallback): Promise<StoredPage[]> {
-    const profile = masterProfiles[tier];
     const pages: StoredPage[] = [];
     for (let i = 0; i < draft.length; i++) {
       onStage?.('pages', i / draft.length);
       const p = draft[i];
+      const pageTier = p.quality ?? tier;
+      const profile = masterProfiles[pageTier];
       const n = i + 1;
       const params = { quad: p.quad ?? null, filter: p.filter, rotation: p.rotation };
       const sourceInfo = await ImageEngine.info(p.sourceUri);
@@ -149,7 +167,7 @@ export const DocumentEngine = {
       useScanDiagnostics.getState().record({
         page: n,
         filter: p.filter,
-        profile: tier,
+        profile: pageTier,
         stages: {
           source: toStage(sourceInfo),
           master: toStage(mInfo, { quality: master.quality, degraded: master.degraded }),
@@ -172,6 +190,7 @@ export const DocumentEngine = {
     const pdf = await PDFEngine.create(pages.map((p) => ({ ...p, filterApplied })), title);
     const pdfFile = DocumentFileStore.adopt(pdf.uri, docId, 'document.pdf');
     const thumbFile = DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri ?? pages[0].uri), docId, 'thumbnail/thumb.jpg');
+    useScanDiagnostics.getState().attach(1, 'thumbnail', toStage(await ImageEngine.info(thumbFile.uri), { quality: THUMBNAIL.quality }));
 
     onStage?.('ocr', 0);
     // OCR decodes its own working copy natively; coordinates are normalised to the master.

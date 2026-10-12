@@ -1,11 +1,15 @@
 package app.onescan.vision
 
 import android.content.Context
+import android.graphics.ImageFormat
+import android.hardware.camera2.CameraCharacteristics
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Base64
 import android.util.Size
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -13,6 +17,8 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionFilter
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -33,6 +39,15 @@ import kotlin.math.max
  * Scanner camera. Emits small upright Y/Cb/Cr frames (`onFrame`) so the
  * shared JS detector can draw the live document border and drive auto
  * capture. Frames never leave the device.
+ *
+ * Photos are always real sensor captures (ImageCapture, maximize-quality mode), never
+ * preview/analysis frames, saved as JPEG 97 (the kept original). `captureQuality` picks
+ * the still size:
+ * - "hd": largest 4:3 size up to ~12.5 MP (general documents);
+ * - "max": largest size the camera offers up to ~26 MP (cards, fine print).
+ * The MAX cap keeps one decoded page (w·h·4 bytes ≈ 100 MB) inside the large heap.
+ * Switching tiers only rebinds the still use case when the two tiers resolve to different
+ * sizes on this camera — on most phones (12 MP binned output) it is free.
  */
 class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
   override val shouldUseAndroidLayout = true
@@ -65,6 +80,17 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
     }
   var frameMaxEdge = 192
   var frameIntervalMs = 150L
+  var captureQuality = "hd"
+    set(value) {
+      val v = if (value == "max") "max" else "hd"
+      if (field == v) return
+      field = v
+      val sizes = jpegSizes()
+      val same = sizes.isNotEmpty() && pickSize(sizes, HD_PIXELS) == pickSize(sizes, MAX_PIXELS)
+      val capture = imageCapture
+      if (same && capture != null) onCameraReady(readyPayload(capture)) else rebindCapture()
+    }
+  private var owner: LifecycleOwner? = null
 
   init {
     addView(previewView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
@@ -94,9 +120,7 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
         provider = p
         val preview = Preview.Builder().build()
         preview.setSurfaceProvider(previewView.surfaceProvider)
-        val capture = ImageCapture.Builder()
-          .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-          .build()
+        val capture = buildCapture()
         val analysis = ImageAnalysis.Builder()
           .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
           .setResolutionSelector(
@@ -107,14 +131,71 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
           .build()
         analysis.setAnalyzer(executor) { proxy -> analyze(proxy) }
         p.unbindAll()
+        this.owner = owner
         camera = p.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture, analysis)
         camera?.cameraControl?.enableTorch(torchEnabled)
         imageCapture = capture
-        onCameraReady(mapOf<String, Any>())
+        onCameraReady(readyPayload(capture))
       } catch (e: Exception) {
         onCameraError(mapOf("message" to (e.message ?: "Camera unavailable")))
       }
     }, ContextCompat.getMainExecutor(context))
+  }
+
+  private fun jpegQuality() = JPEG_QUALITY
+
+  /** JPEG still sizes this camera offers (empty before binding / if unavailable). */
+  @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
+  private fun jpegSizes(): List<Pair<Int, Int>> = try {
+    val info = camera?.cameraInfo
+    val map = info?.let { Camera2CameraInfo.from(it).getCameraCharacteristic(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) }
+    map?.getOutputSizes(ImageFormat.JPEG)?.map { it.width to it.height } ?: emptyList()
+  } catch (_: Exception) {
+    emptyList()
+  }
+
+  private fun buildCapture(): ImageCapture {
+    val capPixels = if (captureQuality == "max") MAX_PIXELS else HD_PIXELS
+    val selector = ResolutionSelector.Builder()
+      .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+      .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+      .setResolutionFilter(ResolutionFilter { sizes, _ ->
+        val within = sizes.filter { it.width.toLong() * it.height <= capPixels }
+        within.ifEmpty { sizes.sortedBy { it.width.toLong() * it.height }.take(1) }
+      })
+      .build()
+    return ImageCapture.Builder()
+      .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+      .setResolutionSelector(selector)
+      .setJpegQuality(jpegQuality())
+      .build()
+  }
+
+  private fun readyPayload(capture: ImageCapture): Map<String, Any> {
+    val size = capture.resolutionInfo?.resolution ?: return mapOf("captureQuality" to captureQuality)
+    // Sensor orientation: report the upright (portrait) size.
+    return mapOf(
+      "captureQuality" to captureQuality,
+      "captureWidth" to minOf(size.width, size.height),
+      "captureHeight" to max(size.width, size.height),
+    )
+  }
+
+  /** Swap only the still-capture use case (HD ↔ MAX); preview and analysis keep running. */
+  private fun rebindCapture() {
+    val p = provider ?: return
+    val o = owner ?: return
+    val old = imageCapture ?: return
+    try {
+      p.unbind(old)
+      val capture = buildCapture()
+      camera = p.bindToLifecycle(o, CameraSelector.DEFAULT_BACK_CAMERA, capture)
+      camera?.cameraControl?.enableTorch(torchEnabled)
+      imageCapture = capture
+      onCameraReady(readyPayload(capture))
+    } catch (e: Exception) {
+      onCameraError(mapOf("message" to (e.message ?: "Camera unavailable")))
+    }
   }
 
   private fun unbind() {
@@ -124,6 +205,7 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
     }
     camera = null
     imageCapture = null
+    owner = null
     analysisExecutor?.shutdown()
     analysisExecutor = null
   }
@@ -166,12 +248,17 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
       val payload = mutableMapOf<String, Any>(
         "width" to outW,
         "height" to outH,
-        "data" to Base64.encodeToString(outY, Base64.NO_WRAP),
-        "cb" to Base64.encodeToString(outCb, Base64.NO_WRAP),
-        "cr" to Base64.encodeToString(outCr, Base64.NO_WRAP),
+        "brightness" to FrameStats.brightness(outY),
+        "sharpness" to FrameStats.sharpness(outY, outW, outH),
       )
-      DocSeg.get(context)?.let { model ->
+      val model = DocSeg.get(context)
+      if (model != null) {
+        // JS only turns the 64×64 mask into a quad; no frame pixels cross the bridge.
         payload["mask"] = Base64.encodeToString(model.mask(outY, outCb, outCr, outW, outH), Base64.NO_WRAP)
+      } else {
+        payload["data"] = Base64.encodeToString(outY, Base64.NO_WRAP)
+        payload["cb"] = Base64.encodeToString(outCb, Base64.NO_WRAP)
+        payload["cr"] = Base64.encodeToString(outCr, Base64.NO_WRAP)
       }
       mainHandler.post { onFrame(payload) }
     } catch (_: Exception) {
@@ -209,13 +296,24 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
       return
     }
     val file = File(ImageIO.outputDir(context), "capture-${UUID.randomUUID()}.jpg")
+    val startedAt = SystemClock.uptimeMillis()
+    val quality = jpegQuality()
     capture.takePicture(
       ImageCapture.OutputFileOptions.Builder(file).build(),
       ContextCompat.getMainExecutor(context),
       object : ImageCapture.OnImageSavedCallback {
         override fun onImageSaved(output: ImageCapture.OutputFileResults) {
           val (w, h) = ImageIO.uprightSize(file)
-          promise.resolve(mapOf("uri" to ImageIO.uriOf(file), "width" to w, "height" to h))
+          promise.resolve(
+            mapOf(
+              "uri" to ImageIO.uriOf(file),
+              "width" to w,
+              "height" to h,
+              "quality" to quality,
+              "bytes" to file.length(),
+              "captureMs" to (SystemClock.uptimeMillis() - startedAt),
+            ),
+          )
         }
 
         override fun onError(exception: ImageCaptureException) {
@@ -223,5 +321,18 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
         }
       },
     )
+  }
+
+  companion object {
+    const val HD_PIXELS = 12_600_000L
+    const val MAX_PIXELS = 26_000_000L
+    const val JPEG_QUALITY = 97
+
+    /** The size the resolution selector aims for: largest within the cap, 4:3 preferred. */
+    fun pickSize(sizes: List<Pair<Int, Int>>, cap: Long): Pair<Int, Int>? {
+      val within = sizes.filter { it.first.toLong() * it.second <= cap }
+      val fourThree = within.filter { val (a, b) = it; kotlin.math.abs(max(a, b) * 3 - minOf(a, b) * 4) <= max(a, b) / 100 }
+      return fourThree.ifEmpty { within }.maxByOrNull { it.first.toLong() * it.second }
+    }
   }
 }

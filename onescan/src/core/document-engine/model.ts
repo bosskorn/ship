@@ -1,5 +1,7 @@
 /** Engine-level domain model. UI-agnostic so the engine can ship as an SDK. */
 
+import type { ScanQuality } from './image/quality';
+
 export type DocumentType =
   | 'document'
   | 'id_card'
@@ -10,7 +12,11 @@ export type DocumentType =
   | 'whiteboard'
   | 'business_card';
 
-export type CaptureMode = 'document' | 'id' | 'book' | 'whiteboard';
+/**
+ * Scanner modes (Phase 1). `auto` picks document or card handling from what the camera
+ * sees; book/whiteboard/business-card scans use `document` mode with their own docType.
+ */
+export type CaptureMode = 'auto' | 'document' | 'id' | 'receipt';
 
 /**
  * `auto` = "Scan" (white paper, dark text: documents, receipts); `card` = colour scan for
@@ -43,6 +49,13 @@ export interface DraftPage {
   quad?: Quad;
   filter: PageFilter;
   rotation: Rotation;
+  /** Master tier chosen at capture (HD/MAX); falls back to the save-time setting. */
+  quality?: ScanQuality;
+  /**
+   * Just captured, enhancement still running in the background: `processedUri` is a
+   * quick downscale of the raw photo until the processed preview replaces it.
+   */
+  processing?: boolean;
 }
 
 export type SyncState = 'local_only' | 'pending_upload' | 'synced' | 'pending_delete';

@@ -48,12 +48,14 @@ export class AutoCaptureController {
   private stableCount = 0;
   private last: Quad | null = null;
   private lastFiredAt = -Infinity;
+  private firedThisStreak = false;
 
   constructor(private readonly cfg: AutoCaptureConfig = defaultAutoCaptureConfig) {}
 
   reset() {
     this.stableCount = 0;
     this.last = null;
+    this.firedThisStreak = false;
   }
 
   push(s: DetectionSample): { hint: CaptureHint; fire: boolean } {
@@ -71,14 +73,19 @@ export class AutoCaptureController {
       this.last = s.quad;
       return { hint: 'blurry', fire: false };
     }
-    this.stableCount = this.last && quadDrift(this.last, s.quad) <= this.cfg.maxDrift ? this.stableCount + 1 : 1;
+    const steady = this.last !== null && quadDrift(this.last, s.quad) <= this.cfg.maxDrift;
+    this.stableCount = steady ? this.stableCount + 1 : 1;
+    if (!steady) this.firedThisStreak = false;
     this.last = s.quad;
 
-    if (this.stableCount >= this.cfg.stableFrames && s.at - this.lastFiredAt >= this.cfg.cooldownMs) {
+    if (this.stableCount < this.cfg.stableFrames) return { hint: 'hold_still', fire: false };
+    // Ready stays on while the page stays steady (manual capture can rely on it). Auto
+    // capture fires once per steady page: a new shot needs the page to move first.
+    if (!this.firedThisStreak && s.at - this.lastFiredAt >= this.cfg.cooldownMs) {
       this.lastFiredAt = s.at;
-      this.stableCount = 0;
+      this.firedThisStreak = true;
       return { hint: 'ready', fire: true };
     }
-    return { hint: 'hold_still', fire: false };
+    return { hint: 'ready', fire: false };
   }
 }

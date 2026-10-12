@@ -36,7 +36,17 @@ export const MASTER_SLACK = 1.15;
  */
 export function masterSize(src: { width: number; height: number }, p: QualityProfile): { width: number; height: number } {
   const long = Math.max(src.width, src.height);
-  if (p.maxEdge <= 0 || long <= p.maxEdge * MASTER_SLACK) return { width: src.width, height: src.height };
-  const s = p.maxEdge / long;
+  let target = p.maxEdge <= 0 || long <= p.maxEdge * MASTER_SLACK ? long : p.maxEdge;
+  const k = target / long;
+  const px = src.width * k * (src.height * k);
+  if (px > MAX_OUTPUT_PIXELS) target = Math.floor(target * Math.sqrt(MAX_OUTPUT_PIXELS / px));
+  if (target >= long) return { width: src.width, height: src.height };
+  const s = target / long;
   return { width: Math.round(src.width * s), height: Math.round(src.height * s) };
 }
+
+/**
+ * RAM ceiling for any rendered page (~26 MP ≈ 104 MB decoded): even "Maximum" renders a
+ * 48/64 MP photo at ~26 MP rather than decoding it whole. Matches the camera's MAX cap.
+ */
+export const MAX_OUTPUT_PIXELS = 26_000_000;

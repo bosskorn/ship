@@ -14,7 +14,14 @@ export type FeatureFlag =
   | 'externalCloud'
   | 'pro'
   | 'advancedPdf'
-  | 'convert';
+  | 'convert'
+  // Scanner (Phase 1). Remote-config ready; defaults below.
+  | 'custom_scanner_enabled'
+  | 'auto_capture_enabled'
+  | 'quality_coach_enabled'
+  | 'glare_detection_enabled'
+  | 'shadow_detection_enabled'
+  | 'restore_enabled';
 
 export type AiTask =
   | 'ocr_advanced'
@@ -59,7 +66,19 @@ export const fallbackConfig: RemoteConfig = {
   plans: [],
   creditCosts: {},
   // Local-only features that are built and need no backend.
-  flags: { ocr: true, sensitiveDetection: true, redaction: true },
+  flags: {
+    ocr: true,
+    sensitiveDetection: true,
+    redaction: true,
+    custom_scanner_enabled: true,
+    // Manual capture is primary; auto capture ships only after Phase 2 device QA.
+    auto_capture_enabled: __DEV__,
+    quality_coach_enabled: true,
+    // No glare/shadow detector or restore engine yet: the UI paths exist, switched off.
+    glare_detection_enabled: false,
+    shadow_detection_enabled: false,
+    restore_enabled: false,
+  },
   trashRetentionDays: 30,
 };
 

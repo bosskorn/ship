@@ -1,4 +1,4 @@
-import { masterProfiles, masterSize, PREVIEW, THUMBNAIL } from '@/core/document-engine/image/quality';
+import { masterProfiles, masterSize, MAX_OUTPUT_PIXELS, PREVIEW, THUMBNAIL } from '@/core/document-engine/image/quality';
 import { pixelRetention } from '@/core/document-engine/image/diagnostics';
 import { defaultFilterFor, pageFilters } from '@/core/document-engine/image/filters';
 
@@ -15,8 +15,11 @@ describe('master resolution (v1.0.5)', () => {
     expect(masterSize({ width: 3000, height: 4400 }, masterProfiles.high)).toEqual({ width: 3000, height: 4400 });
   });
 
-  test('Maximum never resizes; nothing is ever upscaled', () => {
-    expect(masterSize({ width: 6120, height: 8160 }, masterProfiles.maximum)).toEqual({ width: 6120, height: 8160 });
+  test('Maximum keeps full resolution up to the RAM ceiling; nothing is ever upscaled', () => {
+    expect(masterSize({ width: 4284, height: 5712 }, masterProfiles.maximum)).toEqual({ width: 4284, height: 5712 }); // 24.5 MP
+    // 50 MP (e.g. a 50 MP sensor photo imported) → ~26 MP, never decoded whole.
+    expect(masterSize({ width: 6120, height: 8160 }, masterProfiles.maximum)).toEqual({ width: 4415, height: 5887 });
+    expect(4415 * 5887).toBeLessThanOrEqual(MAX_OUTPUT_PIXELS);
     for (const p of Object.values(masterProfiles)) {
       expect(masterSize({ width: 600, height: 800 }, p)).toEqual({ width: 600, height: 800 });
     }

@@ -4,6 +4,11 @@ import UIKit
 
 /// Scanner camera. Emits small upright Y/Cb/Cr frames for the shared JS
 /// detector (live border + auto capture). Frames never leave the device.
+///
+/// Photos are real AVCapturePhotoOutput captures (quality prioritised), never video
+/// frames, saved as JPEG 0.97 (the kept original). `captureQuality` picks the still size:
+/// "hd" = largest size up to ~12.5 MP, "max" = largest size up to ~26 MP. Switching only
+/// changes maxPhotoDimensions; the session keeps running.
 class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate, AVCapturePhotoCaptureDelegate {
   let onCameraReady = EventDispatcher()
   let onFrame = EventDispatcher()
@@ -13,6 +18,12 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
   var active = true { didSet { active ? start() : stop() } }
   var frameMaxEdge = 192
   var frameIntervalMs = 150
+  var captureQuality = "hd" {
+    didSet {
+      if captureQuality != "max" && captureQuality != "hd" { captureQuality = "hd" }
+      if oldValue != captureQuality { sessionQueue.async { [weak self] in self?.applyPhotoDimensions(notify: true) } }
+    }
+  }
 
   private let session = AVCaptureSession()
   private let sessionQueue = DispatchQueue(label: "app.onescan.camera.session")
@@ -24,6 +35,7 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
   private var configured = false
   private var lastFrameAt: CFTimeInterval = 0
   private var pendingPhoto: ((Result<[String: Any], Error>) -> Void)?
+  private var photoStartedAt: CFTimeInterval = 0
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -53,7 +65,7 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
         self.session.startRunning()
         DispatchQueue.main.async {
           self.applyTorch()
-          self.onCameraReady([:])
+          self.onCameraReady(self.readyPayload())
         }
       }
     }
@@ -80,6 +92,7 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
       session.addOutput(photoOut)
       photoOut.maxPhotoQualityPrioritization = .quality
     }
+    applyPhotoDimensions(notify: false)
     videoOut.alwaysDiscardsLateVideoFrames = true
     videoOut.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange]
     videoOut.setSampleBufferDelegate(self, queue: frameQueue)
@@ -93,6 +106,36 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
       }
     }
     configured = true
+  }
+
+  private let jpegQuality = 0.97
+
+  /// Largest supported still size within the tier's pixel cap (iOS 16+; older devices keep the preset's size).
+  private func applyPhotoDimensions(notify: Bool) {
+    guard let cam = device else { return }
+    if #available(iOS 16.0, *) {
+      let cap: Int64 = captureQuality == "max" ? 26_000_000 : 12_600_000
+      let dims = cam.activeFormat.supportedMaxPhotoDimensions
+      let within = dims.filter { Int64($0.width) * Int64($0.height) <= cap }
+      let pick = within.max { Int64($0.width) * Int64($0.height) < Int64($1.width) * Int64($1.height) }
+        ?? dims.min { Int64($0.width) * Int64($0.height) < Int64($1.width) * Int64($1.height) }
+      if let pick { photoOut.maxPhotoDimensions = pick }
+    }
+    if notify {
+      DispatchQueue.main.async { self.onCameraReady(self.readyPayload()) }
+    }
+  }
+
+  private func readyPayload() -> [String: Any] {
+    var out: [String: Any] = ["captureQuality": captureQuality]
+    if #available(iOS 16.0, *) {
+      let d = photoOut.maxPhotoDimensions
+      if d.width > 0 {
+        out["captureWidth"] = Int(min(d.width, d.height))
+        out["captureHeight"] = Int(max(d.width, d.height))
+      }
+    }
+    return out
   }
 
   private func applyTorch() {
@@ -148,15 +191,20 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
         }
       }
     }
+    let yBytes = [UInt8](ys)
     var payload: [String: Any] = [
       "width": dw,
       "height": dh,
-      "data": ys.base64EncodedString(),
-      "cb": cbs.base64EncodedString(),
-      "cr": crs.base64EncodedString(),
+      "brightness": OneScanFrameStats.brightness(yBytes),
+      "sharpness": OneScanFrameStats.sharpness(yBytes, width: dw, height: dh),
     ]
     if let model = DocSeg.shared() {
-      payload["mask"] = model.mask(y: [UInt8](ys), cb: [UInt8](cbs), cr: [UInt8](crs), width: dw, height: dh).base64EncodedString()
+      // JS only turns the 64×64 mask into a quad; no frame pixels cross the bridge.
+      payload["mask"] = model.mask(y: yBytes, cb: [UInt8](cbs), cr: [UInt8](crs), width: dw, height: dh).base64EncodedString()
+    } else {
+      payload["data"] = ys.base64EncodedString()
+      payload["cb"] = cbs.base64EncodedString()
+      payload["cr"] = crs.base64EncodedString()
     }
     DispatchQueue.main.async { [weak self] in self?.onFrame(payload) }
   }
@@ -169,8 +217,13 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
       return
     }
     pendingPhoto = completion
-    let settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
+    photoStartedAt = CACurrentMediaTime()
+    let settings = AVCapturePhotoSettings(format: [
+      AVVideoCodecKey: AVVideoCodecType.jpeg,
+      AVVideoCompressionPropertiesKey: [AVVideoQualityKey: jpegQuality],
+    ])
     settings.photoQualityPrioritization = .quality
+    if #available(iOS 16.0, *) { settings.maxPhotoDimensions = photoOut.maxPhotoDimensions }
     photoOut.capturePhoto(with: settings, delegate: self)
   }
 
@@ -187,7 +240,14 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
       try data.write(to: url)
       let img = CIImage(contentsOf: url, options: [.applyOrientationProperty: true])
       let e = img?.extent ?? .zero
-      done?(.success(["uri": url.absoluteString, "width": Int(e.width), "height": Int(e.height)]))
+      done?(.success([
+        "uri": url.absoluteString,
+        "width": Int(e.width),
+        "height": Int(e.height),
+        "quality": Int((jpegQuality * 100).rounded()),
+        "bytes": data.count,
+        "captureMs": Int((CACurrentMediaTime() - photoStartedAt) * 1000),
+      ]))
     } catch {
       done?(.failure(error))
     }

@@ -27,12 +27,30 @@ export interface SecuritySettings {
   screenshotProtection: boolean;
 }
 
+/** Which camera runs a scan. `auto` = OneScan, falling back to the system scanner when it can't. */
+export type ScannerEngineSetting = 'auto' | 'onescan' | 'google';
+
 export interface ScannerSettings {
+  /** User's auto-capture switch; only honoured while the `auto_capture_enabled` flag is on. */
   autoCapture: boolean;
+  /** Legacy (≤1.0.6). Multi-page is now a per-scan capture state. */
   multiPage: boolean;
   showGrid: boolean;
   /** Master resolution / JPEG quality tier (see document-engine/image/quality.ts). */
   quality: ScanQuality;
+  engine: ScannerEngineSetting;
+  /** Card-mode "processed on device" note was shown and dismissed. */
+  cardPrivacySeen: boolean;
+}
+
+/**
+ * OneScan camera health, for engine fallback. `opening` is set before the camera binds
+ * and cleared once it is ready (or the scanner closes); still set on the next open means
+ * the last open crashed or hung.
+ */
+export interface ScannerHealth {
+  opening: boolean;
+  failures: number;
 }
 
 export const defaultPrivacy: PrivacySettings = {
@@ -52,6 +70,8 @@ interface SettingsState {
   privacy: PrivacySettings;
   security: SecuritySettings;
   scanner: ScannerSettings;
+  scannerHealth: ScannerHealth;
+  setScannerHealth: (patch: Partial<ScannerHealth>) => void;
   completeOnboarding: () => void;
   setLanguage: (l: LanguageCode | null) => void;
   setAppearance: (a: AppearancePreference) => void;
@@ -69,7 +89,9 @@ export const useSettings = create<SettingsState>()(
       appearance: 'system',
       privacy: defaultPrivacy,
       security: { appLock: false, biometric: false, autoLock: 'immediately', screenshotProtection: false },
-      scanner: { autoCapture: true, multiPage: true, showGrid: false, quality: defaultScanQuality },
+      scanner: { autoCapture: false, multiPage: false, showGrid: false, quality: defaultScanQuality, engine: 'auto', cardPrivacySeen: false },
+      scannerHealth: { opening: false, failures: 0 },
+      setScannerHealth: (patch) => set((s) => ({ scannerHealth: { ...s.scannerHealth, ...patch } })),
       completeOnboarding: () => set({ onboardingCompleted: true }),
       setLanguage: (language) => set({ language }),
       setAppearance: (appearance) => set({ appearance }),
@@ -98,6 +120,7 @@ export const useSettings = create<SettingsState>()(
           privacy: { ...defaultPrivacy, ...p.privacy, processOnDevice: true },
           security: { ...current.security, ...p.security },
           scanner: { ...current.scanner, ...p.scanner },
+          scannerHealth: { ...current.scannerHealth, ...p.scannerHealth },
         };
       },
       onRehydrateStorage: () => () => {

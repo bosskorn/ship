@@ -21,7 +21,7 @@ function greetingKey(h: number) {
 
 export function openScanner(opts?: { mode?: CaptureMode; docType?: DocumentType; source?: string }) {
   useScanSession.getState().start(opts);
-  track('scan_started', { source: opts?.source ?? 'home', mode: opts?.mode ?? 'document' });
+  track('scan_started', { source: opts?.source ?? 'home', mode: opts?.mode ?? 'auto' });
   router.push('/scanner');
 }
 
