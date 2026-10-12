@@ -21,6 +21,8 @@ const envSchema = z.object({
   UPLOAD_SIGNING_SECRET: z.string().min(16).default('dev-only-upload-secret'),
   UPLOAD_DIR: z.string().default('./uploads'),
   PAYMENT_MOCK_SECRET: z.string().min(8).default('dev-only-mock-payment'),
+  /** OTP requests allowed per client IP per hour (spec §38). */
+  OTP_IP_HOURLY_LIMIT: z.coerce.number().int().min(1).default(20),
   OTP_DEV_ECHO: bool.default(false),
   OTP_DEV_FIXED_CODE: z.string().regex(/^\d{6}$/).optional(),
   ROUTING_PROVIDER: z.enum(['haversine', 'osrm']).default('haversine'),

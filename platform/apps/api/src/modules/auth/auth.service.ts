@@ -47,7 +47,7 @@ export class AuthService {
     const [perMin, perHour, perIp] = await Promise.all([
       this.redis.rateLimit(`otp:phone:min:${phone}`, 1, 60),
       this.redis.rateLimit(`otp:phone:hour:${phone}`, 5, 3600),
-      this.redis.rateLimit(`otp:ip:${ip}`, 20, 3600),
+      this.redis.rateLimit(`otp:ip:${ip}`, this.cfg.OTP_IP_HOURLY_LIMIT, 3600),
     ]);
     if (!perMin || !perHour || !perIp) throw new AppError('OTP_RATE_LIMITED', 'ขอรหัส OTP บ่อยเกินไป กรุณารอสักครู่', 429);
 
