@@ -27,7 +27,7 @@ def background(a, block):
     bot = bg[y1][:, x0] * (1 - tx) + bg[y1][:, x1] * tx
     return top * (1 - ty) + bot * ty
 
-def scan(img, max_gain=2.0, white=238.0, gamma=1.25, sat=1.2, sharp=0.4, wb_lo=0.7, wb_hi=1.5, lum_tone=True, chroma_soft=None):
+def scan(img, max_gain=2.0, white=238.0, gamma=1.25, sat=1.2, sharp=0.4, wb_lo=0.7, wb_hi=1.5, lum_tone=True):
     a = np.asarray(img.convert('RGB')).astype(np.float32)
     h, w, _ = a.shape
     bg = background(a, max(16, max(w, h) // 40))
@@ -41,18 +41,22 @@ def scan(img, max_gain=2.0, white=238.0, gamma=1.25, sat=1.2, sharp=0.4, wb_lo=0
         Ln = (n @ np.array([0.299, 0.587, 0.114], np.float32))[..., None]
         Lt = np.clip((Ln - black) / (white - black), 0, 1) ** gamma * 255
         k = Lt / np.maximum(Ln, 1)
-        if chroma_soft:
-            # Full tone curve for neutral pixels (text); colourful ink (stamps, logos) keeps more of its level.
-            C = (n.max(2) - n.min(2))[..., None]
-            wgt = np.clip(1 - C / chroma_soft, 0.25, 1)
-            k = 1 + (k - 1) * wgt
+        # Neutral pixels (text, paper) get the full curve; coloured ink keeps its paper-corrected
+        # level (mirrors PageProcessor.neutralWeight, chroma 24 → 72).
+        C = (n.max(2) - n.min(2))[..., None]
+        u = np.clip((C - 24) / 48, 0, 1)
+        wgt = 1 - u * u * (3 - 2 * u)
+        k = 1 + (k - 1) * wgt
         t = n * k
-        # Near-white (paper) goes fully neutral white.
-        t = np.where(Lt >= 254.5, 255.0, t)
+        # Near-white neutral (paper) goes fully white.
+        t = np.where((Lt >= 254.5) & (wgt > 0.5), 255.0, t)
+        sat_px = 1 + (sat - 1) * wgt
     else:
+        sat_px = sat
+    if not lum_tone:
         t = np.clip((n - black) / (white - black), 0, 1) ** gamma * 255
     l2 = (t @ np.array([0.299, 0.587, 0.114], np.float32))[..., None]
-    t = l2 + (t - l2) * sat
+    t = l2 + (t - l2) * sat_px
     p = np.pad(t, ((1, 1), (1, 1), (0, 0)), mode='edge')
     blur = sum(p[dy:dy+h, dx:dx+w] for dy in range(3) for dx in range(3)) / 9
     t = t + sharp * (t - blur)

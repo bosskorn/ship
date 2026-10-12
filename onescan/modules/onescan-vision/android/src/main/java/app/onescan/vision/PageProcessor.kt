@@ -26,6 +26,8 @@ internal object PageProcessor {
   private const val SCAN_WHITE = 238.0
   private const val SCAN_GAMMA = 1.25
   private const val SCAN_SATURATION = 1.2
+  private const val INK_CHROMA_LO = 24f
+  private const val INK_CHROMA_HI = 72f
   private const val SCAN_SHARPEN = 0.4f
   /** White-balance correction range for paper (wider than for cards: paper should be white). */
   private const val SCAN_WB_MIN = 0.7f
@@ -271,8 +273,11 @@ internal object PageProcessor {
       }
     }
     black = min(black, 80)
-    // Tone curve on luminance, applied to RGB as a ratio, so colour print keeps its hue and
-    // saturation; paper that reaches white goes fully neutral. LUT in quarter levels.
+    // Tone curve on luminance, applied to RGB as a ratio, so colour print keeps its hue.
+    // Foreground chroma is preserved separately from the background correction: neutral
+    // pixels (text, paper) get the full levels/gamma, coloured ink (red stamps, blue
+    // signatures, logos) keeps its paper-corrected level — a luminance curve would crush
+    // saturated colours, whose luminance is low, towards black. LUT in quarter levels.
     val lut = FloatArray(1024) { i ->
       val t = ((i / 4.0 - black) / (SCAN_WHITE - black)).coerceIn(0.0, 1.0)
       (Math.pow(t, SCAN_GAMMA) * 255).toFloat()
@@ -284,19 +289,31 @@ internal object PageProcessor {
       var b = (c and 0xff).toFloat()
       val ln = 0.299f * r + 0.587f * g + 0.114f * b
       val lt = lut[(ln * 4).roundToInt().coerceIn(0, 1023)]
-      if (lt >= 254.5f) {
+      val neutral = neutralWeight(max(r, max(g, b)) - min(r, min(g, b)))
+      if (lt >= 254.5f && neutral > 0.5f) {
         r = 255f; g = 255f; b = 255f
       } else {
-        val k = lt / max(ln, 1f)
+        val k = 1f + (lt / max(ln, 1f) - 1f) * neutral
         r *= k; g *= k; b *= k
       }
+      // The mild saturation lift is part of the neutral (paper/text) look only; ink colour is left as captured.
+      val sat = 1f + (SCAN_SATURATION.toFloat() - 1f) * neutral
       val l = 0.299f * r + 0.587f * g + 0.114f * b
       px[i] = (c and (0xff shl 24)) or
-        ((l + (r - l) * SCAN_SATURATION.toFloat()).roundToInt().coerceIn(0, 255) shl 16) or
-        ((l + (g - l) * SCAN_SATURATION.toFloat()).roundToInt().coerceIn(0, 255) shl 8) or
-        (l + (b - l) * SCAN_SATURATION.toFloat()).roundToInt().coerceIn(0, 255)
+        ((l + (r - l) * sat).roundToInt().coerceIn(0, 255) shl 16) or
+        ((l + (g - l) * sat).roundToInt().coerceIn(0, 255) shl 8) or
+        (l + (b - l) * sat).roundToInt().coerceIn(0, 255)
     }
     unsharp(px, w, h, SCAN_SHARPEN)
+  }
+
+  /**
+   * 1 for neutral pixels (channel spread ≤ INK_CHROMA_LO), 0 for clearly coloured ink
+   * (≥ INK_CHROMA_HI), smooth in between. JPEG chroma noise on black text stays neutral.
+   */
+  fun neutralWeight(chroma: Float): Float {
+    val t = ((chroma - INK_CHROMA_LO) / (INK_CHROMA_HI - INK_CHROMA_LO)).coerceIn(0f, 1f)
+    return 1f - t * t * (3f - 2f * t)
   }
 
   private fun lum(c: Int) = (((c shr 16) and 0xff) * 77 + ((c shr 8) and 0xff) * 150 + (c and 0xff) * 29) shr 8
