@@ -83,7 +83,7 @@ internal object ImageIO {
     BitmapFactory.decodeFile(file.absolutePath, bounds)
     if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw IllegalArgumentException("Unreadable image: ${file.name}")
     val long = max(bounds.outWidth, bounds.outHeight)
-    val target = if (maxEdge <= 0 || long <= maxEdge * SLACK) long else maxEdge
+    val target = outputEdge(bounds.outWidth, bounds.outHeight, maxEdge)
     var sample = 1
     while (long / (sample * 2) >= target) sample *= 2
     val opts = BitmapFactory.Options().apply {
@@ -93,7 +93,7 @@ internal object ImageIO {
     }
     var bmp = BitmapFactory.decodeFile(file.absolutePath, opts) ?: throw IllegalArgumentException("Unreadable image: ${file.name}")
     val decodedLong = max(bmp.width, bmp.height)
-    if (decodedLong > target * SLACK) {
+    if (decodedLong > target * SLACK || bmp.width.toLong() * bmp.height > MAX_OUTPUT_PIXELS) {
       val s = target.toFloat() / decodedLong
       val scaled = Bitmap.createScaledBitmap(bmp, max(1, (bmp.width * s).roundToInt()), max(1, (bmp.height * s).roundToInt()), true)
       if (scaled != bmp) bmp.recycle()
@@ -103,6 +103,23 @@ internal object ImageIO {
   }
 
   private const val SLACK = 1.15f
+
+  /**
+   * RAM ceiling for any decoded page (≈ 104 MB as ARGB): 48/64 MP photos are rendered at
+   * ~26 MP instead of decoded whole. Mirrors `MAX_OUTPUT_PIXELS` in quality.ts and the iOS
+   * PageProcessor.
+   */
+  const val MAX_OUTPUT_PIXELS = 26_000_000L
+
+  /** Output long edge: the cap (with slack), then the pixel budget. Never upscales. */
+  fun outputEdge(w: Int, h: Int, maxEdge: Int): Int {
+    val long = max(w, h)
+    var target = if (maxEdge <= 0 || long <= maxEdge * SLACK) long else maxEdge
+    val s = target.toDouble() / long
+    val px = w * s * (h * s)
+    if (px > MAX_OUTPUT_PIXELS) target = kotlin.math.floor(target * kotlin.math.sqrt(MAX_OUTPUT_PIXELS / px)).toInt()
+    return target
+  }
 
   /** Upright size, file size and type, without decoding pixels. */
   fun info(file: File): Map<String, Any> {

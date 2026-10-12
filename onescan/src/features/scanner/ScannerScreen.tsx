@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Linking, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +16,7 @@ import { newId } from '@/core/document-engine/ids';
 import type { CaptureMode, DraftPage, PageFilter } from '@/core/document-engine/model';
 import { useFeature } from '@/core/config/remoteConfig';
 import { useSettings } from '@/core/config/settingsStore';
-import { CaptureQuality, OneScanCameraView, OneScanCameraViewRef } from '@/native/OneScanCameraView';
+import { CameraReadyInfo, CaptureQuality, OneScanCameraView, OneScanCameraViewRef } from '@/native/OneScanCameraView';
 import type { CapturedPhoto } from '@/native/OneScanVision';
 import { OneScanVision } from '@/native/OneScanVision';
 import { track } from '@/services/analytics/analytics';
@@ -97,12 +97,16 @@ export function ScannerScreen() {
     useScanSession();
   const { importPhotos } = useImport();
 
-  const [engine, setEngine] = useState<ActiveEngine>(() => {
+  const [initialChoice] = useState(() => {
     const s = useSettings.getState();
-    const choice = chooseEngine(s.scanner.engine, customEnabled, { onescan: OneScanCameraView !== null, google: hasSystemScanner() }, s.scannerHealth);
-    if (choice.fallbackReason) track('engine_fallback', { reason: choice.fallbackReason });
-    return choice.engine ?? 'camera';
+    return chooseEngine(s.scanner.engine, customEnabled, { onescan: OneScanCameraView !== null, google: hasSystemScanner() }, s.scannerHealth);
   });
+  /** OneScan can't be used this visit (flag off, unsupported, crashed): never route back to it. */
+  const forcedFallback = useRef(initialChoice.fallbackReason !== undefined);
+  const [engine, setEngine] = useState<ActiveEngine>(initialChoice.engine ?? 'camera');
+  useEffect(() => {
+    if (initialChoice.fallbackReason) track('engine_fallback', { reason: initialChoice.fallbackReason });
+  }, [initialChoice]);
   const [ready, setReady] = useState(false);
   const [torch, setTorch] = useState(false);
   const [quality, setQuality] = useState<CaptureQuality>(() => tierFor(useScanSession.getState().mode, useSettings.getState().scanner.quality));
@@ -110,6 +114,9 @@ export function ScannerScreen() {
   const [flash, setFlash] = useState(0);
   const [preparing, setPreparing] = useState<{ uri: string; aspect: number } | null>(null);
   const [menu, setMenu] = useState(false);
+  /** HD↔MAX (or a mode that changes it) may rebind the still camera: hold the shutter until it reports ready. */
+  const [switching, setSwitching] = useState(false);
+  const cameraInfo = useRef<CameraReadyInfo | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [systemBusy, setSystemBusy] = useState(false);
   const [queue] = useState(() => new CaptureQueue());
@@ -118,8 +125,6 @@ export function ScannerScreen() {
   const detectionCard = useRef(false);
   const multiTracked = useRef(false);
   const opened = useRef(false);
-  /** System scanner was opened from More: cancelling it returns to the OneScan camera. */
-  const systemFromMenu = useRef(false);
 
   const live = engine === 'onescan';
   const autoActive = autoCaptureFlag && scanner.autoCapture && live;
@@ -132,12 +137,16 @@ export function ScannerScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, when the camera engine is known
   }, [engine]);
 
-  // Crash/hang guard for Auto fallback: `opening` stays set if the app dies before the camera is ready.
+  // Crash guard for Auto fallback: `opening` stays set for the whole camera session, so an
+  // app that dies while the OneScan camera is open (crash, ANR kill, force close) is counted
+  // on the next visit. A session that closes normally after the camera worked resets it.
+  const sessionOk = useRef(false);
   useEffect(() => {
     if (engine !== 'onescan') return;
     const h = useSettings.getState().scannerHealth;
+    sessionOk.current = false;
     setHealth({ opening: true, failures: h.failures + (h.opening ? 1 : 0) });
-    return () => setHealth({ opening: false });
+    return () => setHealth(sessionOk.current ? { opening: false, failures: 0 } : { opening: false });
   }, [engine, setHealth]);
 
   const toEditor = () => {
@@ -170,6 +179,7 @@ export function ScannerScreen() {
 
   const fallBackToSystem = (reason: 'crashed' | 'unsupported') => {
     track('engine_fallback', { reason });
+    forcedFallback.current = true;
     toast(t('scanner.engine_fallback'), 'info');
     setEngine('google');
   };
@@ -190,10 +200,8 @@ export function ScannerScreen() {
       if (cancelled) return;
       track('scanner_open', { engine: 'google', mode: session.mode });
       if (!scanned.length) {
-        if (systemFromMenu.current) {
-          systemFromMenu.current = false;
-          return setEngine('onescan');
-        }
+        // Cancelled: stay in the scan flow on the OneScan camera when it can run.
+        if (OneScanCameraView && !forcedFallback.current) return setEngine('onescan');
         if (session.fromEditor) return toEditor();
         clear();
         track('scan_cancelled', {});
@@ -226,7 +234,7 @@ export function ScannerScreen() {
 
   const capture = useCallback(
     async (auto: boolean) => {
-      if (!ready || shutterBusy.current || preparing) return;
+      if (!ready || switching || shutterBusy.current || preparing) return;
       const s = useScanSession.getState();
       shutterBusy.current = true;
       scanHaptics.capture();
@@ -270,7 +278,12 @@ export function ScannerScreen() {
       }
       void queue.enqueue(async () => {
         try {
-          const page = await DocumentEngine.processCapture(photo.uri, filter, { tier: quality, jpegQuality: photo.quality, captureMs: photo.captureMs });
+          const page = await DocumentEngine.processCapture(photo.uri, filter, {
+            engine: live ? 'onescan' : 'camera',
+            tier: quality,
+            jpegQuality: photo.quality,
+            captureMs: photo.captureMs,
+          });
           updatePage(id, { ...page, id, quality: tier, processing: false });
         } catch {
           track('capture_failed', { stage: 'processing', engine });
@@ -283,7 +296,7 @@ export function ScannerScreen() {
       if (s.rescanIndex !== null || !s.multi) void finish();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- store actions are stable
-    [ready, live, quality, preparing, engine],
+    [ready, switching, live, quality, preparing, engine],
   );
 
   const detection = useLiveDetection({
@@ -296,15 +309,25 @@ export function ScannerScreen() {
     detectionCard.current = mode === 'auto' && detection.card;
   }, [mode, detection.card]);
 
+  const switchTier = (next: CaptureQuality) => {
+    if (next === quality) return;
+    setQuality(next);
+    if (live) {
+      setSwitching(true);
+      // Never strand the shutter if the camera doesn't report back.
+      setTimeout(() => setSwitching(false), 1500);
+    }
+  };
+
   const changeMode = (m: CaptureMode) => {
     setMode(m);
     detection.reset();
-    setQuality(tierFor(m, useSettings.getState().scanner.quality));
+    switchTier(tierFor(m, useSettings.getState().scanner.quality));
   };
 
   const toggleQuality = () => {
     const next: CaptureQuality = quality === 'max' ? 'hd' : 'max';
-    setQuality(next);
+    switchTier(next);
     // Outside card mode, the choice sticks for future scans.
     if (mode !== 'id') {
       const cur = useSettings.getState().scanner.quality;
@@ -374,12 +397,16 @@ export function ScannerScreen() {
             captureQuality={quality}
             frameMaxEdge={192}
             frameIntervalMs={250}
-            onCameraReady={() => {
+            onCameraReady={(e) => {
               setReady(true);
-              setHealth({ opening: false, failures: 0 });
+              setSwitching(false);
+              sessionOk.current = true;
+              cameraInfo.current = e.nativeEvent;
             }}
             onFrame={detection.onFrame}
             onCameraError={() => {
+              sessionOk.current = false;
+              setSwitching(false);
               const h = useSettings.getState().scannerHealth;
               setHealth({ opening: false, failures: h.failures + 1 });
               track('capture_failed', { stage: 'open', engine: 'onescan' });
@@ -400,6 +427,7 @@ export function ScannerScreen() {
         {scanner.showGrid ? <Grid width={size.width} height={size.height} /> : null}
         {live ? <EdgeOverlay points={viewPoints} ready={issue === 'READY'} width={size.width} height={size.height} /> : null}
         <CaptureFlash trigger={flash} />
+        <TierFade visible={switching} />
         {preparing ? null : (
           <View style={{ position: 'absolute', left: 0, right: 0, top: insets.top + TOP_BAR + 16 }} pointerEvents="none">
             <QualityCoach tone={coach.tone} message={t(coach.key)} sub={coachSub ? t(coachSub) : undefined} chip={chip} />
@@ -437,7 +465,7 @@ export function ScannerScreen() {
               if (await importPhotos({ append: true })) await finish().catch(() => {});
             }}
           />
-          <ShutterButton progress={ringFor(issue)} ready={issue === 'READY'} disabled={!ready || preparing !== null} onPress={() => capture(false)} />
+          <ShutterButton progress={ringFor(issue)} ready={issue === 'READY'} disabled={!ready || switching || preparing !== null} onPress={() => capture(false)} />
           <PagesButton
             pages={rescanIndex === null ? pages : []}
             multi={multi}
@@ -459,10 +487,7 @@ export function ScannerScreen() {
         onSelect={(key) => {
           setMenu(false);
           if (key === 'grid') setScanner({ showGrid: !scanner.showGrid });
-          else if (key === 'system' && !pages.length) {
-            systemFromMenu.current = true;
-            setEngine('google');
-          }
+          else if (key === 'system' && !pages.length) setEngine('google');
           else if (key === 'settings') router.push('/scan-quality');
         }}
       />
@@ -487,6 +512,15 @@ export function ScannerScreen() {
       />
     </View>
   );
+}
+
+/** Soft dim while the still camera switches size, so a rebind never looks like a black flash. */
+function TierFade({ visible }: { visible: boolean }) {
+  const [v] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.timing(v, { toValue: visible ? 0.35 : 0, duration: visible ? 120 : 220, useNativeDriver: true }).start();
+  }, [visible, v]);
+  return <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#000000', opacity: v }]} />;
 }
 
 function Grid({ width, height }: { width: number; height: number }) {

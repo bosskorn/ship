@@ -10,6 +10,8 @@ const SMOOTHING = 0.5;
 const MIN_DISPLAY_CONFIDENCE = defaultAutoCaptureConfig.minConfidence;
 /** Consecutive frames before the detected page kind (card / not card) flips. */
 const SHAPE_FRAMES = 3;
+/** Minimum time between two "ready" haptics. */
+const READY_TAP_GAP_MS = 2500;
 
 interface LiveState {
   quad: Quad | null;
@@ -30,6 +32,7 @@ export function useLiveDetection(opts: { autoCapture: boolean; paused: boolean; 
   const smoothed = useRef<Quad | null>(null);
   const shape = useRef({ card: false, streak: 0 });
   const wasReady = useRef(false);
+  const lastReadyTap = useRef(0);
   const [state, setState] = useState<LiveState>({ quad: null, frame: null, hint: 'searching', card: false });
   const optsRef = useRef(opts);
   useLayoutEffect(() => {
@@ -65,7 +68,12 @@ export function useLiveDetection(opts: { autoCapture: boolean; paused: boolean; 
       } else s.streak = 0;
       const r = controller.current.push({ ...d, quad, at: Date.now() });
       const ready = r.hint === 'ready';
-      if (ready && !wasReady.current) onReady?.();
+      // One light tap per ready moment: a flickering border must not buzz repeatedly.
+      const now = Date.now();
+      if (ready && !wasReady.current && now - lastReadyTap.current > READY_TAP_GAP_MS) {
+        lastReadyTap.current = now;
+        onReady?.();
+      }
       wasReady.current = ready;
       setState({ quad, frame: size, hint: r.hint, card: s.card });
       if (r.fire && autoCapture) onFire();

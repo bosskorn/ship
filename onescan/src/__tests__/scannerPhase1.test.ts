@@ -129,3 +129,32 @@ describe('analytics', () => {
     }
   });
 });
+
+describe('diagnostics report', () => {
+  it('lists measured sizes, quality and timings oldest first', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { diagnosticsReport } = require('@/core/document-engine/image/diagnostics');
+    const text: string = diagnosticsReport(
+      [
+        { page: 1, at: 2, filter: 'card', profile: 'maximum', stages: { master: { width: 4032, height: 3024, bytes: 3_200_000, quality: 97 }, thumbnail: { width: 400, height: 300, bytes: 20_000, quality: 80 } } },
+        {
+          page: 0,
+          at: 1,
+          scanner: 'camera',
+          filter: 'card',
+          profile: 'preview',
+          capture: { engine: 'onescan', tier: 'max', jpegQuality: 97 },
+          timings: { captureMs: 214, processMs: 486 },
+          stages: { source: { width: 4032, height: 3024, bytes: 3_500_000 } },
+        },
+      ],
+      'OneScan 1.1.1 · test',
+    );
+    expect(text.split('\n')[0]).toBe('OneScan 1.1.1 · test');
+    expect(text.indexOf('Captured · onescan · MAX')).toBeLessThan(text.indexOf('Page 1 saved'));
+    expect(text).toContain('Original: 4032 × 3024 · 12.19 MP');
+    expect(text).toContain('Master: 4032 × 3024 · 12.19 MP · 3.05 MB · JPEG 97');
+    expect(text).toContain('Thumbnail: 400 × 300');
+    expect(text).toContain('Capture: 214 ms · Process: 486 ms');
+  });
+});

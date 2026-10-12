@@ -56,6 +56,7 @@ const toPageRow = (p: StoredPage, i: number): Omit<PageRecord, 'id' | 'documentI
 
 /** Camera facts for diagnostics (numbers only). */
 export interface CaptureMeta {
+  engine?: string;
   tier?: string;
   jpegQuality?: number;
   captureMs?: number;
@@ -76,7 +77,7 @@ async function recordDraft(
     filter,
     profile: 'preview',
     stages: { source: toStage(src), preview: toStage(prev, { quality: preview.quality }) },
-    ...(meta ? { capture: { tier: meta.tier, jpegQuality: meta.jpegQuality }, timings: { captureMs: meta.captureMs, processMs: meta.processMs } } : {}),
+    ...(meta ? { capture: { engine: meta.engine, tier: meta.tier, jpegQuality: meta.jpegQuality }, timings: { captureMs: meta.captureMs, processMs: meta.processMs } } : {}),
   });
 }
 
@@ -105,8 +106,9 @@ export const DocumentEngine = {
 
   /** Page from the system scanner: already cropped and perspective-corrected, so only enhance. */
   async processScanned(uri: string, filter: PageFilter = 'auto'): Promise<DraftPage> {
+    const started = Date.now();
     const out = await ImageEngine.preview(uri, { quad: null, filter, rotation: 0 });
-    await recordDraft(uri, out, 'system', filter);
+    await recordDraft(uri, out, 'system', filter, { engine: 'system', processMs: Date.now() - started });
     return { id: newId(), sourceUri: uri, processedUri: out.uri, width: out.width, height: out.height, filter, rotation: 0 };
   },
 

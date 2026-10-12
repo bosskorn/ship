@@ -1,9 +1,11 @@
 import React from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TButton, TCellGroup, TEmpty, TNavigationBar, TScreen, TText, useTheme } from '@/design-system';
-import { DiagnosticStage, megapixels, pixelRetention, StageInfo, useScanDiagnostics } from '@/core/document-engine/image/diagnostics';
+import { TButton, TCellGroup, TEmpty, TNavigationBar, TScreen, TText, useTheme, useToast } from '@/design-system';
+import { diagnosticsReport, DiagnosticStage, megapixels, pixelRetention, StageInfo, useScanDiagnostics } from '@/core/document-engine/image/diagnostics';
 
 const order = ['source', 'master', 'preview', 'thumbnail'] as const satisfies readonly DiagnosticStage[];
 
@@ -12,6 +14,13 @@ function line(s: StageInfo) {
   const parts = [`${s.width} × ${s.height}`, `${megapixels(s).toFixed(2)} MP`, mb >= 1 ? `${mb.toFixed(2)} MB` : `${Math.round(s.bytes / 1024)} KB`];
   if (s.quality) parts.push(`JPEG ${s.quality}`);
   return parts.join(' · ');
+}
+
+/** App version and device model/OS for the copied report (no identifiers). */
+function deviceLine() {
+  const c = Platform.constants as Record<string, unknown>;
+  const device = Platform.OS === 'android' ? `${c.Manufacturer ?? ''} ${c.Model ?? ''} · Android ${c.Release ?? ''}` : `${Platform.OS} ${String(c.osVersion ?? Platform.Version)}`;
+  return `OneScan ${Constants.expoConfig?.version ?? ''} · ${device.trim()}`;
 }
 
 /**
@@ -23,6 +32,11 @@ export function ScanDiagnosticsScreen() {
   const { colors, spacing } = useTheme();
   const pages = useScanDiagnostics((s) => s.pages);
   const clear = useScanDiagnostics((s) => s.clear);
+  const toast = useToast();
+  const copy = async () => {
+    await Clipboard.setStringAsync(diagnosticsReport(pages, deviceLine()));
+    toast(t('scan_diagnostics.copied'), 'success');
+  };
   return (
     <TScreen scroll header={<TNavigationBar title={t('scan_diagnostics.title')} onBack={() => router.back()} />}>
       {pages.length === 0 ? (
@@ -34,7 +48,7 @@ export function ScanDiagnosticsScreen() {
           return (
             <TCellGroup
               key={`${p.at}-${p.page}`}
-              title={`${p.page ? t('scan_diagnostics.page', { page: p.page }) : t('scan_diagnostics.captured')} · ${t('scan_diagnostics.filter')}: ${p.filter} · ${p.profile}${p.scanner ? ` · ${p.scanner}` : ''}`}
+              title={`${p.page ? t('scan_diagnostics.page', { page: p.page }) : t('scan_diagnostics.captured')} · ${t('scan_diagnostics.filter')}: ${p.filter} · ${p.profile}${(p.capture?.engine ?? p.scanner) ? ` · ${p.capture?.engine ?? p.scanner}` : ''}`}
             >
               <View style={{ padding: spacing.md, gap: spacing.xxs }}>
                 {order.map((k) =>
@@ -64,7 +78,12 @@ export function ScanDiagnosticsScreen() {
           );
         })
       )}
-      {pages.length ? <TButton label={t('scan_diagnostics.clear')} variant="outline" block style={{ margin: spacing.md }} onPress={clear} /> : null}
+      {pages.length ? (
+        <View style={{ margin: spacing.md, gap: spacing.sm }}>
+          <TButton label={t('scan_diagnostics.copy')} block onPress={copy} />
+          <TButton label={t('scan_diagnostics.clear')} variant="outline" block onPress={clear} />
+        </View>
+      ) : null}
     </TScreen>
   );
 }

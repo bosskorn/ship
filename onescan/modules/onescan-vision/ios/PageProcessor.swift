@@ -10,8 +10,13 @@ enum OneScanPageProcessor {
   static func process(uri: String, quad: [CGPoint]?, filter: String, rotation: Int, maxEdge: Int, quality: Int) throws -> (URL, Int, Int) {
     var image = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: .greatestFiniteMagnitude)
     let long = max(image.extent.width, image.extent.height)
-    if maxEdge > 0, long > CGFloat(maxEdge) * 1.15 {
-      image = OneScanImageIO.scaled(image, maxEdge: CGFloat(maxEdge))
+    var target = maxEdge > 0 && long > CGFloat(maxEdge) * 1.15 ? CGFloat(maxEdge) : long
+    // RAM ceiling (~26 MP, as Android ImageIO.MAX_OUTPUT_PIXELS / quality.ts).
+    let s = target / long
+    let px = image.extent.width * s * image.extent.height * s
+    if px > 26_000_000 { target = (target * (26_000_000 / px).squareRoot()).rounded(.down) }
+    if target < long {
+      image = OneScanImageIO.scaled(image, maxEdge: target)
     }
     if let q = quad, q.count == 4 { image = warp(image, quad: q) }
     image = rotate(image, degrees: rotation)

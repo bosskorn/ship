@@ -122,6 +122,8 @@ const en = {
     auto_capture: 'Auto capture',
   },
   scanner_engine: {
+    fell_back: 'The OneScan camera closed unexpectedly twice, so Automatic is using the system scanner.',
+    retry: 'Try the OneScan camera again',
     title: 'Scanner engine',
     auto: 'Automatic',
     auto_hint: 'OneScan camera, switching to the system scanner when this device can’t run it.',
@@ -143,6 +145,8 @@ const en = {
     footer: 'Applies to documents you save from now on. The original scan is always kept, and filters can be changed later without losing quality.',
   },
   scan_diagnostics: {
+    copy: 'Copy report',
+    copied: 'Report copied',
     title: 'Scan diagnostics',
     empty: 'No scans yet',
     empty_hint: 'Scan or save a document to see the image sizes at each step.',

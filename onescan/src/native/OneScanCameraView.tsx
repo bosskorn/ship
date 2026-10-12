@@ -18,7 +18,7 @@ export interface CameraFrame {
   mask?: string;
 }
 
-/** Still size/quality tier: `hd` ≈ 12 MP JPEG 95, `max` = largest the camera offers (≤ ~26 MP) JPEG 97. */
+/** Still size tier (JPEG 97 either way): `hd` ≈ 12 MP, `max` = largest the camera offers up to ~26 MP. */
 export type CaptureQuality = 'hd' | 'max';
 
 export interface CameraReadyInfo {

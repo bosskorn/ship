@@ -6,8 +6,9 @@ import UIKit
 /// detector (live border + auto capture). Frames never leave the device.
 ///
 /// Photos are real AVCapturePhotoOutput captures (quality prioritised), never video
-/// frames. `captureQuality` picks the still size and JPEG quality: "hd" = largest size
-/// up to ~12.5 MP at 0.95, "max" = largest size up to ~26 MP at 0.97.
+/// frames, saved as JPEG 0.97 (the kept original). `captureQuality` picks the still size:
+/// "hd" = largest size up to ~12.5 MP, "max" = largest size up to ~26 MP. Switching only
+/// changes maxPhotoDimensions; the session keeps running.
 class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate, AVCapturePhotoCaptureDelegate {
   let onCameraReady = EventDispatcher()
   let onFrame = EventDispatcher()
@@ -107,7 +108,7 @@ class OneScanCameraView: ExpoView, AVCaptureVideoDataOutputSampleBufferDelegate,
     configured = true
   }
 
-  private var jpegQuality: Double { captureQuality == "max" ? 0.97 : 0.95 }
+  private let jpegQuality = 0.97
 
   /// Largest supported still size within the tier's pixel cap (iOS 16+; older devices keep the preset's size).
   private func applyPhotoDimensions(notify: Bool) {

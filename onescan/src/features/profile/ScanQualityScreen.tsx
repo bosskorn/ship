@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { TCell, TCellGroup, TIcon, TNavigationBar, TScreen, useTheme } from '@/design-system';
 import { ScannerEngineSetting, useSettings } from '@/core/config/settingsStore';
 import type { ScanQuality } from '@/core/document-engine/image/quality';
+import { MAX_ONESCAN_FAILURES } from '@/features/scanner/engine';
 
 const options: ScanQuality[] = ['standard', 'high', 'maximum'];
 const engines: ScannerEngineSetting[] = ['auto', 'onescan', 'google'];
@@ -16,6 +17,8 @@ export function ScanQualityScreen() {
   const setScanner = useSettings((s) => s.setScanner);
   const engine = useSettings((s) => s.scanner.engine);
   const setHealth = useSettings((s) => s.setScannerHealth);
+  const health = useSettings((s) => s.scannerHealth);
+  const fellBack = engine === 'auto' && health.failures + (health.opening ? 1 : 0) >= MAX_ONESCAN_FAILURES;
   return (
     <TScreen scroll header={<TNavigationBar title={t('scan_quality.title')} onBack={() => router.back()} />}>
       <TCellGroup footer={t('scan_quality.footer')}>
@@ -29,7 +32,7 @@ export function ScanQualityScreen() {
           />
         ))}
       </TCellGroup>
-      <TCellGroup title={t('scanner_engine.title')}>
+      <TCellGroup title={t('scanner_engine.title')} footer={fellBack ? t('scanner_engine.fell_back') : undefined}>
         {engines.map((e) => (
           <TCell
             key={e}
@@ -43,6 +46,7 @@ export function ScanQualityScreen() {
             }}
           />
         ))}
+        {fellBack ? <TCell icon="rescan" title={t('scanner_engine.retry')} arrow onPress={() => setHealth({ opening: false, failures: 0 })} /> : null}
       </TCellGroup>
       <TCellGroup>
         <TCell icon="info" title={t('scan_diagnostics.title')} arrow onPress={() => router.push('/scan-diagnostics')} />

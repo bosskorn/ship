@@ -1,11 +1,15 @@
 package app.onescan.vision
 
 import android.content.Context
+import android.graphics.ImageFormat
+import android.hardware.camera2.CameraCharacteristics
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Base64
 import android.util.Size
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -37,10 +41,13 @@ import kotlin.math.max
  * capture. Frames never leave the device.
  *
  * Photos are always real sensor captures (ImageCapture, maximize-quality mode), never
- * preview/analysis frames. `captureQuality` picks the still size and JPEG quality:
- * - "hd": largest 4:3 size up to ~12.5 MP, JPEG 95 (general documents);
- * - "max": largest size the camera offers up to ~26 MP, JPEG 97 (cards, fine print).
+ * preview/analysis frames, saved as JPEG 97 (the kept original). `captureQuality` picks
+ * the still size:
+ * - "hd": largest 4:3 size up to ~12.5 MP (general documents);
+ * - "max": largest size the camera offers up to ~26 MP (cards, fine print).
  * The MAX cap keeps one decoded page (w·h·4 bytes ≈ 100 MB) inside the large heap.
+ * Switching tiers only rebinds the still use case when the two tiers resolve to different
+ * sizes on this camera — on most phones (12 MP binned output) it is free.
  */
 class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
   override val shouldUseAndroidLayout = true
@@ -78,7 +85,10 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
       val v = if (value == "max") "max" else "hd"
       if (field == v) return
       field = v
-      rebindCapture()
+      val sizes = jpegSizes()
+      val same = sizes.isNotEmpty() && pickSize(sizes, HD_PIXELS) == pickSize(sizes, MAX_PIXELS)
+      val capture = imageCapture
+      if (same && capture != null) onCameraReady(readyPayload(capture)) else rebindCapture()
     }
   private var owner: LifecycleOwner? = null
 
@@ -132,7 +142,17 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
     }, ContextCompat.getMainExecutor(context))
   }
 
-  private fun jpegQuality() = if (captureQuality == "max") 97 else 95
+  private fun jpegQuality() = JPEG_QUALITY
+
+  /** JPEG still sizes this camera offers (empty before binding / if unavailable). */
+  @androidx.annotation.OptIn(ExperimentalCamera2Interop::class)
+  private fun jpegSizes(): List<Pair<Int, Int>> = try {
+    val info = camera?.cameraInfo
+    val map = info?.let { Camera2CameraInfo.from(it).getCameraCharacteristic(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) }
+    map?.getOutputSizes(ImageFormat.JPEG)?.map { it.width to it.height } ?: emptyList()
+  } catch (_: Exception) {
+    emptyList()
+  }
 
   private fun buildCapture(): ImageCapture {
     val capPixels = if (captureQuality == "max") MAX_PIXELS else HD_PIXELS
@@ -304,7 +324,15 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
   }
 
   companion object {
-    private const val HD_PIXELS = 12_600_000L
-    private const val MAX_PIXELS = 26_000_000L
+    const val HD_PIXELS = 12_600_000L
+    const val MAX_PIXELS = 26_000_000L
+    const val JPEG_QUALITY = 97
+
+    /** The size the resolution selector aims for: largest within the cap, 4:3 preferred. */
+    fun pickSize(sizes: List<Pair<Int, Int>>, cap: Long): Pair<Int, Int>? {
+      val within = sizes.filter { it.first.toLong() * it.second <= cap }
+      val fourThree = within.filter { val (a, b) = it; kotlin.math.abs(max(a, b) * 3 - minOf(a, b) * 4) <= max(a, b) / 100 }
+      return fourThree.ifEmpty { within }.maxByOrNull { it.first.toLong() * it.second }
+    }
   }
 }
