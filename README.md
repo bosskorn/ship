@@ -2,7 +2,10 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
-| `OneScan-v1.0.3-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.0.3 (versionCode 4), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+| `OneScan-v1.0.4-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.0.4 (versionCode 5), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+
+## Changes in 1.0.4
+- New default "Scan" filter: white paper (shadows and lamp tint removed), dark crisp text, colour kept for stamps, logos and ID photos. Other filters (Original, Document, Color, Gray, B&W) are unchanged in the editor.
 
 ## Changes in 1.0.3
 - Scan now opens Google's ML Kit Document Scanner (on device, via Google Play services): reliable edge detection, auto capture and crop for documents, ID cards, passports and receipts; multi-page; import from gallery with auto crop.
