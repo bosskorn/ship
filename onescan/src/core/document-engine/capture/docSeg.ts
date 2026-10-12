@@ -257,6 +257,8 @@ export interface MaskQuad {
 const MIN_AREA = 0.02;
 /** Below this agreement between quad and mask the region is not a page. */
 const MIN_IOU = 0.82;
+/** A region running along a frame edge for more than this share of it is cut off. */
+const MAX_EDGE_RUN = 0.1;
 
 function sample(m: Float32Array, n: number, x: number, y: number): number {
   if (x < 0 || y < 0 || x > n - 1 || y > n - 1) return 0;
@@ -373,6 +375,17 @@ export function maskToQuad(m: Float32Array, n = DOCSEG_MASK): MaskQuad | null {
     id++;
   }
   if (best < 0 || bestSize < MIN_AREA * N) return null;
+
+  // A page running off the frame can't be scanned whole: report none so the capture
+  // hint asks the user to move back (same rule as the edge detector).
+  const edge = [0, 0, 0, 0];
+  for (let k = 0; k < n; k++) {
+    if (lab[k] === best) edge[0]++;
+    if (lab[(n - 1) * n + k] === best) edge[1]++;
+    if (lab[k * n] === best) edge[2]++;
+    if (lab[k * n + n - 1] === best) edge[3]++;
+  }
+  if (edge.some((c) => c > MAX_EDGE_RUN * n)) return null;
 
   // Outline: leftmost/rightmost region pixel of every row (enough for the convex hull).
   const pts: Point[] = [];

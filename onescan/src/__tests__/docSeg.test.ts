@@ -98,6 +98,12 @@ describe('maskToQuad', () => {
     expect(maskToQuad(render([[[30, 30], [34, 30], [34, 34], [30, 34]]]))).toBeNull();
   });
 
+  it('reports no page when the page runs off the frame', () => {
+    expect(maskToQuad(render([[[20, -12], [70, 2], [58, 50], [8, 40]]]))).toBeNull();
+    // A corner may graze the edge.
+    expect(maskToQuad(render([[[30, -0.4], [60, 20], [36, 60], [4, 30]]]))).not.toBeNull();
+  });
+
   it('rejects regions that are not quadrilaterals', () => {
     // An L shape fits no quad well.
     const L = render([[[8, 8], [56, 8], [56, 24], [8, 24]], [[8, 8], [24, 8], [24, 56], [8, 56]]]);
