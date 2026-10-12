@@ -23,6 +23,17 @@ import { ZonesModule } from './modules/zones/zones.module';
 
 const cfg = loadConfig();
 
+/** Pretty logs only in local development and only if the dev dependency is installed. */
+function prettyTransport() {
+  if (cfg.NODE_ENV !== 'development') return undefined;
+  try {
+    require.resolve('pino-pretty');
+    return { target: 'pino-pretty', options: { singleLine: true } };
+  } catch {
+    return undefined;
+  }
+}
+
 @Module({
   imports: [
     LoggerModule.forRoot({
@@ -31,7 +42,7 @@ const cfg = loadConfig();
         genReqId: (req) => (req.headers['x-request-id'] as string) || randomUUID(),
         redact: ['req.headers.authorization', 'req.body.code', 'req.body.password', 'req.body.refreshToken', 'req.body.otp'],
         autoLogging: { ignore: (req) => req.url === '/health' || req.url === '/metrics' },
-        transport: cfg.NODE_ENV === 'development' ? { target: 'pino-pretty', options: { singleLine: true } } : undefined,
+        transport: prettyTransport(),
       },
     }),
     EventEmitterModule.forRoot(),

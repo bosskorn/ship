@@ -1,0 +1,66 @@
+name: platform-ci
+
+on:
+  push:
+    paths: ["platform/**", ".github/workflows/platform-ci.yml"]
+  pull_request:
+    paths: ["platform/**", ".github/workflows/platform-ci.yml"]
+
+defaults:
+  run:
+    working-directory: platform
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ship
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/ship
+      REDIS_URL: redis://localhost:6379
+      OTP_DEV_ECHO: "true"
+      OTP_DEV_FIXED_CODE: "123456"
+      OTP_IP_HOURLY_LIMIT: "1000"
+      LOG_LEVEL: warn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: platform/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ship/shared build
+      - name: Typecheck all packages
+        run: pnpm -r typecheck
+      - name: Unit tests
+        run: pnpm -r test
+      - name: Build API
+        run: pnpm --filter @ship/api build
+      - name: Migrate and seed
+        working-directory: platform/apps/api
+        run: node dist/scripts/migrate.js && node dist/scripts/seed.js
+      - name: End-to-end demo and scenarios
+        working-directory: platform/apps/api
+        run: |
+          node dist/main.js > api.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf localhost:4000/health && break; sleep 1; done
+          node dist/scripts/demo-e2e.js
+          node dist/scripts/scenarios.js
+      - name: Ops web build
+        run: pnpm --filter @ship/ops-web build
+      - name: Mobile bundles (Metro)
+        run: |
+          (cd apps/customer-app && npx expo export --platform android --output-dir /tmp/customer)
+          (cd apps/driver-app && npx expo export --platform android --output-dir /tmp/driver)
+      - if: failure()
+        run: cat apps/api/api.log || true

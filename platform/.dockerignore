@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.expo
+**/.env
+apps/customer-app
+apps/driver-app
+apps/ops-web
+infra/osrm/data
