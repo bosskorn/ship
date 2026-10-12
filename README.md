@@ -2,7 +2,15 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
-| `OneScan-v1.0.6-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.0.6 (versionCode 7), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+| `OneScan-v1.1.0-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.1.0 (versionCode 8), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+
+## Changes in 1.1.0 (Scanner Phase 1)
+- Scan opens the new OneScan camera (the Google/system scanner is now the fallback). Settings → Scan quality → Scanner engine: Automatic (default) / OneScan camera / System scanner.
+- Real full-resolution photos with HD / MAX in the top bar (HD ≈ 12 MP JPEG 95, MAX = largest the camera offers up to ~26 MP, JPEG 97). Card mode uses MAX.
+- Manual capture; auto capture is turned off in this build (coming after device QA).
+- Modes: Auto, Document, Card, Receipt. Single page by default; tap "Multi-page" next to the shutter for more pages, then "Done".
+- Captured page appears immediately; enhancement runs in the background.
+- One coaching message at a time, live corners, scan line, haptics. Diagnostics show camera capture size, HD/MAX, JPEG quality and timings.
 
 ## Changes in 1.0.6
 - ID cards (Home → Scan ID card) are saved as enhanced colour scans: white balance, even lighting, softer shadows, sharper text; the photo and card colours are kept. New "Card" filter in the editor.
