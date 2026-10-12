@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
@@ -11,6 +11,7 @@ import type { CaptureHint } from '@/core/document-engine/capture/autoCapture';
 import type { CaptureMode } from '@/core/document-engine/model';
 import { useSettings } from '@/core/config/settingsStore';
 import { OneScanCameraView, OneScanCameraViewRef } from '@/native/OneScanCameraView';
+import { OneScanVision } from '@/native/OneScanVision';
 import { track } from '@/services/analytics/analytics';
 import { useImport } from '@/features/shared/useImport';
 import { useScanSession } from './scanSession';
@@ -26,10 +27,17 @@ const hintKey: Record<CaptureHint, 'scanner.hint_searching' | 'scanner.hint_hold
   ready: 'scanner.hint_capturing',
 };
 
+/** Most pages one system-scanner session may return. */
+const MAX_SYSTEM_PAGES = 50;
+
+const hasSystemScanner = () => typeof OneScanVision?.scanDocumentsAsync === 'function';
+
 /**
- * Full-screen camera (spec §11–12). Opens straight into Document + Auto.
- * With the native vision module: live border + auto capture when steady.
- * Without it (Expo Go / web): expo-camera with manual capture.
+ * Scanning (spec §11–12). Opens the system document scanner first (Android: ML Kit
+ * Document Scanner, iOS: VisionKit) — reliable edges on any document, ID card or
+ * passport, all on device. When the device has none, the in-app camera is used:
+ * with the native vision module a live border + auto capture, without it
+ * (Expo Go / web) expo-camera with manual capture.
  */
 export function ScannerScreen() {
   const { t } = useTranslation();
@@ -70,6 +78,51 @@ export function ScannerScreen() {
     router.back();
   };
 
+  const [systemScan, setSystemScan] = useState<'running' | 'fallback'>(hasSystemScanner() ? 'running' : 'fallback');
+
+  useEffect(() => {
+    if (systemScan !== 'running') return;
+    let cancelled = false;
+    (async () => {
+      const session = useScanSession.getState();
+      const single = session.rescanIndex !== null || !useSettings.getState().scanner.multiPage;
+      let scanned: { uri: string }[];
+      try {
+        scanned = (await OneScanVision!.scanDocumentsAsync(single ? 1 : MAX_SYSTEM_PAGES, true)).pages;
+      } catch {
+        if (!cancelled) setSystemScan('fallback');
+        return;
+      }
+      if (cancelled) return;
+      if (!scanned.length) {
+        if (session.fromEditor) return toEditor();
+        clear();
+        track('scan_cancelled', {});
+        return router.back();
+      }
+      setBusy(true);
+      try {
+        for (const p of scanned) {
+          const page = await DocumentEngine.processScanned(p.uri);
+          track('page_captured', { mode: session.mode, auto: true });
+          const s = useScanSession.getState();
+          if (s.rescanIndex !== null) replacePage(s.rescanIndex, page);
+          else addPage(page);
+        }
+        toEditor();
+      } catch {
+        toast(t('errors.generic'), 'error');
+        setSystemScan('fallback');
+      } finally {
+        setBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per scanner visit
+  }, [systemScan]);
+
   const capture = useCallback(
     async (auto: boolean) => {
       if (!ready || busyRef.current) return;
@@ -108,6 +161,19 @@ export function ScannerScreen() {
       : autoActive || detection.quad
         ? t(hintKey[detection.hint])
         : t('scanner.hint_manual');
+
+  if (systemScan === 'running') {
+    return (
+      <View style={[styles.fill, styles.center, { backgroundColor: colors.mediaBg, gap: spacing.sm }]}>
+        <ActivityIndicator color={colors.mediaText} size="large" />
+        {busy ? (
+          <TText variant="body" color="mediaText">
+            {t('scanner.processing')}
+          </TText>
+        ) : null}
+      </View>
+    );
+  }
 
   if (!permission) return <View style={{ flex: 1, backgroundColor: colors.mediaBg }} />;
 

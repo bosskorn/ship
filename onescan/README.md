@@ -52,7 +52,8 @@ Local Expo module, autolinked. Contract: `src/native/OneScanVision.ts`.
 
 | Capability | Android (Kotlin) | iOS (Swift) |
 | --- | --- | --- |
-| Scanner camera + live frames | CameraX `PreviewView` + `ImageAnalysis` (Y/Cb/Cr) | `AVCaptureSession` + video data output (Y/Cb/Cr) |
+| Scan (primary) | ML Kit Document Scanner (Play services): edges, auto capture, crop, gallery import | VisionKit `VNDocumentCameraViewController` |
+| Scanner camera + live frames (fallback) | CameraX `PreviewView` + `ImageAnalysis` (Y/Cb/Cr) | `AVCaptureSession` + video data output (Y/Cb/Cr) |
 | Page detection | DocSeg segmentation net (`DocSeg.kt`, plain Kotlin) on every preview frame and still → 64×64 page mask | same net in `DocSeg.swift` |
 | Mask → quad / auto capture | shared JS `capture/docSeg.ts` (`maskToQuad`) + 640 px edge refinement + `AutoCaptureController`; classical `quadDetector.ts` as fallback | same |
 | Perspective correction | `Matrix.setPolyToPoly` | `CIPerspectiveCorrection` |
@@ -60,6 +61,10 @@ Local Expo module, autolinked. Contract: `src/native/OneScanVision.ts`.
 | OCR | ML Kit (Latin) + Tesseract `tha+eng` (bundled models) | Vision `VNRecognizeTextRequest` |
 | PDF import | `PdfRenderer` | PDFKit |
 | Image redaction | Canvas | UIGraphicsImageRenderer |
+
+The scan button opens the system document scanner first; both run on the device and return
+cropped pages, which then go through the app's own enhance → OCR → PDF pipeline. Devices without
+it (e.g. no Google Play services) fall back to the in-app camera with DocSeg / edge detection.
 
 Requires a development build (`npx expo run:android` / `npx expo run:ios`); Expo Go and web
 fall back to expo-camera, manual capture and no OCR.

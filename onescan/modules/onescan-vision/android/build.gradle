@@ -31,6 +31,8 @@ dependencies {
   // On-device OCR: ML Kit (Latin, bundled model) + Tesseract for Thai.
   implementation "com.google.mlkit:text-recognition:16.0.1"
   implementation "cz.adaptech.tesseract4android:tesseract4android:4.9.0"
+  // System document scanner (edge detection, auto capture, crop) — on device via Play services.
+  implementation "com.google.android.gms:play-services-mlkit-document-scanner:16.0.0"
 
   testImplementation "junit:junit:4.13.2"
 }

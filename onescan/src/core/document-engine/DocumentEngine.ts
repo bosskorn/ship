@@ -53,6 +53,12 @@ export const DocumentEngine = {
     return { id: newId(), sourceUri, processedUri: out.uri, width: out.width, height: out.height, quad: quad ?? undefined, filter, rotation: 0 };
   },
 
+  /** Page from the system scanner: already cropped and perspective-corrected, so only enhance. */
+  async processScanned(uri: string, filter: PageFilter = 'auto'): Promise<DraftPage> {
+    const out = await ImageEngine.process(uri, { quad: null, filter, rotation: 0 });
+    return { id: newId(), sourceUri: uri, processedUri: out.uri, width: out.width, height: out.height, filter, rotation: 0 };
+  },
+
   /** Re-run processing from the original capture (filter, rotation or manual crop changed). */
   async reprocess(page: DraftPage, patch: { filter?: PageFilter; rotation?: Rotation; quad?: Quad | null }): Promise<DraftPage> {
     const next: DraftPage = {

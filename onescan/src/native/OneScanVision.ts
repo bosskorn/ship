@@ -33,6 +33,13 @@ export interface OneScanVisionModule {
     maxEdge: number,
     withMask?: boolean,
   ): Promise<{ width: number; height: number; data: string; cb?: string; cr?: string; mask?: string }>;
+  /**
+   * System document scanner (Android: ML Kit Document Scanner via Play services;
+   * iOS: VisionKit). Edge detection, auto capture and perspective correction run on
+   * the device. Resolves with cropped page images (empty when the user cancels);
+   * rejects with `E_SCANNER_UNAVAILABLE` when the device has no system scanner.
+   */
+  scanDocumentsAsync(pageLimit: number, allowGallery: boolean): Promise<{ pages: NativeImage[] }>;
   /** Perspective-correct `quad`, rotate, enhance, filter. Writes a new file; source untouched. */
   processPageAsync(imageUri: string, quad: Quad | null, filter: PageFilter, rotation: number): Promise<NativeImage>;
   recognizeTextAsync(imageUri: string, languages: string[]): Promise<NativeOcrBlock[]>;

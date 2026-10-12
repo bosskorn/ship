@@ -43,6 +43,12 @@ public class OneScanVisionModule: Module {
       return ["uri": url.absoluteString, "width": w, "height": h]
     }
 
+    // VisionKit has no gallery import; `allowGallery` only applies on Android.
+    AsyncFunction("scanDocumentsAsync") { (pageLimit: Int, allowGallery: Bool, promise: Promise) in
+      _ = allowGallery
+      OneScanDocumentScanner.start(from: self.appContext?.utilities?.currentViewController(), pageLimit: pageLimit, promise: promise)
+    }.runOnQueue(.main)
+
     AsyncFunction("recognizeTextAsync") { (uri: String, languages: [String]) -> [[String: Any]] in
       try OneScanTextRecognizer.recognize(uri: uri, languages: languages)
     }

@@ -63,6 +63,19 @@ class OneScanVisionModule : Module() {
       mapOf("uri" to ImageIO.uriOf(r.file), "width" to r.width, "height" to r.height)
     }
 
+    AsyncFunction("scanDocumentsAsync") { pageLimit: Int, allowGallery: Boolean, promise: Promise ->
+      val activity = appContext.currentActivity
+      if (activity == null) {
+        promise.reject("E_SCANNER_UNAVAILABLE", "No activity", null)
+      } else {
+        DocumentScanner.start(activity, pageLimit, allowGallery, promise)
+      }
+    }
+
+    OnActivityResult { _, payload ->
+      DocumentScanner.onResult(context, payload.requestCode, payload.resultCode, payload.data)
+    }
+
     AsyncFunction("recognizeTextAsync") { uri: String, languages: List<String> ->
       TextRecognizer.recognize(context, ImageIO.fileFromUri(uri), languages)
     }
