@@ -2,7 +2,11 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
-| `OneScan-v1.0.1-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.0.1 (versionCode 2), arm64-v8a, release build signed with the debug key — for testing only. Installs over 1.0. |
+| `OneScan-v1.0.2-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.0.2 (versionCode 3), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+
+## Changes in 1.0.2
+- Pages are detected by tint as well as brightness (camera Cb/Cr): white paper on a light floor under room lighting.
+- Fixed: pages whose left/right edges lean opposite ways (perspective) were never outlined.
 
 ## Changes in 1.0.1
 - New document edge detector (edge-driven): no more borders that merge an object with the floor/shadow or follow objects cut off by the frame.
