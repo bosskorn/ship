@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "น้องช่าง",
+    "slug": "nong-chang",
+    "scheme": "nongchang",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "primaryColor": "#0B5FFF",
+    "backgroundColor": "#F7F8FA",
+    "ios": {
+      "bundleIdentifier": "co.nongchang.customer",
+      "supportsTablet": false,
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "th"
+      }
+    },
+    "android": {
+      "package": "co.nongchang.customer",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B5FFF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": true
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0B5FFF",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain"
+        }
+      ],
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "น้องช่างใช้ตำแหน่งของคุณเพื่อปักหมุดที่อยู่และแสดงช่างที่ใกล้ที่สุด"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "น้องช่างใช้กล้องเพื่อถ่ายรูปปัญหาให้ช่างประเมินงานได้แม่นยำขึ้น",
+          "photosPermission": "น้องช่างใช้รูปภาพที่คุณเลือกเพื่อแนบกับงาน",
+          "microphonePermission": false
+        }
+      ],
+      "expo-image"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

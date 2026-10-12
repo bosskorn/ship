@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="96" viewBox="0 0 320 96" role="img" aria-label="น้องช่าง monochrome dark">
+<title>น้องช่าง monochrome dark</title>
+  <g transform="translate(0 0) scale(1)">
+    <defs>
+      <mask id="d-notch" maskUnits="userSpaceOnUse" x="0" y="0" width="96" height="96">
+        <rect width="96" height="96" fill="#fff"/>
+        <rect x="44.5" y="44" width="7" height="10" rx="1.5" fill="#000"/>
+      </mask>
+    </defs>
+    <path d="M20 46 L48 22 L76 46" fill="none" stroke="#181818" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M28 42 V74 H68 V42" fill="none" stroke="#181818" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g mask="url(#d-notch)" fill="#181818">
+      <rect x="44" y="56" width="8" height="18"/>
+      <circle cx="48" cy="55" r="9"/>
+    </g>
+  </g><text x="108" y="66" font-family="'Noto Sans Thai', 'Sukhumvit Set', 'Thonburi', sans-serif" font-size="48" font-weight="600" fill="#181818" text-anchor="start">น้องช่าง</text>
+</svg>
