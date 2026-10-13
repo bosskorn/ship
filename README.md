@@ -2,7 +2,19 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
-| `OneScan-v1.1.2-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.1.2 (versionCode 10), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+| `OneScan-v1.2.0-RC1-arm64.apk` | branch `claude/onescan-mobile-v1` @ 3a66553 | **1.2.0 RC1** (versionCode 11), arm64-v8a, release build signed with the **Play upload key**. Fresh installs. Cannot update earlier test builds (different signing key): uninstall them first, which deletes their documents. |
+| `OneScan-v1.2.0-RC1-QA-arm64.apk` | same APK, re-signed | Identical app signed with the **debug key**, so it **installs over 1.1.x** and keeps its documents — use it to test the migration of old documents (encryption + database). For QA only. |
+
+## Changes in 1.2.0 RC1 (release candidate)
+- Your documents are encrypted on the phone: pages, PDFs (AES-256-GCM, key in the Android Keystore) and the database with OCR text and search index (SQLCipher). Documents from earlier versions are encrypted automatically in the background after the first start.
+- No Android backup or device-to-device transfer of app data; documents never leave the phone unless you share them (sharing uses a temporary decrypted copy that is removed on the next start).
+- Document presence check: when there is no document in the photo nothing is cropped — "No document found / Choose edges".
+- Auto crop: new page-segmentation model and crop candidates. Crops are not applied automatically yet (precision below 98%): the app shows the suggested crop with "Use this crop / Adjust edges", or opens the crop editor.
+- Camera: busy / disabled / black preview is detected, with "Try again" and "Use Google Scanner"; the camera pauses behind other screens; permission granted in Settings is picked up.
+- Saving never fails because of OCR (a page whose OCR fails is saved without text); OCR models install safely.
+- Up to 20 pages per document. Low storage is checked before capture and save, with clear messages.
+- Red stamps and coloured ink keep their colour in the scan filter.
+- Unfinished items (sign-in, plans, cloud, AI, etc.) are hidden in this version. Scan diagnostics: About → tap the version 7 times.
 
 ## Changes in 1.1.2 (auto crop hotfix, interim)
 - Automatic crop no longer takes "the biggest region": outlines are scored on text, paper, edges, segmentation and background; grout/tile lines and floors lose.
