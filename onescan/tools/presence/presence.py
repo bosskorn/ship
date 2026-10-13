@@ -51,9 +51,12 @@ def to_input(rgb):
 
 # ---------------------------------------------------------------- hard negatives on the fly
 class NegGen:
-    def __init__(self, tex_dir, negs, seed):
+    def __init__(self, tex_dir, negs, seed, holdout=False):
+        """Surface photos: every 5th is held out of training (holdout=True selects only those)."""
         self.rng = np.random.default_rng(seed)
-        self.tex = [cv2.resize(cv2.imread(f), (512, 512), interpolation=cv2.INTER_AREA)[..., ::-1] for f in sorted(glob.glob(f'{tex_dir}/*.jpg'))]
+        files = sorted(glob.glob(f'{tex_dir}/*.jpg'))
+        files = [f for i, f in enumerate(files) if (i % 5 == 0) == holdout]
+        self.tex = [cv2.resize(cv2.imread(f), (512, 512), interpolation=cv2.INTER_AREA)[..., ::-1] for f in files]
         self.negs = negs
 
     def U(self, a, b):
@@ -240,7 +243,8 @@ def evaluate_cmd(a):
     # "present": lowest threshold with <= 0.5% false positives on real negatives (tune + val);
     # "none": highest threshold that still keeps >= 99% of real documents above it.
     tn = np.sort(tune_neg)[::-1]; present = float(tn[int(len(tn) * 0.005)]) + 1e-6
-    tp = np.sort(tune_pos); none = float(tp[int(len(tp) * 0.01)]) - 1e-6
+    real_pos = np.sort([p for p, d, sp, _ in res.values() if d and sp == 'tune'])
+    none = float(real_pos[int(len(real_pos) * 0.01)]) - 1e-6
     none = min(none, present)
     print(f'thresholds: present >= {present:.4f}, none <= {none:.4f}  (tune: {len(tune_neg)} real negatives, {len(tune_pos)} documents)')
     def rep(label, pos, neg):
@@ -256,9 +260,14 @@ def evaluate_cmd(a):
         sres = probs_bench(m, a.syn)
         print('== surface benchmark (synthetic, documents only)'); rep('syn', [p for p, d, sp, _ in sres.values() if d], [])
     if a.tex_holdout:
-        g = NegGen(a.tex_holdout, np.zeros((0, IN, IN, 3), np.uint8), 9); g.negs = []
-        imgs = np.stack([cv2.resize(t, (IN, IN), interpolation=cv2.INTER_AREA) for t in g.tex])
-        print('== hard-negative real (CC0 surface photos)'); rep('surfaces', [], probs_rgb(m, imgs))
+        g = NegGen(a.tex_holdout, np.zeros((0, IN, IN, 3), np.uint8), 9, holdout=True)
+        # Several crops per held-out surface photo (whole, quarters), as a camera would frame it.
+        crops = []
+        for t in g.tex:
+            crops.append(t)
+            crops += [t[y:y + 256, x:x + 256] for y in (0, 256) for x in (0, 256)]
+        imgs = np.stack([cv2.resize(c, (IN, IN), interpolation=cv2.INTER_AREA) for c in crops])
+        print(f'== hard-negative real (held-out CC0 surface photos: {len(g.tex)} photos, {len(imgs)} views)'); rep('surfaces', [], probs_rgb(m, imgs))
     if a.json:
         import json
         json.dump({'present': present, 'none': none}, open(a.json, 'w'))
@@ -268,8 +277,11 @@ def mine_cmd(a):
     """False positives on real negatives (training shards) + generated hard negatives -> npz."""
     m = Presence(); m.load_state_dict(torch.load(a.pt, map_location='cpu')); m.eval()
     shards = sorted(p for p in glob.glob(f'{a.shards}/*.npz') if 'val' not in p)
-    _, rneg = load_shards(shards, 1)
-    _, rneg = load_shards(shards, 10 ** 9) if len(rneg) < 100 else (None, rneg)
+    rneg = []
+    for sp in shards:
+        z = np.load(sp)
+        rneg += [cv2.resize(i, (IN, IN), interpolation=cv2.INTER_AREA) for i, n in zip(z['imgs'], z['neg']) if n]
+    rneg = np.stack(rneg)
     gen = NegGen(a.tex, rneg, 77)
     cand = np.concatenate([rneg, np.stack([gen.sample() for _ in range(a.generated)])])
     p = probs_rgb(m, cand)
