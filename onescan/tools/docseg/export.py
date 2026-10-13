@@ -55,12 +55,29 @@ def main():
             f.write(struct.pack('<I', a.size)); f.write(a.tobytes())
     print(dst, len(arrays), 'arrays', sum(a.size for a in arrays), 'floats')
     if len(sys.argv) > 3:
-        # A smooth synthetic scene (bright tilted page on a darker tinted table) so
-        # activations look like real ones rather than noise.
+        # A synthetic scene that looks like a document photo (no real images in the repo):
+        # a tilted page with lines of text on a textured, darker tinted table. A blank
+        # rectangle is not enough — the model is trained to ignore blank cards and tiles.
         yy, xx = np.mgrid[0:128, 0:128].astype(np.float32)
         page = ((xx - 30) * 0.97 + (yy - 20) * 0.26 > 0) & ((xx - 100) * 0.97 + (yy - 40) * 0.26 < 0) & \
                ((yy - 18) * 0.97 - (xx - 30) * 0.26 > 0) & ((yy - 110) * 0.97 - (xx - 30) * 0.26 < 0)
-        y = np.where(page, 215 - yy * 0.2, 90 + xx * 0.3).astype(np.uint8)
+        u = (xx - 30) * 0.97 + (yy - 20) * 0.26          # along the page width
+        v = (yy - 18) * 0.97 - (xx - 30) * 0.26          # down the page
+        rng = np.random.default_rng(3)
+        # Printed-page layout: a title, paragraphs with ragged line ends and word gaps.
+        text = np.zeros_like(page)
+        line_v = [9.0, 10.5] + [16 + 3.2 * i for i in range(22) if i not in (6, 13, 19)]
+        for i, lv in enumerate(line_v):
+            end = 60 - (rng.uniform(0, 25) if i in (1, 7, 14, 20) else rng.uniform(0, 4))
+            row = (v > lv) & (v < lv + (2.0 if i < 2 else 1.3)) & (u > 6) & (u < end)
+            gaps = np.zeros_like(u, dtype=bool)
+            x0 = 6.0
+            while x0 < end:
+                x0 += rng.uniform(3, 9)
+                gaps |= (u > x0) & (u < x0 + 1.1)
+            text |= page & row & ~gaps
+        table = 90 + xx * 0.3 + rng.normal(0, 6, xx.shape) + 8 * np.sin(xx / 5 + yy / 9)
+        y = np.clip(np.where(text, 70, np.where(page, 212 - yy * 0.15 + rng.normal(0, 2, xx.shape), table)), 0, 255).astype(np.uint8)
         cb = np.where(page, 126, 112).astype(np.uint8)
         cr = np.where(page, 129, 150).astype(np.uint8)
         x = torch.from_numpy((np.stack([y, cb, cr]).astype(np.float32) - 128) / 128)[None]
