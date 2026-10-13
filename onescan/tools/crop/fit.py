@@ -139,6 +139,7 @@ def surface_of(c):
     return c['k'].split('_')[1] if c['k'].startswith('syn_') else group(c['cat'])
 
 
+TAGS = {}           # photo -> heuristic tags (cards: light background, glare, hand-held)
 PRESENCE = {}       # photo -> presence probability (tools/presence)
 PRESENCE_THR = None  # {'present': p, 'none': p}
 
@@ -168,7 +169,7 @@ def results(cases, wts, calib):
         sel_frame = r['s'] == 'frame'
         out.append(dict(k=c['k'], g='negative' if c['neg'] else surface_of(c), neg=c['neg'],
                         recall=any(correct(c, x) for x in c['rows']), right=correct(c, r),
-                        conf=0.0 if sel_frame else conf, pres=presence_class(c['k']), small=page_frac(c['k']) < 0.25))
+                        conf=0.0 if sel_frame else conf, pres=presence_class(c['k']), small=page_frac(c['k']) < 0.25, tags=TAGS.get(c['k'], [])))
     return out
 
 
@@ -188,24 +189,28 @@ def auto_threshold(res, target=0.98):
 
 def report(res, thr, label, review=0.65):
     print(f'\n== {label}   (auto-apply threshold {thr:.3f})')
-    print(f'  {"group":9s} {"n":>5s} | {"cand.recall@3%":>14s} {"ranker":>7s} {"detection":>10s} | {"auto cov":>8s} {"auto prec":>9s} | {"suggest":>7s} {"original":>8s}')
+    print(f'  {"group":22s} {"n":>5s} | {"cand.recall@3%":>14s} {"ranker":>7s} {"detection":>10s} | {"auto cov":>8s} {"auto prec":>9s} | {"suggest":>7s} {"original":>8s}')
     by = {}
     for x in res:
         by.setdefault(x['g'], []).append(x)
     if 'card' in by:
         by['card <25%'] = [x for x in by['card'] if x['small']]
+        for t in ('light background', 'glare', 'hand-held'):
+            sel = [x for x in by['card'] if t in x['tags']]
+            if sel:
+                by[f'card~{t}'] = sel
     for g, xs in sorted(by.items()):
         n = len(xs)
         # Presence gate: 'none' -> original, nothing proposed; 'uncertain' -> at most a suggestion.
         auto = [x for x in xs if x['conf'] >= thr and x['pres'] == 'present']
         sug = [x for x in xs if x['conf'] >= review and x['pres'] != 'none' and x not in auto]
         if g == 'negative':
-            print(f'  {g:9s} {n:5d} | {"—":>14s} {"—":>7s} {"—":>10s} | false crop (auto) {100*len(auto)/n:5.1f}%  suggested {100*len(sug)/n:5.1f}%')
+            print(f'  {g:22s} {n:5d} | {"—":>14s} {"—":>7s} {"—":>10s} | false crop (auto) {100*len(auto)/n:5.1f}%  suggested {100*len(sug)/n:5.1f}%')
             continue
         prec = 100 * sum(x['right'] for x in auto) / len(auto) if auto else float('nan')
         rec = [x for x in xs if x['recall']]
         rank = 100 * sum(x['right'] for x in rec) / len(rec) if rec else float('nan')
-        print(f'  {g:9s} {n:5d} | {100*len(rec)/n:13.1f}% {rank:6.1f}% {100*sum(x["right"] for x in xs)/n:9.1f}% | '
+        print(f'  {g:22s} {n:5d} | {100*len(rec)/n:13.1f}% {rank:6.1f}% {100*sum(x["right"] for x in xs)/n:9.1f}% | '
               f'{100*len(auto)/n:7.1f}% {prec:8.1f}% | {100*len(sug)/n:6.1f}% {100*(n-len(auto)-len(sug))/n:7.1f}%')
 
 
@@ -218,10 +223,13 @@ if __name__ == '__main__':
     ap.add_argument('--old', nargs='*', default=[], help='old-path results JSON (per photo)')
     ap.add_argument('--out', help='write cropModel.ts here')
     ap.add_argument('--presence', nargs='*', default=[], help='presence probability JSON per photo')
+    ap.add_argument('--tags', help='heuristic tags JSON per photo (approximate)')
     ap.add_argument('--presence-thr', help='presence thresholds JSON (presence.py eval --json)')
     a = ap.parse_args()
     for pp in a.presence:
         PRESENCE.update(json.load(open(pp)))
+    if a.tags:
+        TAGS.update(json.load(open(a.tags)))
     if a.presence_thr:
         PRESENCE_THR = json.load(open(a.presence_thr))
     for cp in a.cases:
