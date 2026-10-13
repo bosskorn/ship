@@ -66,6 +66,7 @@ const th: LocaleResource = {
     pages: '{{count}} หน้า',
     page_one: '1 หน้า',
     preparing: 'กำลังเตรียมเอกสาร',
+    page_limit: 'สแกนได้สูงสุด {{count}} หน้าต่อเอกสาร',
     capture_failed: 'ถ่ายไม่สำเร็จ ลองอีกครั้ง',
     engine_fallback: 'ใช้สแกนเนอร์ของระบบบนเครื่องนี้',
     open_system_scanner: 'ใช้สแกนเนอร์ของระบบ',

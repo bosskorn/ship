@@ -29,13 +29,11 @@ import { scanHaptics } from './haptics';
 import { CoachTone, QualityCoach } from './QualityCoach';
 import { CaptureFlash, ImportButton, ModeSelector, PagesButton, PreparingCard, PrivacyNote, ScannerTopBar, ShutterButton } from './ScannerControls';
 import { scan, TOP_BAR } from './scannerStyle';
-import { useScanSession } from './scanSession';
+import { MAX_SCAN_PAGES, useScanSession } from './scanSession';
 import { useLiveDetection } from './useLiveDetection';
 
 type TranslationKey = ParseKeys;
 
-/** Most pages one system-scanner session may return. */
-const MAX_SYSTEM_PAGES = 50;
 
 const hasSystemScanner = () => typeof OneScanVision?.scanDocumentsAsync === 'function';
 
@@ -193,7 +191,7 @@ export function ScannerScreen() {
       const session = useScanSession.getState();
       let scanned: { uri: string }[];
       try {
-        scanned = (await OneScanVision!.scanDocumentsAsync(session.rescanIndex !== null ? 1 : MAX_SYSTEM_PAGES, true)).pages;
+        scanned = (await OneScanVision!.scanDocumentsAsync(session.rescanIndex !== null ? 1 : Math.max(1, MAX_SCAN_PAGES - session.pages.length), true)).pages;
       } catch {
         if (!cancelled) setEngine(OneScanCameraView ? 'onescan' : 'camera');
         return;
@@ -237,6 +235,10 @@ export function ScannerScreen() {
     async (auto: boolean) => {
       if (!ready || switching || shutterBusy.current || preparing) return;
       const s = useScanSession.getState();
+      if (s.rescanIndex === null && s.pages.length >= MAX_SCAN_PAGES) {
+        toast(t('scanner.page_limit', { count: MAX_SCAN_PAGES }), 'info');
+        return;
+      }
       shutterBusy.current = true;
       scanHaptics.capture();
       setFlash((n) => n + 1);

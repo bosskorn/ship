@@ -53,16 +53,44 @@ internal object TextRecognizer {
     }
   }
 
-  /** Copies bundled models from assets once; Tesseract needs real files. */
+  @Volatile private var tessReady: File? = null
+
+  /**
+   * Copies bundled models from assets once; Tesseract needs real files. Each model is written
+   * to a temp file and renamed into place, and an existing file must match the asset's size,
+   * so a copy cut short by a kill (which used to break OCR — and with it every save — for
+   * good) is redone on the next run.
+   */
   private fun tessDataRoot(context: Context): File {
+    tessReady?.let { return it }
     val root = File(context.filesDir, "tesseract")
     val dir = File(root, "tessdata").apply { mkdirs() }
     for (name in listOf("tha.traineddata", "eng.traineddata")) {
       val target = File(dir, name)
-      if (target.exists() && target.length() > 0) continue
-      context.assets.open("tessdata/$name").use { input -> target.outputStream().use { input.copyTo(it) } }
+      val size = assetSize(context, "tessdata/$name")
+      if (target.exists() && target.length() == size) continue
+      val tmp = File(dir, "$name.tmp")
+      context.assets.open("tessdata/$name").use { input -> tmp.outputStream().use { input.copyTo(it) } }
+      if (tmp.length() != size || !tmp.renameTo(target)) {
+        tmp.delete()
+        throw IllegalStateException("Could not install OCR model $name")
+      }
     }
+    tessReady = root
     return root
+  }
+
+  private fun assetSize(context: Context, path: String): Long {
+    var n = 0L
+    val buf = ByteArray(1 shl 16)
+    context.assets.open(path).use { input ->
+      while (true) {
+        val r = input.read(buf)
+        if (r < 0) break
+        n += r
+      }
+    }
+    return n
   }
 
   private fun tesseract(context: Context, bmp: Bitmap, lang: String): List<Map<String, Any>> = synchronized(tessLock) {

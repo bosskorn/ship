@@ -226,21 +226,31 @@ export const DocumentEngine = {
     if (!draft.length) throw new Error('Cannot save an empty document');
     // Files are written under `docId`; the DB rows reference these URIs.
     const docId = newId();
-    const pages = await this.renderPages(draft, docId, opts.quality ?? defaultScanQuality, opts.onStage);
-    const out = await this.finalize(docId, pages, opts.title, opts.onStage);
-    opts.onStage?.('index', 1);
-    const folderKey = folderForType[opts.docType];
-    return documentRepository.create({
-      title: opts.title,
-      docType: opts.docType,
-      folderId: folderKey ? await folderRepository.bySystemKey(folderKey) : null,
-      pdfUri: out.pdfUri,
-      thumbnailUri: out.thumbUri,
-      sizeBytes: out.sizeBytes,
-      ocrText: out.ocrText,
-      hasSensitive: out.hasSensitive,
-      pages: pages.map(toPageRow),
-    });
+    try {
+      const pages = await this.renderPages(draft, docId, opts.quality ?? defaultScanQuality, opts.onStage);
+      const out = await this.finalize(docId, pages, opts.title, opts.onStage);
+      opts.onStage?.('index', 1);
+      const folderKey = folderForType[opts.docType];
+      return await documentRepository.create({
+        title: opts.title,
+        docType: opts.docType,
+        folderId: folderKey ? await folderRepository.bySystemKey(folderKey) : null,
+        pdfUri: out.pdfUri,
+        thumbnailUri: out.thumbUri,
+        sizeBytes: out.sizeBytes,
+        ocrText: out.ocrText,
+        hasSensitive: out.hasSensitive,
+        pages: pages.map(toPageRow),
+      });
+    } catch (e) {
+      // Nothing references the half-written folder: remove it, keep the draft for a retry.
+      try {
+        DocumentFileStore.deleteDocument(docId);
+      } catch {
+        // best effort
+      }
+      throw e;
+    }
   },
 
   /** Load a saved document's pages as editable drafts (from the originals when kept). */
@@ -297,6 +307,19 @@ export const DocumentEngine = {
    */
   async importPdf(uri: string, name: string, onStage?: StageCallback): Promise<DocumentRecord> {
     const docId = newId();
+    try {
+      return await this.importPdfInto(docId, uri, name, onStage);
+    } catch (e) {
+      try {
+        DocumentFileStore.deleteDocument(docId);
+      } catch {
+        // best effort
+      }
+      throw e;
+    }
+  },
+
+  async importPdfInto(docId: string, uri: string, name: string, onStage?: StageCallback): Promise<DocumentRecord> {
     const pdfFile = DocumentFileStore.adopt(uri, docId, 'document.pdf');
     const title = name.replace(/\.pdf$/i, '');
     if (!OneScanVision) {

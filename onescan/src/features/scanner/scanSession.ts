@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import type { CaptureMode, DocumentType, DraftPage } from '@/core/document-engine/model';
 import { newId } from '@/core/document-engine/ids';
 
+/** Pages per document: the tested maximum (multi-page QA covers 20). */
+export const MAX_SCAN_PAGES = 20;
+
 /** Document State for the in-progress (unsaved) scan. Memory only, never persisted. */
 interface ScanSessionState {
   sessionId: string;
@@ -70,12 +73,13 @@ export const useScanSession = create<ScanSessionState>((set) => ({
       editingDocumentId: null,
     }),
   setMode: (mode) => set((s) => ({ mode, docType: s.docType === docTypeForMode[s.mode] ? docTypeForMode[mode] : s.docType })),
-  addPage: (p) => set((s) => ({ pages: [...s.pages, p] })),
+  addPage: (p) => set((s) => (s.pages.length >= MAX_SCAN_PAGES ? s : { pages: [...s.pages, p] })),
   replacePage: (index, p) => set((s) => ({ pages: s.pages.map((x, i) => (i === index ? p : x)) })),
   updatePage: (id, patch) => set((s) => ({ pages: s.pages.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
   removePage: (index) => set((s) => ({ pages: s.pages.filter((_, i) => i !== index) })),
   duplicatePage: (index) =>
     set((s) => {
+      if (s.pages.length >= MAX_SCAN_PAGES) return s;
       const copy = { ...s.pages[index], id: newId() };
       const pages = [...s.pages];
       pages.splice(index + 1, 0, copy);

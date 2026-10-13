@@ -64,6 +64,7 @@ const en = {
     pages: '{{count}} pages',
     page_one: '1 page',
     preparing: 'Preparing document',
+    page_limit: 'Up to {{count}} pages per document',
     capture_failed: 'Couldn’t capture. Try again.',
     engine_fallback: 'Using the system scanner on this device',
     open_system_scanner: 'Use system scanner',

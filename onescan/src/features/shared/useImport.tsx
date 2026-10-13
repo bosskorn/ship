@@ -8,7 +8,7 @@ import { TProgress, TText, useTheme, useToast } from '@/design-system';
 import { defaultFilterFor } from '@/core/document-engine/image/filters';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { noteCropResult } from '@/features/scanner/cropStats';
-import { useScanSession } from '@/features/scanner/scanSession';
+import { MAX_SCAN_PAGES, useScanSession } from '@/features/scanner/scanSession';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { track } from '@/services/analytics/analytics';
 
@@ -40,14 +40,19 @@ export function useImport() {
   /** Returns true when pages were added. With `append`, the caller handles navigation. */
   const importPhotos = useCallback(async (opts?: { append?: boolean }): Promise<boolean> => {
     try {
-      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 1 });
+      const room = opts?.append ? MAX_SCAN_PAGES - useScanSession.getState().pages.length : MAX_SCAN_PAGES;
+      if (room <= 0) {
+        toast(t('scanner.page_limit', { count: MAX_SCAN_PAGES }), 'info');
+        return false;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: room, quality: 1 });
       if (res.canceled || !res.assets.length) return false;
       setBusy(true);
       track('import_started', { kind: 'photo', count: res.assets.length });
       const session = useScanSession.getState();
       // From the camera, imported photos join the current scan session.
       if (!opts?.append) session.start();
-      for (const a of res.assets) {
+      for (const a of res.assets.slice(0, room)) {
         const docType = useScanSession.getState().docType;
         const prior = docType === 'id_card' || docType === 'business_card' ? 'card' : docType === 'receipt' ? 'receipt' : null;
         const page = await DocumentEngine.processCapture(a.uri, defaultFilterFor(docType), { prior });
