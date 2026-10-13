@@ -169,6 +169,9 @@ def main():
             opt.zero_grad(); loss.backward(); opt.step(); sched.step(); tot += loss.item()
         miou, good, fp = evaluate(model, vimgs, vcorners, vneg)
         print(f'ep {ep} loss {tot / (k + 1):.4f} val mIoU {miou:.4f} IoU>0.9 {good:.3f} negFP {fp:.3f} ({time.time() - t0:.0f}s)', flush=True)
+        # Every epoch is kept: the shipped checkpoint is chosen on held-out end-to-end crop
+        # results (tools/crop), not on this validation mIoU.
+        torch.save(model.state_dict(), a.out.replace('.pt', f'_ep{ep}.pt'))
         if miou > best:
             best = miou; torch.save(model.state_dict(), a.out)
 
