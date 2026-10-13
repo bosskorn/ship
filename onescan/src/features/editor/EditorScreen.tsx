@@ -198,13 +198,13 @@ export function EditorScreen() {
             </View>
           )}
         />
-        {current?.crop && current.crop.decision !== 'auto' && current.crop.presence !== 'none' && !current.crop.confirmed && nativeVision ? (
+        {current?.crop && current.crop.decision !== 'auto' && !current.crop.confirmed && nativeVision ? (
           <View style={styles.cropHint} pointerEvents="box-none">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.mediaOverlay, borderRadius: 999, paddingLeft: spacing.sm, paddingRight: 4, paddingVertical: 4 }}>
               <TText variant="bodySmall" color="mediaText">
-                {current.crop.decision === 'review' ? t('editor.check_edges') : t('editor.no_auto_crop')}
+                {current.crop.presence === 'none' ? t('editor.no_document') : current.crop.decision === 'review' ? t('editor.check_edges') : t('editor.no_auto_crop')}
               </TText>
-              {current.crop.decision === 'review' ? (
+              {current.crop.decision === 'review' && current.crop.presence !== 'none' ? (
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => {
@@ -225,7 +225,7 @@ export function EditorScreen() {
               >
                 <TIcon name="crop" size="sm" color={colors.mediaText} />
                 <TText variant="bodySmall" color="mediaText">
-                  {t('editor.adjust_edges')}
+                  {current.crop.presence === 'none' ? t('editor.pick_edges') : t('editor.adjust_edges')}
                 </TText>
               </Pressable>
             </View>

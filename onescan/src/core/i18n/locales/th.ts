@@ -168,6 +168,8 @@ const th: LocaleResource = {
     clear: 'ล้าง',
   },
   editor: {
+    no_document: 'ไม่พบเอกสาร',
+    pick_edges: 'เลือกขอบเอง',
     check_edges: 'ตรวจกรอบเอกสาร',
     no_auto_crop: 'ยังไม่ได้ครอปอัตโนมัติ',
     use_this_crop: 'ใช้กรอบนี้',

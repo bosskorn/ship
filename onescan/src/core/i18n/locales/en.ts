@@ -166,6 +166,8 @@ const en = {
     clear: 'Clear',
   },
   editor: {
+    no_document: 'No document found',
+    pick_edges: 'Choose edges',
     check_edges: 'Check the edges',
     no_auto_crop: 'Not cropped automatically',
     use_this_crop: 'Use this crop',
