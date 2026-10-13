@@ -24,7 +24,12 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 10
+      "versionCode": 10,
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -69,7 +74,9 @@
             "deploymentTarget": "16.4"
           }
         }
-      ]
+      ],
+      "./plugins/withPrivacyHardening",
+      "./plugins/withReleaseSigning"
     ],
     "experiments": {
       "typedRoutes": true
