@@ -26,6 +26,10 @@ internal object PageProcessor {
   private const val SCAN_WHITE = 238.0
   private const val SCAN_GAMMA = 1.25
   private const val SCAN_SATURATION = 1.2
+  private const val INK_CHROMA_LO = 24f
+  private const val INK_CHROMA_HI = 72f
+  /** Coloured ink may get at most this much darker (luma levels) through the scan curve. */
+  private const val INK_DARKEN_MAX = 8.0
   private const val SCAN_SHARPEN = 0.4f
 
   data class Result(val file: File, val width: Int, val height: Int, val quality: Int, val degraded: Boolean)
@@ -272,16 +276,43 @@ internal object PageProcessor {
     }
     for (i in px.indices) {
       val c = px[i]
-      val r = lut[(c shr 16) and 0xff].toDouble()
-      val g = lut[(c shr 8) and 0xff].toDouble()
-      val b = lut[c and 0xff].toDouble()
+      val r0 = (c shr 16) and 0xff
+      val g0 = (c shr 8) and 0xff
+      val b0 = c and 0xff
+      var r = lut[r0].toDouble()
+      var g = lut[g0].toDouble()
+      var b = lut[b0].toDouble()
       val l = 0.299 * r + 0.587 * g + 0.114 * b
+      r = l + (r - l) * SCAN_SATURATION
+      g = l + (g - l) * SCAN_SATURATION
+      b = l + (b - l) * SCAN_SATURATION
+      // The curve pushes a coloured ink's low channels to black, so a dark red stamp or
+      // blue signature would come out near-black. Coloured ink never ends up darker than
+      // its paper-corrected input (less INK_DARKEN_MAX): lift it back, keeping hue and chroma.
+      val ink = 1 - neutralWeight((max(r0, max(g0, b0)) - min(r0, min(g0, b0))).toFloat()).toDouble()
+      val floor = 0.299 * r0 + 0.587 * g0 + 0.114 * b0 - INK_DARKEN_MAX
+      val lOut = 0.299 * r + 0.587 * g + 0.114 * b
+      if (ink > 0 && lOut < floor) {
+        val lift = (floor - lOut) * ink
+        r += lift
+        g += lift
+        b += lift
+      }
       px[i] = (c and (0xff shl 24)) or
-        ((l + (r - l) * SCAN_SATURATION).roundToInt().coerceIn(0, 255) shl 16) or
-        ((l + (g - l) * SCAN_SATURATION).roundToInt().coerceIn(0, 255) shl 8) or
-        (l + (b - l) * SCAN_SATURATION).roundToInt().coerceIn(0, 255)
+        (r.roundToInt().coerceIn(0, 255) shl 16) or
+        (g.roundToInt().coerceIn(0, 255) shl 8) or
+        b.roundToInt().coerceIn(0, 255)
     }
     unsharp(px, w, h, SCAN_SHARPEN)
+  }
+
+  /**
+   * 1 for neutral pixels (channel spread <= INK_CHROMA_LO), 0 for clearly coloured ink
+   * (>= INK_CHROMA_HI), smooth in between. JPEG chroma noise on black text stays neutral.
+   */
+  fun neutralWeight(chroma: Float): Float {
+    val t = ((chroma - INK_CHROMA_LO) / (INK_CHROMA_HI - INK_CHROMA_LO)).coerceIn(0f, 1f)
+    return 1f - t * t * (3f - 2f * t)
   }
 
   private fun lum(c: Int) = (((c shr 16) and 0xff) * 77 + ((c shr 8) and 0xff) * 150 + (c and 0xff) * 29) shr 8

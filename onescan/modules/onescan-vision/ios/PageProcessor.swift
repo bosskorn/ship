@@ -72,6 +72,15 @@ enum OneScanPageProcessor {
       vec3 t = pow(clamp((n - 0.08) / (0.933 - 0.08), 0.0, 1.0), vec3(1.25));
       float l = dot(t, vec3(0.299, 0.587, 0.114));
       t = clamp(vec3(l) + (t - vec3(l)) * 1.2, 0.0, 1.0);
+      // Coloured ink (stamps, signatures) may get at most 8 levels darker than its
+      // paper-corrected value; the curve alone pushes a dark red towards black (Android:
+      // PageProcessor.scanLook, INK_DARKEN_MAX).
+      float chroma = (max(n.r, max(n.g, n.b)) - min(n.r, min(n.g, n.b))) * 255.0;
+      float k = clamp((chroma - 24.0) / 48.0, 0.0, 1.0);
+      float ink = k * k * (3.0 - 2.0 * k);
+      float floorL = dot(n, vec3(0.299, 0.587, 0.114)) - 8.0 / 255.0;
+      float lo = dot(t, vec3(0.299, 0.587, 0.114));
+      t = clamp(t + vec3(max(floorL - lo, 0.0) * ink), 0.0, 1.0);
       return vec4(pow(t, vec3(2.2)), s.a);
     }
     """)
