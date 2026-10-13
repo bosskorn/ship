@@ -139,8 +139,19 @@ def surface_of(c):
     return c['k'].split('_')[1] if c['k'].startswith('syn_') else group(c['cat'])
 
 
+PRESENCE = {}       # photo -> presence probability (tools/presence)
+PRESENCE_THR = None  # {'present': p, 'none': p}
+
+
+def presence_class(k):
+    if PRESENCE_THR is None or k not in PRESENCE:
+        return 'present'
+    p = PRESENCE[k]
+    return 'present' if p >= PRESENCE_THR['present'] else 'none' if p <= PRESENCE_THR['none'] else 'uncertain'
+
+
 def results(cases, wts, calib):
-    """Per photo: candidate recall, selected-right, confidence."""
+    """Per photo: candidate recall, selected-right, confidence, presence gate."""
     out = []
     for c in cases:
         V = np.array([r['v'] for r in c['rows']])
@@ -148,13 +159,14 @@ def results(cases, wts, calib):
         sel_frame = r['s'] == 'frame'
         out.append(dict(k=c['k'], g='negative' if c['neg'] else surface_of(c), neg=c['neg'],
                         recall=any(correct(c, x) for x in c['rows']), right=correct(c, r),
-                        conf=0.0 if sel_frame else conf))
+                        conf=0.0 if sel_frame else conf, pres=presence_class(c['k'])))
     return out
 
 
 def auto_threshold(res, target=0.98):
     """Lowest confidence threshold whose auto-applied crops are >= target precise (tune photos)."""
-    pos = sorted([x for x in res], key=lambda x: -x['conf'])
+    # Only photos the presence gate lets through to auto-apply count.
+    pos = sorted([x for x in res if x['pres'] == 'present'], key=lambda x: -x['conf'])
     best = 1.01; ok = 0
     for n, x in enumerate(pos, 1):
         ok += x['right']
@@ -167,19 +179,22 @@ def auto_threshold(res, target=0.98):
 
 def report(res, thr, label, review=0.65):
     print(f'\n== {label}   (auto-apply threshold {thr:.3f})')
-    print(f'  {"group":9s} {"n":>5s} | {"cand.recall@3%":>14s} {"detection":>10s} | {"auto cov":>8s} {"auto prec":>9s} | {"suggest":>7s} {"original":>8s}')
+    print(f'  {"group":9s} {"n":>5s} | {"cand.recall@3%":>14s} {"ranker":>7s} {"detection":>10s} | {"auto cov":>8s} {"auto prec":>9s} | {"suggest":>7s} {"original":>8s}')
     by = {}
     for x in res:
         by.setdefault(x['g'], []).append(x)
     for g, xs in sorted(by.items()):
         n = len(xs)
-        auto = [x for x in xs if x['conf'] >= thr]
-        sug = [x for x in xs if review <= x['conf'] < thr]
+        # Presence gate: 'none' -> original, nothing proposed; 'uncertain' -> at most a suggestion.
+        auto = [x for x in xs if x['conf'] >= thr and x['pres'] == 'present']
+        sug = [x for x in xs if x['conf'] >= review and x['pres'] != 'none' and x not in auto]
         if g == 'negative':
-            print(f'  {g:9s} {n:5d} | {"—":>14s} {"—":>10s} | false crop (auto) {100*len(auto)/n:5.1f}%  suggested {100*len(sug)/n:5.1f}%')
+            print(f'  {g:9s} {n:5d} | {"—":>14s} {"—":>7s} {"—":>10s} | false crop (auto) {100*len(auto)/n:5.1f}%  suggested {100*len(sug)/n:5.1f}%')
             continue
         prec = 100 * sum(x['right'] for x in auto) / len(auto) if auto else float('nan')
-        print(f'  {g:9s} {n:5d} | {100*sum(x["recall"] for x in xs)/n:13.1f}% {100*sum(x["right"] for x in xs)/n:9.1f}% | '
+        rec = [x for x in xs if x['recall']]
+        rank = 100 * sum(x['right'] for x in rec) / len(rec) if rec else float('nan')
+        print(f'  {g:9s} {n:5d} | {100*len(rec)/n:13.1f}% {rank:6.1f}% {100*sum(x["right"] for x in xs)/n:9.1f}% | '
               f'{100*len(auto)/n:7.1f}% {prec:8.1f}% | {100*len(sug)/n:6.1f}% {100*(n-len(auto)-len(sug))/n:7.1f}%')
 
 
@@ -191,7 +206,13 @@ if __name__ == '__main__':
     ap.add_argument('--cases', nargs='*', default=[], help='cases.json files (ground truth for IoU)')
     ap.add_argument('--old', nargs='*', default=[], help='old-path results JSON (per photo)')
     ap.add_argument('--out', help='write cropModel.ts here')
+    ap.add_argument('--presence', nargs='*', default=[], help='presence probability JSON per photo')
+    ap.add_argument('--presence-thr', help='presence thresholds JSON (presence.py eval --json)')
     a = ap.parse_args()
+    for pp in a.presence:
+        PRESENCE.update(json.load(open(pp)))
+    if a.presence_thr:
+        PRESENCE_THR = json.load(open(a.presence_thr))
     for cp in a.cases:
         for k, v in json.load(open(cp)).items():
             if v.get('truth'):
