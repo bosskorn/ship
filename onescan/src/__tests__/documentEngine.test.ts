@@ -18,13 +18,22 @@ jest.mock('expo-crypto', () => {
 
 jest.mock('@/native/OneScanVision', () => {
   const gray = (() => {
-    // 64×80 dark frame with a bright page in the middle.
-    const w = 64;
-    const h = 80;
+    // 192×256 dark table with a printed page in the middle (text lines with margins).
+    const w = 192;
+    const h = 256;
     const d = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) d[y * w + x] = x > 10 && x < 54 && y > 12 && y < 68 ? 220 : 40;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const onPage = x > 32 && x < 160 && y > 38 && y < 212;
+        const text = onPage && x > 44 && x < 148 && y > 50 && y < 200 && y % 7 < 2 && (x * 5 + y) % 23 > 4;
+        d[y * w + x] = text ? 50 : onPage ? 225 : 40 + ((x * 7 + y * 3) % 9);
+      }
+    }
     const { bytesToBase64 } = jest.requireActual('@/core/document-engine/security/SecurityEngine');
-    return { width: w, height: h, data: bytesToBase64(d) };
+    // DocSeg page probabilities (64×64), as the native module returns with withMask.
+    const m = new Uint8Array(64 * 64);
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) m[y * 64 + x] = x > 11 && x < 53 && y > 9 && y < 53 ? 240 : 10;
+    return { width: w, height: h, data: bytesToBase64(d), mask: bytesToBase64(m) };
   })();
   const record = (fn: string) => (...args: unknown[]) => {
     nativeCalls.push({ fn, args });
@@ -110,6 +119,7 @@ test('capture detects the page and perspective-corrects it on device', async () 
   expect(quad[2].x).toBeLessThan(0.9);
   expect(page.quad).toEqual(quad);
   expect(page.filter).toBe('auto');
+  expect(page.crop?.decision).not.toBe('manual');
 });
 
 test('save builds PDF, OCR index and flags sensitive content', async () => {

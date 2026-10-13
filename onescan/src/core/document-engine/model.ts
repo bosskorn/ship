@@ -56,6 +56,11 @@ export interface DraftPage {
    * quick downscale of the raw photo until the processed preview replaces it.
    */
   processing?: boolean;
+  /**
+   * Automatic crop outcome: `auto` applied, `review` applied but worth a look ("adjust
+   * edges"), `manual` not applied — `suggestion` pre-fills the crop editor.
+   */
+  crop?: { decision: 'auto' | 'review' | 'manual'; confidence: number; suggestion?: Quad };
 }
 
 export type SyncState = 'local_only' | 'pending_upload' | 'synced' | 'pending_delete';

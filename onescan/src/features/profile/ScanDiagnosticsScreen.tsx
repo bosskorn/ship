@@ -5,7 +5,7 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TButton, TCellGroup, TEmpty, TNavigationBar, TScreen, TText, useTheme, useToast } from '@/design-system';
-import { diagnosticsReport, DiagnosticStage, megapixels, pixelRetention, StageInfo, useScanDiagnostics } from '@/core/document-engine/image/diagnostics';
+import { cropLines, diagnosticsReport, DiagnosticStage, megapixels, pixelRetention, StageInfo, useScanDiagnostics } from '@/core/document-engine/image/diagnostics';
 
 const order = ['source', 'master', 'preview', 'thumbnail'] as const satisfies readonly DiagnosticStage[];
 
@@ -68,6 +68,13 @@ export function ScanDiagnosticsScreen() {
                     {t('scan_diagnostics.timings', { capture: p.timings.captureMs ?? '–', process: p.timings.processMs ?? '–' })}
                   </TText>
                 ) : null}
+                {p.crop
+                  ? cropLines(p.crop).map((l) => (
+                      <TText key={l} variant="bodySmall">
+                        {l}
+                      </TText>
+                    ))
+                  : null}
                 {retention !== null ? (
                   <TText variant="bodySmall" style={{ color: low ? colors.error : colors.success }}>
                     {t('scan_diagnostics.retention', { percent: Math.round(retention * 100) })}

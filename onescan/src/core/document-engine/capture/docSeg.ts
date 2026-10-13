@@ -309,8 +309,8 @@ function meet(a: FitLine, b: FitLine): Point | null {
   return { x: a.px + a.dx * t, y: a.py + a.dy * t };
 }
 
-/** Sub-pixel 0.5-crossings along one side, robustly fitted to a line. */
-function refineSide(m: Float32Array, n: number, a: Point, b: Point, orient: number): FitLine | null {
+/** Sub-pixel `thr`-crossings along one side, robustly fitted to a line. */
+function refineSide(m: Float32Array, n: number, a: Point, b: Point, orient: number, thr = 0.5): FitLine | null {
   const len = Math.hypot(b.x - a.x, b.y - a.y);
   if (len < 3) return null;
   const tx = (b.x - a.x) / len;
@@ -327,8 +327,8 @@ function refineSide(m: Float32Array, n: number, a: Point, b: Point, orient: numb
     let prev = sample(m, n, cx - nx * 3, cy - ny * 3);
     for (let s = -2.75; s <= 3; s += 0.25) {
       const v = sample(m, n, cx + nx * s, cy + ny * s);
-      if (prev >= 0.5 && v < 0.5) {
-        const f = (prev - 0.5) / (prev - v);
+      if (prev >= thr && v < thr) {
+        const f = (prev - thr) / (prev - v);
         const off = s - 0.25 + 0.25 * f;
         pts.push({ x: cx + nx * off, y: cy + ny * off });
         break;
@@ -345,19 +345,32 @@ function refineSide(m: Float32Array, n: number, a: Point, b: Point, orient: numb
   return line;
 }
 
+/** A page-shaped region of the probability map, fitted with a quad. */
+export interface MaskRegionQuad {
+  /** Normalised (0..1) TL, TR, BR, BL in frame coordinates. */
+  quad: Quad;
+  /** IoU between the fitted quad and the region (0..1). */
+  iou: number;
+  /** Region size, share of the frame. */
+  size: number;
+  /** Longest run of the region along any frame edge, share of that edge. */
+  edgeRun: number;
+  threshold: number;
+}
+
 /**
- * Turns a page-probability map (n×n, covering the whole frame) into a quadrilateral:
- * largest region → convex hull → max-area quad → per-side sub-pixel line fits.
+ * Regions of the probability map at `threshold` (largest first, up to `maxRegions`), each
+ * fitted with a quad: convex hull → max-area quad → per-side sub-pixel line fits. No
+ * filtering beyond a minimum size — callers score them (crop candidates).
  */
-export function maskToQuad(m: Float32Array, n = DOCSEG_MASK): MaskQuad | null {
+export function maskRegionQuads(m: Float32Array, n = DOCSEG_MASK, threshold = 0.5, maxRegions = 3): MaskRegionQuad[] {
   const N = n * n;
   const lab = new Int32Array(N).fill(-1);
-  let best = -1;
-  let bestSize = 0;
+  const sizes: number[] = [];
   const stack: number[] = [];
-  let id = 0;
   for (let s = 0; s < N; s++) {
-    if (m[s] < 0.5 || lab[s] >= 0) continue;
+    if (m[s] < threshold || lab[s] >= 0) continue;
+    const id = sizes.length;
     let size = 0;
     lab[s] = id;
     stack.push(s);
@@ -366,79 +379,95 @@ export function maskToQuad(m: Float32Array, n = DOCSEG_MASK): MaskQuad | null {
       size++;
       const x = p % n;
       const y = (p - x) / n;
-      if (x > 0 && m[p - 1] >= 0.5 && lab[p - 1] < 0) (lab[p - 1] = id), stack.push(p - 1);
-      if (x < n - 1 && m[p + 1] >= 0.5 && lab[p + 1] < 0) (lab[p + 1] = id), stack.push(p + 1);
-      if (y > 0 && m[p - n] >= 0.5 && lab[p - n] < 0) (lab[p - n] = id), stack.push(p - n);
-      if (y < n - 1 && m[p + n] >= 0.5 && lab[p + n] < 0) (lab[p + n] = id), stack.push(p + n);
+      if (x > 0 && m[p - 1] >= threshold && lab[p - 1] < 0) (lab[p - 1] = id), stack.push(p - 1);
+      if (x < n - 1 && m[p + 1] >= threshold && lab[p + 1] < 0) (lab[p + 1] = id), stack.push(p + 1);
+      if (y > 0 && m[p - n] >= threshold && lab[p - n] < 0) (lab[p - n] = id), stack.push(p - n);
+      if (y < n - 1 && m[p + n] >= threshold && lab[p + n] < 0) (lab[p + n] = id), stack.push(p + n);
     }
-    if (size > bestSize) (bestSize = size), (best = id);
-    id++;
+    sizes.push(size);
   }
-  if (best < 0 || bestSize < MIN_AREA * N) return null;
-
-  // A page running off the frame can't be scanned whole: report none so the capture
-  // hint asks the user to move back (same rule as the edge detector).
-  const edge = [0, 0, 0, 0];
-  for (let k = 0; k < n; k++) {
-    if (lab[k] === best) edge[0]++;
-    if (lab[(n - 1) * n + k] === best) edge[1]++;
-    if (lab[k * n] === best) edge[2]++;
-    if (lab[k * n + n - 1] === best) edge[3]++;
-  }
-  if (edge.some((c) => c > MAX_EDGE_RUN * n)) return null;
-
-  // Outline: leftmost/rightmost region pixel of every row (enough for the convex hull).
-  const pts: Point[] = [];
-  for (let y = 0; y < n; y++) {
-    let lo = -1;
-    let hi = -1;
-    for (let x = 0; x < n; x++) {
-      if (lab[y * n + x] === best) {
-        if (lo < 0) lo = x;
-        hi = x;
+  const ids = sizes
+    .map((size, id) => ({ size, id }))
+    .filter((r) => r.size >= MIN_AREA * N)
+    .sort((a, b) => b.size - a.size)
+    .slice(0, maxRegions);
+  const out: MaskRegionQuad[] = [];
+  for (const { id, size } of ids) {
+    const edge = [0, 0, 0, 0];
+    for (let k = 0; k < n; k++) {
+      if (lab[k] === id) edge[0]++;
+      if (lab[(n - 1) * n + k] === id) edge[1]++;
+      if (lab[k * n] === id) edge[2]++;
+      if (lab[k * n + n - 1] === id) edge[3]++;
+    }
+    // Outline: leftmost/rightmost region pixel of every row (enough for the convex hull).
+    const pts: Point[] = [];
+    for (let y = 0; y < n; y++) {
+      let lo = -1;
+      let hi = -1;
+      for (let x = 0; x < n; x++) {
+        if (lab[y * n + x] === id) {
+          if (lo < 0) lo = x;
+          hi = x;
+        }
+      }
+      if (lo >= 0) pts.push({ x: lo, y }, { x: hi, y });
+    }
+    const coarse = maxAreaQuad(convexHull(pts));
+    if (!coarse) continue;
+    const q = orderQuad(coarse);
+    // Clockwise in y-down coordinates (positive signed area): (-ty, tx) points inside.
+    const signed = q.reduce((acc, p, i) => acc + (p.x * q[(i + 1) % 4].y - q[(i + 1) % 4].x * p.y), 0);
+    const orient = signed > 0 ? -1 : 1;
+    const lines = [0, 1, 2, 3].map((i) => refineSide(m, n, q[i], q[(i + 1) % 4], orient, threshold));
+    let corners: Point[] = q;
+    if (lines.every(Boolean)) {
+      const fitted: Point[] = [];
+      for (let i = 0; i < 4; i++) {
+        const p = meet(lines[(i + 3) % 4]!, lines[i]!);
+        if (!p || Math.hypot(p.x - q[i].x, p.y - q[i].y) > 4) break;
+        fitted.push(p);
+      }
+      if (fitted.length === 4) corners = fitted;
+    }
+    // Agreement between the quad and the region.
+    let inter = 0;
+    let quadPx = 0;
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        const inQ = inside(corners, x, y);
+        if (inQ) quadPx++;
+        if (inQ && lab[y * n + x] === id) inter++;
       }
     }
-    if (lo >= 0) pts.push({ x: lo, y }, { x: hi, y });
+    // Mask pixel centres sit at (k + 0.5) / n of the frame.
+    const norm = corners.map((p) => ({
+      x: Math.min(1, Math.max(0, (p.x + 0.5) / n)),
+      y: Math.min(1, Math.max(0, (p.y + 0.5) / n)),
+    }));
+    out.push({
+      quad: orderQuad(norm),
+      iou: inter / Math.max(1, quadPx + size - inter),
+      size: size / N,
+      edgeRun: Math.max(...edge) / n,
+      threshold,
+    });
   }
-  const hull = convexHull(pts);
-  const coarse = maxAreaQuad(hull);
-  if (!coarse) return null;
-  const q = orderQuad(coarse);
+  return out;
+}
 
-  // Clockwise in y-down coordinates (positive signed area): (-ty, tx) points inside.
-  const signed = q.reduce((acc, p, i) => acc + (p.x * q[(i + 1) % 4].y - q[(i + 1) % 4].x * p.y), 0);
-  const orient = signed > 0 ? -1 : 1;
-  const lines = [0, 1, 2, 3].map((i) => refineSide(m, n, q[i], q[(i + 1) % 4], orient));
-  let corners: Point[] = q;
-  if (lines.every(Boolean)) {
-    const fitted: Point[] = [];
-    for (let i = 0; i < 4; i++) {
-      const p = meet(lines[(i + 3) % 4]!, lines[i]!);
-      if (!p || Math.hypot(p.x - q[i].x, p.y - q[i].y) > 4) break;
-      fitted.push(p);
-    }
-    if (fitted.length === 4) corners = fitted;
-  }
-
-  // Agreement between the quad and the region.
-  let inter = 0;
-  let quadPx = 0;
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      const inQ = inside(corners, x, y);
-      if (inQ) quadPx++;
-      if (inQ && lab[y * n + x] === best) inter++;
-    }
-  }
-  const iou = inter / Math.max(1, quadPx + bestSize - inter);
-  if (iou < MIN_IOU || polygonArea(corners) < MIN_AREA * N) return null;
-
-  // Mask pixel centres sit at (k + 0.5) / n of the frame.
-  const norm = corners.map((p) => ({
-    x: Math.min(1, Math.max(0, (p.x + 0.5) / n)),
-    y: Math.min(1, Math.max(0, (p.y + 0.5) / n)),
-  }));
-  return { quad: orderQuad(norm), confidence: iou };
+/**
+ * Turns a page-probability map (n×n, covering the whole frame) into a quadrilateral:
+ * largest region → convex hull → max-area quad → per-side sub-pixel line fits.
+ * Live-preview rule: a region cut by the frame or a poor fit is reported as no page.
+ */
+export function maskToQuad(m: Float32Array, n = DOCSEG_MASK): MaskQuad | null {
+  const r = maskRegionQuads(m, n, 0.5, 1)[0];
+  // A page running off the frame can't be scanned whole: report none so the capture
+  // hint asks the user to move back (same rule as the edge detector).
+  if (!r || r.edgeRun > MAX_EDGE_RUN) return null;
+  if (r.iou < MIN_IOU || polygonArea(r.quad.map((p) => ({ x: p.x * n, y: p.y * n }))) < MIN_AREA * n * n) return null;
+  return { quad: r.quad, confidence: r.iou };
 }
 
 function inside(q: Point[], x: number, y: number): boolean {

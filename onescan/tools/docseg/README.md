@@ -15,7 +15,10 @@ ID-card artwork, low contrast). The classical detector is still used when no mas
   - `modules/onescan-vision/ios/DocSeg.swift`
   The JVM and jest tests check each runtime against the PyTorch parity vector.
 - **Weights**: `modules/onescan-vision/android/src/main/assets/docseg.bin` and
-  `modules/onescan-vision/ios/docseg.bin` (identical; a test checks this).
+  `modules/onescan-vision/ios/docseg.bin` (identical; a test checks this). Since 1.1.2 these
+  are the `v2` checkpoint: on the DocCornerDataset held-out photos, mask IoU ≥ 0.9 on 46% of
+  photos (mIoU 0.755) vs 21% (mIoU 0.675) for the earlier interim weights. The mask is one
+  input to the post-capture crop scorer (`tools/crop`), not the crop by itself.
 
 ## Training
 

@@ -1,5 +1,5 @@
 import { documentRepository, folderRepository } from '@/core/database/repositories/documentRepository';
-import { CaptureEngine } from './capture/CaptureEngine';
+import { CaptureEngine, CropDebug } from './capture/CaptureEngine';
 import { ImageEngine } from './image/ImageEngine';
 import { OCREngine } from './ocr/OCREngine';
 import { PDFEngine } from './pdf/PDFEngine';
@@ -68,7 +68,7 @@ async function recordDraft(
   preview: ProcessedImage,
   scanner: 'system' | 'camera',
   filter: PageFilter,
-  meta?: CaptureMeta & { processMs?: number },
+  meta?: CaptureMeta & { processMs?: number; crop?: CropDebug },
 ) {
   const [src, prev] = await Promise.all([ImageEngine.info(sourceUri), ImageEngine.info(preview.uri)]);
   useScanDiagnostics.getState().record({
@@ -78,6 +78,7 @@ async function recordDraft(
     profile: 'preview',
     stages: { source: toStage(src), preview: toStage(prev, { quality: preview.quality }) },
     ...(meta ? { capture: { engine: meta.engine, tier: meta.tier, jpegQuality: meta.jpegQuality }, timings: { captureMs: meta.captureMs, processMs: meta.processMs } } : {}),
+    ...(meta?.crop ? { crop: meta.crop } : {}),
   });
 }
 
@@ -100,8 +101,18 @@ export const DocumentEngine = {
     const det = await CaptureEngine.detect(sourceUri);
     const quad = det.detected ? det.quad : null;
     const out = await ImageEngine.preview(sourceUri, { quad, filter, rotation: 0 });
-    await recordDraft(sourceUri, out, 'camera', filter, meta ? { ...meta, processMs: Date.now() - started } : undefined);
-    return { id: newId(), sourceUri, processedUri: out.uri, width: out.width, height: out.height, quad: quad ?? undefined, filter, rotation: 0 };
+    await recordDraft(sourceUri, out, 'camera', filter, { ...meta, processMs: Date.now() - started, crop: det.debug });
+    return {
+      id: newId(),
+      sourceUri,
+      processedUri: out.uri,
+      width: out.width,
+      height: out.height,
+      quad: quad ?? undefined,
+      filter,
+      rotation: 0,
+      crop: { decision: det.decision, confidence: det.confidence, suggestion: det.suggestion },
+    };
   },
 
   /** Page from the system scanner: already cropped and perspective-corrected, so only enhance. */
@@ -118,7 +129,8 @@ export const DocumentEngine = {
       ...page,
       ...(patch.filter ? { filter: patch.filter } : {}),
       ...(patch.rotation !== undefined ? { rotation: patch.rotation } : {}),
-      ...(patch.quad !== undefined ? { quad: patch.quad ?? undefined } : {}),
+      // A crop set by hand settles the automatic crop's doubt.
+      ...(patch.quad !== undefined ? { quad: patch.quad ?? undefined, crop: undefined } : {}),
     };
     const out = await ImageEngine.preview(page.sourceUri, { quad: next.quad ?? null, filter: next.filter, rotation: next.rotation });
     return { ...next, processedUri: out.uri, width: out.width, height: out.height };

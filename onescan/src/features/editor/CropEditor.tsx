@@ -27,7 +27,7 @@ export function CropEditor({ page, onCancel, onDone }: { page: DraftPage; onCanc
   const insets = useSafeAreaInsets();
   const [source, setSource] = useState<{ uri: string; aspect: number } | null>(null);
   const [box, setBox] = useState({ width: 0, height: 0 });
-  const [quad, setQuad] = useState<Quad>(page.quad ?? fullFrameQuad);
+  const [quad, setQuad] = useState<Quad>(page.quad ?? page.crop?.suggestion ?? fullFrameQuad);
   const [detecting, setDetecting] = useState(false);
   const aspect = source?.aspect ?? null;
 
@@ -62,7 +62,8 @@ export function CropEditor({ page, onCancel, onDone }: { page: DraftPage; onCanc
     setDetecting(true);
     try {
       const d = await DocumentEngine.capture.detect(page.sourceUri);
-      setQuad(d.quad);
+      // The crop editor always shows the best outline, even one not confident enough to auto-apply.
+      setQuad(d.suggestion ?? d.quad);
     } finally {
       setDetecting(false);
     }

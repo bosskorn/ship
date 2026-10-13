@@ -166,6 +166,7 @@ const th: LocaleResource = {
     clear: 'ล้าง',
   },
   editor: {
+    adjust_edges: 'ปรับขอบ',
     title: 'แก้ไข',
     crop: 'ครอบตัด',
     rotate: 'หมุน',

@@ -30,6 +30,21 @@ export interface PageDiagnostics {
   capture?: { engine?: string; tier?: string; jpegQuality?: number };
   /** Milliseconds: shutter → file (capture), file → enhanced preview (process). */
   timings?: { captureMs?: number; processMs?: number };
+  /** Why the automatic crop chose what it chose (dev diagnostics). */
+  crop?: {
+    candidates: number;
+    selected: string;
+    area: number;
+    textCoverage: number;
+    textDensity: number;
+    paperScore: number;
+    edgeScore: number;
+    backgroundPenalty: number;
+    confidence: number;
+    decision: string;
+    marginGrown: boolean;
+    ms: number;
+  };
 }
 
 interface DiagnosticsState {
@@ -101,6 +116,19 @@ export function diagnosticsReport(pages: PageDiagnostics[], header: string): str
       if (s) out.push(`${name}: ${sizeLine(s)}`);
     }
     if (p.timings) out.push(`Capture: ${p.timings.captureMs ?? '–'} ms · Process: ${p.timings.processMs ?? '–'} ms`);
+    if (p.crop) out.push(...cropLines(p.crop));
   }
   return out.join('\n');
+}
+
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+/** Crop debug block (dev diagnostics, spec "Debug Diagnostics"). */
+export function cropLines(c: NonNullable<PageDiagnostics['crop']>): string[] {
+  return [
+    `Candidates: ${c.candidates} · Selected: ${c.selected}`,
+    `Area: ${pct(c.area)} · Text coverage: ${pct(c.textCoverage)} · Text density: ${pct(c.textDensity)}`,
+    `Paper score: ${c.paperScore.toFixed(2)} · Edge score: ${c.edgeScore.toFixed(2)} · Background penalty: ${c.backgroundPenalty.toFixed(2)}`,
+    `Final confidence: ${c.confidence.toFixed(2)} · Auto crop: ${c.decision === 'manual' ? 'false' : 'true'} (${c.decision})${c.marginGrown ? ' · text margin added' : ''} · ${c.ms} ms`,
+  ];
 }

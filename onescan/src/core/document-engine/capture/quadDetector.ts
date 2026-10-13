@@ -611,6 +611,45 @@ function edgeMask(mag: Uint8Array): Uint8Array {
  * Fraction of each side that lies on edge pixels (within the dilated band).
  * Returns the minimum and mean over the four sides.
  */
+/**
+ * Edge support on the continuation of each side beyond its corners (from `from` to `to`
+ * times the side length past each end). A paper edge stops at the page corner; a tile,
+ * grout, table or screen line keeps going. Returns the strongest side's overshoot.
+ */
+export function sideOvershoot(quad: Point[], near: Uint8Array[], w: number, h: number, from = 0.06, to = 0.3): { max: number; mean: number } {
+  let max = 0;
+  let sum = 0;
+  for (let s = 0; s < 4; s++) {
+    const a = quad[s];
+    const b = quad[(s + 1) % 4];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    let normal = (Math.atan2(b.x - a.x, -(b.y - a.y)) * 180) / Math.PI;
+    if (normal < 0) normal += 180;
+    if (normal >= 180) normal -= 180;
+    const bin = near[Math.round(normal / 45) % 4];
+    const n = Math.max(4, Math.round((len * (to - from)) / 2));
+    let hit = 0;
+    let total = 0;
+    for (const [o, dir] of [
+      [a, -1],
+      [b, 1],
+    ] as [Point, number][]) {
+      for (let k = 0; k < n; k++) {
+        const t = from + ((to - from) * k) / n;
+        const x = Math.round(o.x + ((b.x - a.x) * t * dir));
+        const y = Math.round(o.y + ((b.y - a.y) * t * dir));
+        if (x <= 1 || y <= 1 || x >= w - 2 || y >= h - 2) continue;
+        total++;
+        if (bin[y * w + x]) hit++;
+      }
+    }
+    const f = total ? hit / total : 0;
+    max = Math.max(max, f);
+    sum += f;
+  }
+  return { max, mean: sum / 4 };
+}
+
 export function edgeSupport(quad: Point[], near: Uint8Array[], w: number, h: number): { min: number; mean: number } {
   let min = 1;
   let sum = 0;
@@ -886,14 +925,40 @@ export function refineQuad(q: Point[], mag: Uint8Array, w: number, h: number, se
   return out;
 }
 
-export function detectQuad(img: GrayImage, debug?: (msg: string) => void): QuadDetection {
+/** One page-shaped quad from the edge detector, with the evidence behind it. */
+export interface EdgeCandidate {
+  /** Pixel corners (TL, TR, BR, BL order not guaranteed). */
+  quad: Point[];
+  /** Share of the frame. */
+  size: number;
+  /** Edge pixels along the sides: weakest side and mean (0..1). */
+  support: { min: number; mean: number };
+  /** Weakest side's brightness/tint step. */
+  contrast: number;
+  crisp: number;
+  /** All four corners well inside the frame. */
+  inFrame: boolean;
+  /** Edge detector's own score (0 = it would reject this quad). */
+  score: number;
+}
+
+export interface EdgeEvidence {
+  candidates: EdgeCandidate[];
+  mag: Uint8Array;
+  /** Oriented edge maps for `edgeSupport` of any other quad. */
+  near: Uint8Array[];
+  /** Lightly smoothed luminance for `sideContrasts`. */
+  light: Uint8Array;
+}
+
+/**
+ * Every page-shaped quad the edge detector finds (enclosed regions, Otsu regions, Hough
+ * line quads) with its measurements; `detectQuad` keeps the single best, the post-capture
+ * crop scores all of them with more evidence (crop/documentCrop.ts).
+ */
+export function edgeCandidates(img: GrayImage, debug?: (msg: string) => void): EdgeEvidence {
   const { width: w, height: h, data } = img;
-  let sum = 0;
-  for (let i = 0; i < data.length; i++) sum += data[i];
-  const brightness = data.length ? sum / data.length / 255 : 0;
-  const sharpness = sharpnessOf(img);
-  const empty = { quad: null, confidence: 0, brightness, sharpness };
-  if (w < 16 || h < 16) return empty;
+  if (w < 16 || h < 16) return { candidates: [], mag: new Uint8Array(w * h), near: [], light: data };
 
   const blurred = boxBlur(boxBlur(data, w, h, Math.max(1, Math.round(Math.min(w, h) / 120))), w, h, 1);
   // Gradients and side contrast on a lightly smoothed copy: faint page borders
@@ -955,23 +1020,22 @@ export function detectQuad(img: GrayImage, debug?: (msg: string) => void): QuadD
   debug?.(`lines ${lines.map((l) => `${l.theta}/${l.rho}/${l.votes}`).join(' ')}`);
   for (const q of houghQuads(lines, w, h)) quads.push({ quad: q, quadness: 1 });
 
-  let best: { quad: Point[]; score: number } | null = null;
+  const out: EdgeCandidate[] = [];
   for (const { quad, quadness } of quads) {
     const size = polygonArea(quad) / imageArea;
-    if (size < 0.1 || size > 0.97) continue;
+    if (size < 0.03 || size > 0.995) continue;
     if (!isConvexQuad(quad) || !plausibleAngles(quad) || quadness < 0.85) continue;
     if (!plausibleShape(quad, w, h)) continue;
     // A corner on the frame border means the page continues outside the frame.
     const mx = Math.max(2, w * 0.015);
     const my = Math.max(2, h * 0.015);
-    if (quad.some((p) => p.x < mx || p.y < my || p.x > w - 1 - mx || p.y > h - 1 - my)) continue;
+    const inFrame = !quad.some((p) => p.x < mx || p.y < my || p.x > w - 1 - mx || p.y > h - 1 - my);
     const support = edgeSupport(quad, near, w, h);
+    const cand: EdgeCandidate = { quad, size, support, contrast: 0, crisp: 0, inFrame, score: 0 };
+    out.push(cand);
     debug?.(
       `cand size=${size.toFixed(2)} quadness=${quadness.toFixed(2)} support=${support.min.toFixed(2)}/${support.mean.toFixed(2)} q=${quad.map((p) => `${p.x.toFixed(0)},${p.y.toFixed(0)}`).join(' ')}`,
     );
-    // Every side must sit on a visible, correctly oriented edge; this is what
-    // rejects shapes that run across shadows or floor, and cut-off objects.
-    if (support.min < 0.55 || support.mean < 0.72) continue;
     // Per side, the plane (brightness or tint) that separates page from its
     // surroundings best. Within each plane the page must differ with one sign
     // on every side where that plane shows a difference (paper brighter than
@@ -993,6 +1057,11 @@ export function detectQuad(img: GrayImage, debug?: (msg: string) => void): QuadD
     const sides = sideValues.map((v) => Math.abs(v));
     const contrast = Math.min(...sides);
     const crisp = edgeCrispness(quad, mag, w, h, contrast);
+    cand.contrast = contrast;
+    cand.crisp = crisp;
+    // Every side must sit on a visible, correctly oriented edge; this is what
+    // rejects shapes that run across shadows or floor, and cut-off objects.
+    if (support.min < 0.55 || support.mean < 0.72 || size < 0.1 || size > 0.97 || !inFrame) continue;
     debug?.(`  contrast=${contrast.toFixed(1)} crisp=${crisp.toFixed(2)} sides=${sideValues.map((v) => v.toFixed(0)).join(',')} lum=${lumSides.map((v) => v.toFixed(0)).join(',')}`);
     if (contrast < 10) continue;
     // Uniformly darker than the surroundings in brightness = shadow or object,
@@ -1015,6 +1084,23 @@ export function detectQuad(img: GrayImage, debug?: (msg: string) => void): QuadD
       polarity *
       Math.min(1, 0.4 + crisp);
     debug?.(`  score=${score.toFixed(3)}`);
+    cand.score = Math.max(0, score);
+  }
+  return { candidates: out, mag, near, light };
+}
+
+export function detectQuad(img: GrayImage, debug?: (msg: string) => void): QuadDetection {
+  const { width: w, height: h, data } = img;
+  let sum = 0;
+  for (let i = 0; i < data.length; i++) sum += data[i];
+  const brightness = data.length ? sum / data.length / 255 : 0;
+  const sharpness = sharpnessOf(img);
+  const empty = { quad: null, confidence: 0, brightness, sharpness };
+  if (w < 16 || h < 16) return empty;
+  const { candidates, mag } = edgeCandidates(img, debug);
+  const imageArea = w * h;
+  let best: { quad: Point[]; score: number } | null = null;
+  for (const { quad, score, size } of candidates) {
     if (score > 0 && (!best || score > best.score + 1e-6 || (Math.abs(score - best.score) < 1e-6 && size > polygonArea(best.quad) / imageArea))) {
       best = { quad, score };
     }
@@ -1034,4 +1120,150 @@ export function frameQuadToView(quad: Quad, frame: { width: number; height: numb
   const dx = (view.width - frame.width * scale) / 2;
   const dy = (view.height - frame.height * scale) / 2;
   return quad.map((p) => ({ x: p.x * frame.width * scale + dx, y: p.y * frame.height * scale + dy }));
+}
+
+/** Signed gradients (central differences) of a lightly smoothed plane. */
+export function gradients(src: Uint8Array, w: number, h: number): { gx: Float32Array; gy: Float32Array } {
+  const s = boxBlur(src, w, h, 1);
+  const gx = new Float32Array(w * h);
+  const gy = new Float32Array(w * h);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      gx[i] = (s[i + 1] - s[i - 1]) / 2;
+      gy[i] = (s[i + w] - s[i - w]) / 2;
+    }
+  }
+  return { gx, gy };
+}
+
+function sampleG(g: Float32Array, w: number, h: number, x: number, y: number): number {
+  if (x < 1 || y < 1 || x > w - 2 || y > h - 2) return 0;
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const tx = x - x0;
+  const ty = y - y0;
+  const i = y0 * w + x0;
+  return (g[i] * (1 - tx) + g[i + 1] * tx) * (1 - ty) + (g[i + w] * (1 - tx) + g[i + w + 1] * tx) * ty;
+}
+
+/**
+ * One side of a page outline snapped to the real paper edge: along the side's normal,
+ * the step must have one sign all the way along (paper brighter or darker than what is
+ * beyond it), text inside the page (both signs, short) is outvoted by RANSAC, and
+ * offsets far from the coarse side cost score. Returns null when no edge is convincing.
+ */
+function robustSide(a: Point, b: Point, inward: Point, gx: Float32Array, gy: Float32Array, w: number, h: number, search: number): { line: Line; support: number } | null {
+  const len = Math.hypot(b.x - a.x, b.y - a.y);
+  if (len < 8) return null;
+  const dx = (b.x - a.x) / len;
+  const dy = (b.y - a.y) / len;
+  const n = Math.max(12, Math.round(len / 3));
+  let best: { line: Line; support: number; score: number } | null = null;
+  for (const pol of [1, -1]) {
+    const pts: { p: Point; v: number }[] = [];
+    for (let k = 1; k < n; k++) {
+      const t = 0.06 + (0.88 * k) / n;
+      const bx = a.x + (b.x - a.x) * t;
+      const by = a.y + (b.y - a.y) * t;
+      let bv = 0;
+      let bo = 0;
+      for (let o = -search; o <= search; o += 0.5) {
+        const x = bx + inward.x * o;
+        const y = by + inward.y * o;
+        // Derivative across the side, positive = brighter inside.
+        const d = pol * (sampleG(gx, w, h, x, y) * inward.x + sampleG(gy, w, h, x, y) * inward.y);
+        const v = d - 0.08 * Math.abs(o);
+        if (v > bv) {
+          bv = v;
+          bo = o;
+        }
+      }
+      if (bv >= 4) pts.push({ p: { x: bx + inward.x * bo, y: by + inward.y * bo }, v: bv });
+    }
+    if (pts.length < 6) continue;
+    // RANSAC over sample pairs (deterministic stride), 1 px inlier band.
+    let bestSet: { p: Point; v: number }[] = [];
+    let bestW = 0;
+    const step = Math.max(1, Math.floor(pts.length / 14));
+    for (let i = 0; i < pts.length; i += step) {
+      for (let j = i + step; j < pts.length; j += step) {
+        const p = pts[i].p;
+        const q = pts[j].p;
+        const l = Math.hypot(q.x - p.x, q.y - p.y);
+        if (l < len * 0.25) continue;
+        const ux = (q.x - p.x) / l;
+        const uy = (q.y - p.y) / l;
+        if (Math.abs(ux * dx + uy * dy) < Math.cos((12 * Math.PI) / 180)) continue;
+        let wsum = 0;
+        const set: { p: Point; v: number }[] = [];
+        for (const s of pts) {
+          if (Math.abs((s.p.x - p.x) * uy - (s.p.y - p.y) * ux) <= 1) {
+            set.push(s);
+            wsum += Math.min(s.v, 60);
+          }
+        }
+        if (wsum > bestW) {
+          bestW = wsum;
+          bestSet = set;
+        }
+      }
+    }
+    const support = bestSet.length / (n - 1);
+    if (bestSet.length < 6 || support < 0.35) continue;
+    const mx = bestSet.reduce((s, e) => s + e.p.x, 0) / bestSet.length;
+    const my = bestSet.reduce((s, e) => s + e.p.y, 0) / bestSet.length;
+    let sxx = 0;
+    let syy = 0;
+    let sxy = 0;
+    for (const { p } of bestSet) {
+      sxx += (p.x - mx) ** 2;
+      syy += (p.y - my) ** 2;
+      sxy += (p.x - mx) * (p.y - my);
+    }
+    const th = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    let ldx = Math.cos(th);
+    let ldy = Math.sin(th);
+    if (ldx * dx + ldy * dy < 0) {
+      ldx = -ldx;
+      ldy = -ldy;
+    }
+    if (ldx * dx + ldy * dy < Math.cos((12 * Math.PI) / 180)) continue;
+    const score = bestW;
+    if (!best || score > best.score) best = { line: { px: mx, py: my, dx: ldx, dy: ldy }, support, score };
+  }
+  return best ? { line: best.line, support: best.support } : null;
+}
+
+/**
+ * Snap a coarse outline (e.g. from the 64×64 page mask) to the paper edges in an image
+ * of size w×h (pixel corners). Sides without a convincing edge keep their coarse line.
+ */
+export function refineQuadRobust(q: Point[], g: { gx: Float32Array; gy: Float32Array }, w: number, h: number, search: number): { quad: Point[]; support: number[] } {
+  const cx = (q[0].x + q[1].x + q[2].x + q[3].x) / 4;
+  const cy = (q[0].y + q[1].y + q[2].y + q[3].y) / 4;
+  const support = [0, 0, 0, 0];
+  const lines: Line[] = [0, 1, 2, 3].map((i) => {
+    const a = q[i];
+    const b = q[(i + 1) % 4];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    let nx = -(b.y - a.y) / len;
+    let ny = (b.x - a.x) / len;
+    // Point the normal inward (towards the centre).
+    if ((cx - (a.x + b.x) / 2) * nx + (cy - (a.y + b.y) / 2) * ny < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    const r = robustSide(a, b, { x: nx, y: ny }, g.gx, g.gy, w, h, search);
+    if (!r) return { px: a.x, py: a.y, dx: (b.x - a.x) / len, dy: (b.y - a.y) / len };
+    support[i] = r.support;
+    return r.line;
+  });
+  const out: Point[] = [];
+  for (let i = 0; i < 4; i++) {
+    const p = intersect(lines[(i + 3) % 4], lines[i]);
+    if (!p || Math.hypot(p.x - q[i].x, p.y - q[i].y) > search * 2.5) return { quad: q, support: [0, 0, 0, 0] };
+    out.push({ x: Math.min(w - 1, Math.max(0, p.x)), y: Math.min(h - 1, Math.max(0, p.y)) });
+  }
+  return { quad: out, support };
 }

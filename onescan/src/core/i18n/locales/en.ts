@@ -164,6 +164,7 @@ const en = {
     clear: 'Clear',
   },
   editor: {
+    adjust_edges: 'Adjust edges',
     title: 'Edit',
     crop: 'Crop',
     rotate: 'Rotate',

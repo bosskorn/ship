@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSettings } from '@/core/config/settingsStore';
 import { FlatList, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { router } from 'expo-router';
@@ -49,14 +49,22 @@ export function EditorScreen() {
   const { width } = useWindowDimensions();
   const pager = useRef<FlatList<DraftPage>>(null);
   const { pages, docType, replacePage, removePage, duplicatePage, movePage, setRescan, setFromEditor, clear } = useScanSession();
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => Math.max(0, useScanSession.getState().pages.findIndex((p) => p.crop?.decision === 'manual')));
   const [tool, setTool] = useState<Tool | null>(null);
   const [pageMenu, setPageMenu] = useState<number | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [saving, setSaving] = useState<{ stage: SaveStage; progress: number } | null>(null);
-  const [cropping, setCropping] = useState(false);
+  const [cropping, setCropping] = useState(() => DocumentEngine.capture.hasNativeVision() && useScanSession.getState().pages.some((p) => p.crop?.decision === 'manual'));
   const [working, setWorking] = useState(false);
   const current = pages[Math.min(index, pages.length - 1)];
+  const nativeVision = DocumentEngine.capture.hasNativeVision();
+
+  // Auto crop is the default; the crop editor opens by itself only when the crop was not
+  // confident enough to apply (it starts from the suggested corners).
+  const [firstUnsure] = useState(() => (nativeVision ? pages.findIndex((p) => p.crop?.decision === 'manual') : -1));
+  useEffect(() => {
+    if (firstUnsure > 0) requestAnimationFrame(() => pager.current?.scrollToIndex({ index: firstUnsure, animated: false }));
+  }, [firstUnsure]);
 
   const goTo = (i: number) => {
     setIndex(i);
@@ -75,8 +83,6 @@ export function EditorScreen() {
       setWorking(false);
     }
   };
-
-  const nativeVision = DocumentEngine.capture.hasNativeVision();
 
   const onTool = async (k: Tool) => {
     if (!current || working) return;
@@ -191,6 +197,20 @@ export function EditorScreen() {
             </View>
           )}
         />
+        {current?.crop && current.crop.decision !== 'auto' && nativeVision ? (
+          <View style={styles.cropHint} pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setCropping(true)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.mediaOverlay, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6 }}
+            >
+              <TIcon name="crop" size="sm" color={colors.mediaText} />
+              <TText variant="bodySmall" color="mediaText">
+                {t('editor.adjust_edges')}
+              </TText>
+            </Pressable>
+          </View>
+        ) : null}
         {pages.length > 1 ? (
           <View style={[styles.pageBadge, { backgroundColor: colors.mediaOverlay, borderRadius: radius.md }]}>
             <TText variant="bodySmall" color="mediaText">{`${index + 1} / ${pages.length}`}</TText>
@@ -334,5 +354,6 @@ export function EditorScreen() {
 }
 
 const styles = StyleSheet.create({
+  cropHint: { position: 'absolute', left: 0, right: 0, top: 12, alignItems: 'center' },
   pageBadge: { position: 'absolute', bottom: 12, alignSelf: 'center', paddingHorizontal: 10, paddingVertical: 4 },
 });
