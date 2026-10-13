@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
-  IconName, TButton, TDivider, TEmpty, TIcon, TIconButton, TScreen, TSearch, TSectionHeader, TText, useTheme,
+  IconName, TButton, TDivider, TEmpty, TIcon, TScreen, TSearch, TSectionHeader, TText, useTheme,
 } from '@/design-system';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { DocumentListItem } from '@/features/documents/DocumentListItem';
@@ -55,7 +55,6 @@ export function HomeScreen() {
           <TText variant="titleLarge" style={{ flex: 1 }} accessibilityRole="header">
             {t(greetingKey(new Date().getHours()))}
           </TText>
-          <TIconButton icon="bell" accessibilityLabel={t('home.notifications')} onPress={() => router.push('/unavailable')} />
         </View>
         <TSearch testID="home-search" placeholder={t('home.search_placeholder')} onPressEntry={() => router.push('/search')} />
       </View>

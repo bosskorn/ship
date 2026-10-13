@@ -3,7 +3,7 @@
     "name": "OneScan",
     "slug": "onescan",
     "scheme": "onescan",
-    "version": "1.1.2",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 10,
+      "versionCode": 11,
       "allowBackup": false,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
@@ -68,7 +68,14 @@
           "android": {
             "extraMavenRepos": [
               "https://jitpack.io"
-            ]
+            ],
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "buildArchs": [
+              "arm64-v8a",
+              "armeabi-v7a"
+            ],
+            "extraProguardRules": "# OneScan native module: Expo modules reflect on records and views.\n-keep class app.onescan.vision.** { *; }\n# Tesseract (JNI calls back into these classes).\n-keep class com.googlecode.tesseract.android.** { *; }\n-keep class com.googlecode.leptonica.android.** { *; }\n# SQLCipher-enabled expo-sqlite native bindings.\n-keep class expo.modules.sqlite.** { *; }"
           },
           "ios": {
             "deploymentTarget": "16.4"

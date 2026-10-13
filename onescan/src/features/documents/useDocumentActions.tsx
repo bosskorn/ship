@@ -76,7 +76,6 @@ export function useDocumentActions() {
           { key: 'rename', label: t('documents.rename'), icon: 'edit' },
           { key: 'move', label: t('documents.move'), icon: 'folder' },
           { key: 'duplicate', label: t('documents.duplicate'), icon: 'duplicate' },
-          { key: 'protect', label: t('documents.protect'), icon: 'lock' },
           { key: 'delete', label: t('documents.delete'), icon: 'delete', danger: true },
         ]}
       />

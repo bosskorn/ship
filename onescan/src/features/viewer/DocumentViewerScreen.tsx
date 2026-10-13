@@ -13,11 +13,13 @@ import { useDocumentActions } from '@/features/documents/useDocumentActions';
 import { useDocument } from './useDocument';
 import { PageZoomView } from './PageZoomView';
 import { useScanSession } from '@/features/scanner/scanSession';
+import { useFeature } from '@/core/config/remoteConfig';
 import { SecureImage } from '@/features/shared/SecureImage';
 
 export function DocumentViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
+  const aiEnabled = useFeature('ai');
   const { colors, spacing, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
@@ -48,18 +50,22 @@ export function DocumentViewerScreen() {
     }
   };
 
+  // v1: AI and converters are off — only actions that work are shown.
   const bottom: { key: string; label: string; icon: IconName; onPress: () => void }[] = [
     { key: 'share', label: t('viewer.share'), icon: 'share', onPress: share },
-    {
-      key: 'ai',
-      label: t('viewer.ai'),
-      icon: 'ai',
-      onPress: () => {
-        track('ai_clicked', { source: 'viewer' });
-        router.push({ pathname: '/ai-consent', params: { id: doc.id, task: 'summary' } });
-      },
-    },
-    { key: 'convert', label: t('viewer.convert'), icon: 'convert', onPress: () => router.push('/tools') },
+    ...(aiEnabled
+      ? [
+          {
+            key: 'ai',
+            label: t('viewer.ai'),
+            icon: 'ai' as IconName,
+            onPress: () => {
+              track('ai_clicked', { source: 'viewer' });
+              router.push({ pathname: '/ai-consent', params: { id: doc.id, task: 'summary' } });
+            },
+          },
+        ]
+      : []),
     { key: 'more', label: t('viewer.more'), icon: 'more', onPress: () => setMore(true) },
   ];
 

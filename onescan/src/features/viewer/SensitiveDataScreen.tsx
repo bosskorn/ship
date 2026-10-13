@@ -83,10 +83,14 @@ export function SensitiveDataScreen() {
             ))}
           </TCellGroup>
           <View style={{ padding: spacing.md, gap: spacing.xs }}>
-            <TButton testID="mask-sensitive" label={t('sensitive.mask')} icon="redact" block onPress={mask} disabled={!redactionEnabled || progress !== null} />
-            <TText variant="bodySmall" color="textPlaceholder" align="center">
-              {redactionEnabled ? t('redaction.note') : t('common.comingSoon')}
-            </TText>
+            {redactionEnabled ? (
+              <>
+                <TButton testID="mask-sensitive" label={t('sensitive.mask')} icon="redact" block onPress={mask} disabled={progress !== null} />
+                <TText variant="bodySmall" color="textPlaceholder" align="center">
+                  {t('redaction.note')}
+                </TText>
+              </>
+            ) : null}
           </View>
         </>
       )}

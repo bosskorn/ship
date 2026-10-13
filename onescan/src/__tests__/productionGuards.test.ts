@@ -1,3 +1,4 @@
+import { chooseEngine, FAILURE_MEMORY_MS, recentFailures } from '@/features/scanner/engine';
 import { MAX_SCAN_PAGES, useScanSession } from '@/features/scanner/scanSession';
 import { OCREngine } from '@/core/document-engine/ocr/OCREngine';
 
@@ -36,7 +37,6 @@ describe('production guards', () => {
   });
 });
 
-import { chooseEngine, FAILURE_MEMORY_MS, recentFailures } from '@/features/scanner/engine';
 
 describe('scanner crash guard', () => {
   const both = { onescan: true, google: true };

@@ -20,14 +20,12 @@ import { documentRepository } from '@/core/database/repositories/documentReposit
 import { track } from '@/services/analytics/analytics';
 import { SecureImage } from '@/features/shared/SecureImage';
 
-type Tool = 'crop' | 'rotate' | 'filter' | 'clean' | 'markup' | 'redact';
+type Tool = 'crop' | 'rotate' | 'filter' | 'clean';
 const tools: { key: Tool; icon: IconName }[] = [
   { key: 'crop', icon: 'crop' },
   { key: 'rotate', icon: 'rotate' },
   { key: 'filter', icon: 'filter' },
   { key: 'clean', icon: 'clean' },
-  { key: 'markup', icon: 'markup' },
-  { key: 'redact', icon: 'redact' },
 ];
 const filterLabelKey: Record<PageFilter, `editor.filter_${string}`> = {
   original: 'editor.filter_original',
@@ -95,14 +93,11 @@ export function EditorScreen() {
       case 'filter':
         return setTool(tool === 'filter' ? null : 'filter');
       case 'crop':
-        return nativeVision ? setCropping(true) : toast(t('common.comingSoon'));
+        return setCropping(true);
       case 'clean':
         // Shadow + background normalisation with document contrast.
         if (await update(index, { filter: 'document' })) toast(t('editor.clean_applied'), 'success');
         return;
-      default:
-        // Markup ships later; redaction runs on saved documents (Sensitive data screen).
-        toast(t('common.comingSoon'));
     }
   };
 

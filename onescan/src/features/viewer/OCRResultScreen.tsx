@@ -3,12 +3,12 @@ import { ScrollView, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TButton, TEmpty, TNavigationBar, TScreen, TSearch, TTabs, TText, useTheme, useToast } from '@/design-system';
+import { TButton, TEmpty, TNavigationBar, TScreen, TSearch, TText, useTheme, useToast } from '@/design-system';
 import { documentRepository } from '@/core/database/repositories/documentRepository';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { track } from '@/services/analytics/analytics';
+import { useFeature } from '@/core/config/remoteConfig';
 
-type Tab = 'text' | 'layout';
 
 export function OCRResultScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,7 +16,7 @@ export function OCRResultScreen() {
   const { colors, spacing } = useTheme();
   const toast = useToast();
   const [text, setText] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('text');
+  const aiEnabled = useFeature('ai');
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -38,7 +38,6 @@ export function OCRResultScreen() {
       header={
         <>
           <TNavigationBar title={t('ocr.title')} onBack={() => router.back()} />
-          <TTabs<Tab> value={tab} onChange={setTab} items={[{ key: 'text', label: t('ocr.tab_text') }, { key: 'layout', label: t('ocr.tab_layout') }]} />
         </>
       }
       footer={
@@ -55,15 +54,15 @@ export function OCRResultScreen() {
                 toast(t('ocr.copied'), 'success');
               }}
             />
-            <TButton label={t('ocr.translate')} icon="translate" variant="outline" size="medium" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/ai-consent', params: { id, task: 'translate' } })} />
+            {aiEnabled ? (
+              <TButton label={t('ocr.translate')} icon="translate" variant="outline" size="medium" style={{ flex: 1 }} onPress={() => router.push({ pathname: '/ai-consent', params: { id, task: 'translate' } })} />
+            ) : null}
           </View>
         ) : null
       }
     >
       {text === null ? null : engineMissing || !text ? (
         <TEmpty icon="ocr" title={t('ocr.empty')} description={engineMissing ? t('ocr.engine_unavailable') : undefined} />
-      ) : tab === 'layout' ? (
-        <TEmpty icon="layers" title={t('common.comingSoon')} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.sm }}>
           <TSearch placeholder={t('ocr.search')} value={query} onChangeText={setQuery} />

@@ -92,6 +92,9 @@ interface SettingsState {
   security: SecuritySettings;
   scanner: ScannerSettings;
   scannerHealth: ScannerHealth;
+  /** Developer mode (About: tap the version 7 times): shows Scan Diagnostics. */
+  devMode: boolean;
+  setDevMode: (on: boolean) => void;
   cropStats: CropStats;
   countCrop: (key: keyof CropStats) => void;
   resetCropStats: () => void;
@@ -115,6 +118,8 @@ export const useSettings = create<SettingsState>()(
       security: { appLock: false, biometric: false, autoLock: 'immediately', screenshotProtection: false },
       scanner: { autoCapture: false, multiPage: false, showGrid: false, quality: defaultScanQuality, engine: 'auto', cardPrivacySeen: false },
       scannerHealth: { opening: false, failures: 0 },
+      devMode: false,
+      setDevMode: (devMode) => set({ devMode }),
       cropStats: emptyCropStats,
       countCrop: (key) => set((s) => ({ cropStats: { ...s.cropStats, [key]: s.cropStats[key] + 1 } })),
       resetCropStats: () => set({ cropStats: emptyCropStats }),

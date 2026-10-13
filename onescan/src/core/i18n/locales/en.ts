@@ -424,6 +424,8 @@ const en = {
     principle: 'Our servers may know about a document — never what is in it.',
   },
   security: {
+    encrypted_docs_footer: 'Your scans, PDFs, OCR text and search index are encrypted on this phone (AES-256, key kept in the Android Keystore). They are not included in Android backups and never leave the device unless you share them.',
+    on: 'On',
     title: 'Security',
     app_lock: 'App Lock',
     biometric: 'Biometric unlock',
@@ -448,6 +450,8 @@ const en = {
     dark: 'Dark',
   },
   about: {
+    dev_on: 'Developer mode on',
+    dev_off: 'Developer mode off',
     title: 'About',
     version: 'Version',
     tagline: 'Simple on the surface. Powerful underneath. Private by default.',

@@ -16,6 +16,7 @@ export function ScanQualityScreen() {
   const quality = useSettings((s) => s.scanner.quality);
   const setScanner = useSettings((s) => s.setScanner);
   const engine = useSettings((s) => s.scanner.engine);
+  const devMode = useSettings((s) => s.devMode);
   const setHealth = useSettings((s) => s.setScannerHealth);
   const health = useSettings((s) => s.scannerHealth);
   const fellBack = engine === 'auto' && health.failures + (health.opening ? 1 : 0) >= MAX_ONESCAN_FAILURES;
@@ -49,7 +50,7 @@ export function ScanQualityScreen() {
         {fellBack ? <TCell icon="rescan" title={t('scanner_engine.retry')} arrow onPress={() => setHealth({ opening: false, failures: 0 })} /> : null}
       </TCellGroup>
       <TCellGroup>
-        <TCell icon="info" title={t('scan_diagnostics.title')} arrow onPress={() => router.push('/scan-diagnostics')} />
+        {devMode || __DEV__ ? <TCell icon="info" title={t('scan_diagnostics.title')} arrow onPress={() => router.push('/scan-diagnostics')} /> : null}
       </TCellGroup>
     </TScreen>
   );
