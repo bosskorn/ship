@@ -13,6 +13,7 @@ import type { DraftPage, PageFilter, Quad, Rotation } from '@/core/document-engi
 import { formatDateTimeCompact } from '@/core/i18n/format';
 import { useScanSession } from '@/features/scanner/scanSession';
 import { noteCropAccepted, noteCropCorrected } from '@/features/scanner/cropStats';
+import { isDiskFull, lowDisk, MIN_FREE_BYTES_SAVE } from '@/core/document-engine/storage/diskSpace';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { CropEditor } from './CropEditor';
 import { documentRepository } from '@/core/database/repositories/documentRepository';
@@ -107,6 +108,10 @@ export function EditorScreen() {
 
   const save = async () => {
     if (!pages.length || saving) return;
+    if (lowDisk(MIN_FREE_BYTES_SAVE)) {
+      toast(t('errors.disk_low'), 'error');
+      return;
+    }
     setSaving({ stage: 'pdf', progress: 0 });
     try {
       const onStage = (stage: SaveStage, progress: number) => setSaving({ stage, progress });
@@ -126,9 +131,10 @@ export function EditorScreen() {
       await useDocuments.getState().refresh();
       toast(t('editor.saved'), 'success');
       router.replace({ pathname: '/document/[id]', params: { id: doc.id } });
-    } catch {
+    } catch (e) {
       setSaving(null);
-      toast(t('errors.save_failed'), 'error');
+      // The draft stays open, so the user can free space or try again.
+      toast(t(isDiskFull(e) ? 'errors.disk_full' : 'errors.save_failed'), 'error');
     }
   };
 

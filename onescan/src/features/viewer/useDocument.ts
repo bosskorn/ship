@@ -9,8 +9,14 @@ export function useDocument(id: string | undefined) {
 
   useFocusEffect(
     useCallback(() => {
-      if (!id) return;
       let alive = true;
+      if (!id) {
+        // No document to load: show "not found" instead of loading forever.
+        Promise.resolve().then(() => alive && setDoc(null));
+        return () => {
+          alive = false;
+        };
+      }
       (async () => {
         try {
           const d = await documentRepository.get(id);

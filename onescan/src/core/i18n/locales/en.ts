@@ -463,6 +463,8 @@ const en = {
     generic: 'Something went wrong',
     share_unavailable: 'Sharing is not available on this device',
     import_failed: 'Could not import the file',
+    disk_low: 'Your phone is almost out of storage. Free up some space, then try again.',
+    disk_full: 'Not enough storage to save. Free up some space, then try again — your scan is still here.',
     save_failed: 'Could not save the document',
   },
 };

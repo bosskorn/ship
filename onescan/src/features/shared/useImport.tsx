@@ -8,6 +8,7 @@ import { TProgress, TText, useTheme, useToast } from '@/design-system';
 import { defaultFilterFor } from '@/core/document-engine/image/filters';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { noteCropResult } from '@/features/scanner/cropStats';
+import { isDiskFull } from '@/core/document-engine/storage/diskSpace';
 import { MAX_SCAN_PAGES, useScanSession } from '@/features/scanner/scanSession';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { track } from '@/services/analytics/analytics';
@@ -29,8 +30,8 @@ export function useImport() {
       const doc = await DocumentEngine.importPdf(res.assets[0].uri, res.assets[0].name, (_stage, p) => setProgress(p));
       await useDocuments.getState().refresh();
       router.push({ pathname: '/document/[id]', params: { id: doc.id } });
-    } catch {
-      toast(t('errors.import_failed'), 'error');
+    } catch (e) {
+      toast(t(isDiskFull(e) ? 'errors.disk_full' : 'errors.import_failed'), 'error');
     } finally {
       setBusy(false);
       setProgress(0);
@@ -61,8 +62,8 @@ export function useImport() {
       }
       if (!opts?.append) router.push('/editor');
       return true;
-    } catch {
-      toast(t('errors.import_failed'), 'error');
+    } catch (e) {
+      toast(t(isDiskFull(e) ? 'errors.disk_full' : 'errors.import_failed'), 'error');
       return false;
     } finally {
       setBusy(false);

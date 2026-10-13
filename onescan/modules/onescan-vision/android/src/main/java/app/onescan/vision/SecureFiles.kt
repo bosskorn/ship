@@ -37,6 +37,7 @@ import javax.crypto.spec.SecretKeySpec
 internal object SecureFiles {
   private const val KEK_ALIAS = "onescan.kek.v1"
   private const val CHUNK = 1 shl 20
+  private const val PLAIN_CACHE_MAX = 400L * 1024 * 1024
   private const val TAG_BITS = 128
   private const val LAST: Int = 1
   private val MAGIC = byteArrayOf(0x4f, 0x53, 0x45, 0x31) // "OSE1"
@@ -222,9 +223,23 @@ internal object SecureFiles {
     val id = sha1("${file.absolutePath}|${file.length()}|${file.lastModified()}")
     val ext = file.name.substringAfterLast('.', "")
     val out = if (name != null) File(File(plainDir(), id), name) else File(plainDir(), if (ext.isEmpty()) id else "$id.$ext")
-    if (out.exists() && out.length() > 0) return out
+    if (out.exists() && out.length() > 0) return out.also { it.setLastModified(System.currentTimeMillis()) }
     decrypt(file, out)
+    trimPlainCache(PLAIN_CACHE_MAX)
     return out
+  }
+
+  /** Decrypted copies beyond `max` bytes: oldest-used removed first (they are re-made on demand). */
+  private fun trimPlainCache(max: Long) {
+    val files = plainDir().walkTopDown().filter { it.isFile }.toMutableList()
+    var total = files.sumOf { it.length() }
+    if (total <= max) return
+    files.sortBy { it.lastModified() }
+    for (f in files) {
+      if (total <= max * 3 / 4) break
+      val n = f.length()
+      if (f.delete()) total -= n
+    }
   }
 
   fun clearPlainCache() {

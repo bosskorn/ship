@@ -30,10 +30,14 @@ import { CoachTone, QualityCoach } from './QualityCoach';
 import { CaptureFlash, ImportButton, ModeSelector, PagesButton, PreparingCard, PrivacyNote, ScannerTopBar, ShutterButton } from './ScannerControls';
 import { scan, TOP_BAR } from './scannerStyle';
 import { MAX_SCAN_PAGES, useScanSession } from './scanSession';
+import { lowDisk, MIN_FREE_BYTES_CAPTURE } from '@/core/document-engine/storage/diskSpace';
 import { useLiveDetection } from './useLiveDetection';
 
 type TranslationKey = ParseKeys;
 
+
+/** Longest wait for background page processing before the editor opens anyway. */
+const FINISH_TIMEOUT_MS = 45_000;
 
 const hasSystemScanner = () => typeof OneScanVision?.scanDocumentsAsync === 'function';
 
@@ -179,7 +183,9 @@ export function ScannerScreen() {
     const s = useScanSession.getState();
     const last = s.pages[s.pages.length - 1];
     if (queue.size && last) setPreparing({ uri: last.processedUri, aspect: last.height / Math.max(1, last.width) });
-    await queue.idle();
+    // Never wait forever: after FINISH_TIMEOUT_MS the editor opens with the pages ready so far
+    // (a page still processing shows its raw capture and can be retaken there).
+    await Promise.race([queue.idle(), new Promise<void>((r) => setTimeout(r, FINISH_TIMEOUT_MS))]);
     setPreparing(null);
     if (!useScanSession.getState().pages.length) return;
     scanHaptics.saved();
@@ -253,6 +259,10 @@ export function ScannerScreen() {
     async (auto: boolean) => {
       if (!ready || switching || shutterBusy.current || preparing) return;
       const s = useScanSession.getState();
+      if (lowDisk(MIN_FREE_BYTES_CAPTURE)) {
+        toast(t('errors.disk_low'), 'error');
+        return;
+      }
       if (s.rescanIndex === null && s.pages.length >= MAX_SCAN_PAGES) {
         toast(t('scanner.page_limit', { count: MAX_SCAN_PAGES }), 'info');
         return;
