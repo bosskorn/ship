@@ -29,3 +29,10 @@ describe('document presence gate', () => {
     expect(PRESENCE_THRESHOLDS.none).toBeLessThanOrEqual(PRESENCE_THRESHOLDS.present);
   });
 });
+
+describe('presence gate v2 is frozen (tools/presence/FROZEN.md)', () => {
+  it('keeps the locked thresholds', () => {
+    expect(PRESENCE_THRESHOLDS.present).toBeCloseTo(0.86777, 5);
+    expect(PRESENCE_THRESHOLDS.none).toBeCloseTo(0.000564, 6);
+  });
+});

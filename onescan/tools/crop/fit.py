@@ -150,6 +150,15 @@ def presence_class(k):
     return 'present' if p >= PRESENCE_THR['present'] else 'none' if p <= PRESENCE_THR['none'] else 'uncertain'
 
 
+def page_frac(k):
+    """Share of the photo the true page covers (1.0 when unknown)."""
+    if k not in TRUTH:
+        return 1.0
+    pts, w, h = TRUTH[k]
+    a = 0.5 * abs(sum(pts[i][0] * pts[(i + 1) % 4][1] - pts[(i + 1) % 4][0] * pts[i][1] for i in range(4)))
+    return a / (w * h)
+
+
 def results(cases, wts, calib):
     """Per photo: candidate recall, selected-right, confidence, presence gate."""
     out = []
@@ -159,7 +168,7 @@ def results(cases, wts, calib):
         sel_frame = r['s'] == 'frame'
         out.append(dict(k=c['k'], g='negative' if c['neg'] else surface_of(c), neg=c['neg'],
                         recall=any(correct(c, x) for x in c['rows']), right=correct(c, r),
-                        conf=0.0 if sel_frame else conf, pres=presence_class(c['k'])))
+                        conf=0.0 if sel_frame else conf, pres=presence_class(c['k']), small=page_frac(c['k']) < 0.25))
     return out
 
 
@@ -183,6 +192,8 @@ def report(res, thr, label, review=0.65):
     by = {}
     for x in res:
         by.setdefault(x['g'], []).append(x)
+    if 'card' in by:
+        by['card <25%'] = [x for x in by['card'] if x['small']]
     for g, xs in sorted(by.items()):
         n = len(xs)
         # Presence gate: 'none' -> original, nothing proposed; 'uncertain' -> at most a suggestion.
