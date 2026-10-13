@@ -106,6 +106,16 @@ def loss_fn(logit, y):
         inter = (p * y).sum((1, 2, 3)); den = (p + y).sum((1, 2, 3))
         dice = 1 - (2 * inter + 1) / (den + 1)
         return bce + dice.mean()
+    if LOSS == 'dicefp':
+        # BCE + Dice with a stronger false-positive penalty: background pixels count double in
+        # the BCE, and any page probability in photos without a document is penalised directly.
+        w = torch.where(y > 0.5, 1.0, 2.0)
+        bce = F.binary_cross_entropy_with_logits(logit, y, weight=w)
+        inter = (p * y).sum((1, 2, 3)); den = (p + y).sum((1, 2, 3))
+        empty = y.sum((1, 2, 3)) < 1
+        dice = (1 - (2 * inter + 1) / (den + 1))[~empty].mean() if (~empty).any() else logit.new_zeros(())
+        neg_pen = p[empty].mean() * 8 if empty.any() else logit.new_zeros(())
+        return bce + dice + neg_pen
     # 'fp': focal BCE + Tversky weighted towards false-positive pixels (alpha 0.7) + a direct
     # penalty on any page probability in photos without a document (empty masks).
     ce = F.binary_cross_entropy_with_logits(logit, y, reduction='none')
@@ -142,7 +152,7 @@ def main():
     ap.add_argument('--extra', default='', help='comma-separated extra .npz shards (e.g. hard photos)')
     ap.add_argument('--extra-repeat', type=int, default=1, help='oversample extra shards this many times')
     ap.add_argument('--val', default='', help='comma-separated .npz shards to validate on instead')
-    ap.add_argument('--loss', default='dice', choices=['dice', 'fp'], help="'fp': focal + FP-weighted Tversky + empty-mask penalty")
+    ap.add_argument('--loss', default='dice', choices=['dice', 'dicefp', 'fp'], help="Round-4 ablation: 'dice' (A) BCE+Dice, 'dicefp' (B) + stronger FP penalty, 'fp' (C) focal + FP-weighted Tversky + empty-mask penalty")
     a = ap.parse_args()
     global LOSS
     LOSS = a.loss
