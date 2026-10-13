@@ -14,7 +14,14 @@ import kotlin.math.roundToInt
 
 /** File/bitmap helpers. Everything stays in the app sandbox (cache dir). */
 internal object ImageIO {
-  fun fileFromUri(uri: String): File {
+  /**
+   * The file behind a `file://` URI, readable: an encrypted document file (see
+   * [SecureFiles]) resolves to its decrypted cache copy, so every native reader works on
+   * plaintext. Use [rawFileFromUri] for write targets and for the encryption layer itself.
+   */
+  fun fileFromUri(uri: String): File = SecureFiles.plain(rawFileFromUri(uri))
+
+  fun rawFileFromUri(uri: String): File {
     if (uri.startsWith("file://")) return File(Uri.parse(uri).path ?: uri.removePrefix("file://"))
     return File(uri)
   }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { GestureResponderEvent, Image, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { GestureResponderEvent, Modal, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Polygon } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { TButton, TLoading, TText, useTheme } from '@/design-system';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { fullFrameQuad } from '@/core/document-engine/capture/CaptureEngine';
 import type { DraftPage, Point, Quad } from '@/core/document-engine/model';
+import { SecureImage } from '@/features/shared/SecureImage';
 
 const HANDLE = 28;
 
@@ -95,7 +96,7 @@ export function CropEditor({ page, onCancel, onDone }: { page: DraftPage; onCanc
             <TLoading inverse />
           ) : (
             <>
-              <Image source={{ uri: source!.uri }} style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height }} resizeMode="stretch" />
+              <SecureImage uri={source!.uri} style={{ position: 'absolute', left: rect.x, top: rect.y, width: rect.width, height: rect.height }} resizeMode="stretch" />
               <Svg width={box.width} height={box.height} style={StyleSheet.absoluteFill} pointerEvents="none">
                 <Polygon
                   points={quad.map((p) => toView(p)).map((p) => `${p.x},${p.y}`).join(' ')}

@@ -168,9 +168,9 @@ export const DocumentEngine = {
         ? { uri: p.sourceUri, width: sourceInfo!.width, height: sourceInfo!.height, quality: undefined, degraded: false }
         : await ImageEngine.process(p.sourceUri, params, profile);
       const stored: StoredPage = {
-        uri: DocumentFileStore.adopt(master.uri, docId, `processed/page-${n}.jpg`).uri,
-        sourceUri: DocumentFileStore.adopt(p.sourceUri, docId, `original/page-${n}.jpg`).uri,
-        previewUri: DocumentFileStore.adopt(p.processedUri, docId, `preview/page-${n}.jpg`).uri,
+        uri: (await DocumentFileStore.adopt(master.uri, docId, `processed/page-${n}.jpg`)).uri,
+        sourceUri: (await DocumentFileStore.adopt(p.sourceUri, docId, `original/page-${n}.jpg`)).uri,
+        previewUri: (await DocumentFileStore.adopt(p.processedUri, docId, `preview/page-${n}.jpg`)).uri,
         width: master.width,
         height: master.height,
         filter: p.filter,
@@ -203,8 +203,8 @@ export const DocumentEngine = {
     onStage?.('pdf', 0);
     const filterApplied = CaptureEngine.hasNativeVision();
     const pdf = await PDFEngine.create(pages.map((p) => ({ ...p, filterApplied })), title);
-    const pdfFile = DocumentFileStore.adopt(pdf.uri, docId, 'document.pdf');
-    const thumbFile = DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri ?? pages[0].uri), docId, 'thumbnail/thumb.jpg');
+    const pdfFile = (await DocumentFileStore.adopt(pdf.uri, docId, 'document.pdf'));
+    const thumbFile = (await DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri ?? pages[0].uri), docId, 'thumbnail/thumb.jpg'));
     useScanDiagnostics.getState().attach(1, 'thumbnail', toStage(await ImageEngine.info(thumbFile.uri), { quality: THUMBNAIL.quality }));
 
     onStage?.('ocr', 0);
@@ -320,7 +320,7 @@ export const DocumentEngine = {
   },
 
   async importPdfInto(docId: string, uri: string, name: string, onStage?: StageCallback): Promise<DocumentRecord> {
-    const pdfFile = DocumentFileStore.adopt(uri, docId, 'document.pdf');
+    const pdfFile = (await DocumentFileStore.adopt(uri, docId, 'document.pdf'));
     const title = name.replace(/\.pdf$/i, '');
     if (!OneScanVision) {
       return documentRepository.create({
@@ -334,12 +334,12 @@ export const DocumentEngine = {
     const pages: StoredPage[] = [];
     for (let i = 0; i < rendered.pages.length; i++) {
       const p = rendered.pages[i];
-      const master = DocumentFileStore.adopt(p.uri, docId, `processed/page-${i + 1}.jpg`).uri;
+      const master = (await DocumentFileStore.adopt(p.uri, docId, `processed/page-${i + 1}.jpg`)).uri;
       const preview = await ImageEngine.resize(master, PREVIEW);
       pages.push({
         uri: master,
         sourceUri: master,
-        previewUri: DocumentFileStore.adopt(preview.uri, docId, `preview/page-${i + 1}.jpg`).uri,
+        previewUri: (await DocumentFileStore.adopt(preview.uri, docId, `preview/page-${i + 1}.jpg`)).uri,
         width: p.width,
         height: p.height,
         filter: 'original',
@@ -347,7 +347,7 @@ export const DocumentEngine = {
         quad: null,
       });
     }
-    const thumbUri = pages.length ? DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri!), docId, 'thumbnail/thumb.jpg').uri : null;
+    const thumbUri = pages.length ? (await DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri!), docId, 'thumbnail/thumb.jpg')).uri : null;
     onStage?.('ocr', 0);
     const ocr = await OCREngine.recognize(pages.map((p) => p.uri), OCR_LANGUAGES, (d, t) => onStage?.('ocr', d / t));
     return documentRepository.create({
@@ -366,24 +366,38 @@ export const DocumentEngine = {
   async duplicate(doc: DocumentRecord, title: string): Promise<DocumentRecord> {
     const docId = newId();
     const pages = await documentRepository.pages(doc.id);
-    const copy = (uri: string | null | undefined, name: string) => (uri ? DocumentFileStore.adopt(uri, docId, name).uri : null);
-    return documentRepository.create({
-      title,
-      docType: doc.docType,
-      folderId: doc.folderId,
-      pdfUri: copy(doc.pdfUri, 'document.pdf')!,
-      thumbnailUri: copy(doc.thumbnailUri, 'thumbnail/thumb.jpg'),
-      sizeBytes: doc.sizeBytes,
-      ocrText: await documentRepository.ocrText(doc.id),
-      hasSensitive: doc.hasSensitive,
-      pages: pages.map((p, i) => ({
-        ...p,
-        imageUri: copy(p.imageUri, `processed/page-${i + 1}.jpg`)!,
-        sourceUri: copy(p.sourceUri, `original/page-${i + 1}.jpg`),
-        previewUri: copy(p.previewUri, `preview/page-${i + 1}.jpg`),
-      })),
-      pageCount: doc.pageCount,
-    });
+    const copy = async (uri: string | null | undefined, name: string) => (uri ? (await DocumentFileStore.adopt(uri, docId, name)).uri : null);
+    try {
+      const copied = [];
+      for (let i = 0; i < pages.length; i++) {
+        const p = pages[i];
+        copied.push({
+          ...p,
+          imageUri: (await copy(p.imageUri, `processed/page-${i + 1}.jpg`))!,
+          sourceUri: await copy(p.sourceUri, `original/page-${i + 1}.jpg`),
+          previewUri: await copy(p.previewUri, `preview/page-${i + 1}.jpg`),
+        });
+      }
+      return await documentRepository.create({
+        title,
+        docType: doc.docType,
+        folderId: doc.folderId,
+        pdfUri: (await copy(doc.pdfUri, 'document.pdf'))!,
+        thumbnailUri: await copy(doc.thumbnailUri, 'thumbnail/thumb.jpg'),
+        sizeBytes: doc.sizeBytes,
+        ocrText: await documentRepository.ocrText(doc.id),
+        hasSensitive: doc.hasSensitive,
+        pages: copied,
+        pageCount: doc.pageCount,
+      });
+    } catch (e) {
+      try {
+        DocumentFileStore.deleteDocument(docId);
+      } catch {
+        // best effort
+      }
+      throw e;
+    }
   },
 
   /**
@@ -404,13 +418,13 @@ export const DocumentEngine = {
       const matches = RedactionEngine.detect(text);
       const boxes = RedactionEngine.blocksToRedact(blocks, matches);
       const out = boxes.length ? (await OneScanVision.redactRegionsAsync(source[i].imageUri, boxes)).uri : source[i].imageUri;
-      const master = DocumentFileStore.adopt(out, docId, `processed/page-${i + 1}.jpg`).uri;
+      const master = (await DocumentFileStore.adopt(out, docId, `processed/page-${i + 1}.jpg`)).uri;
       const preview = await ImageEngine.resize(master, PREVIEW);
       pages.push({
         uri: master,
         // The redacted master is this copy's original: unredacted pixels must not be kept.
         sourceUri: master,
-        previewUri: DocumentFileStore.adopt(preview.uri, docId, `preview/page-${i + 1}.jpg`).uri,
+        previewUri: (await DocumentFileStore.adopt(preview.uri, docId, `preview/page-${i + 1}.jpg`)).uri,
         width: source[i].width,
         height: source[i].height,
         filter: 'original',
@@ -422,8 +436,8 @@ export const DocumentEngine = {
     const filterApplied = true;
     onStage?.('pdf', 0);
     const pdf = await PDFEngine.create(pages.map((p) => ({ ...p, filterApplied })), title);
-    const pdfFile = DocumentFileStore.adopt(pdf.uri, docId, 'document.pdf');
-    const thumb = DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri ?? pages[0].uri), docId, 'thumbnail/thumb.jpg');
+    const pdfFile = (await DocumentFileStore.adopt(pdf.uri, docId, 'document.pdf'));
+    const thumb = (await DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri ?? pages[0].uri), docId, 'thumbnail/thumb.jpg'));
     onStage?.('index', 1);
     return documentRepository.create({
       title,

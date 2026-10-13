@@ -47,6 +47,52 @@ class OneScanVisionModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("OneScanVision")
 
+    OnCreate {
+      appContext.reactContext?.let { SecureFiles.init(it) }
+    }
+
+    // ---- Documents at rest (SecureFiles): AES-256-GCM, Keystore-wrapped key.
+
+    /** Copies `src` into `dst` encrypted (dst written via temp file + rename). */
+    AsyncFunction("encryptFileAsync") { src: String, dst: String ->
+      SecureFiles.init(context)
+      SecureFiles.encrypt(ImageIO.rawFileFromUri(src), ImageIO.rawFileFromUri(dst))
+      ImageIO.uriOf(ImageIO.rawFileFromUri(dst))
+    }
+
+    /** A readable copy (decrypted into the cache) — or the file itself when not encrypted. */
+    AsyncFunction("plainUriAsync") { uri: String, name: String? ->
+      SecureFiles.init(context)
+      ImageIO.uriOf(SecureFiles.plain(ImageIO.rawFileFromUri(uri), name))
+    }
+
+    AsyncFunction("isEncryptedAsync") { uri: String -> SecureFiles.isEncrypted(ImageIO.rawFileFromUri(uri)) }
+
+    /** Encrypts a plaintext file in place (verified, atomic); false if it already was. */
+    AsyncFunction("migrateFileAsync") { uri: String ->
+      SecureFiles.init(context)
+      SecureFiles.migrate(ImageIO.rawFileFromUri(uri))
+    }
+
+    AsyncFunction("databaseKeyAsync") {
+      SecureFiles.init(context)
+      SecureFiles.databaseKeyHex()
+    }
+
+    AsyncFunction("clearPlainCacheAsync") {
+      SecureFiles.init(context)
+      SecureFiles.clearPlainCache()
+    }
+
+    /** True when the file is an unencrypted SQLite database ("SQLite format 3" header). */
+    AsyncFunction("isPlainSqliteAsync") { path: String ->
+      val f = ImageIO.rawFileFromUri(path)
+      if (!f.isFile || f.length() < 16) return@AsyncFunction false
+      val head = ByteArray(16)
+      java.io.FileInputStream(f).use { it.read(head) }
+      String(head, Charsets.US_ASCII).startsWith("SQLite format 3")
+    }
+
     AsyncFunction("grayscaleAsync") { uri: String, maxEdge: Int, withMask: Boolean? ->
       val bmp = ImageIO.loadUpright(ImageIO.fileFromUri(uri), maxEdge)
       try {

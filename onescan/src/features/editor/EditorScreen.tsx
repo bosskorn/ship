@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSettings } from '@/core/config/settingsStore';
-import { FlatList, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +17,7 @@ import { useDocuments } from '@/features/documents/documentsStore';
 import { CropEditor } from './CropEditor';
 import { documentRepository } from '@/core/database/repositories/documentRepository';
 import { track } from '@/services/analytics/analytics';
+import { SecureImage } from '@/features/shared/SecureImage';
 
 type Tool = 'crop' | 'rotate' | 'filter' | 'clean' | 'markup' | 'redact';
 const tools: { key: Tool; icon: IconName }[] = [
@@ -190,8 +191,8 @@ export function EditorScreen() {
           onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
           renderItem={({ item }) => (
             <View style={{ width, flex: 1, padding: spacing.md }}>
-              <Image
-                source={{ uri: item.processedUri }}
+              <SecureImage
+                uri={item.processedUri}
                 resizeMode="contain"
                 style={[{ flex: 1 }, previewFilter(item)]}
               />
@@ -245,8 +246,8 @@ export function EditorScreen() {
             const active = current.filter === f;
             return (
               <Pressable key={f} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => update(index, { filter: f })} style={{ alignItems: 'center', gap: 4 }}>
-                <Image
-                  source={{ uri: current.processedUri }}
+                <SecureImage
+                  uri={current.processedUri}
                   style={[{ width: 52, height: 64, borderRadius: radius.sm, borderWidth: 2, borderColor: active ? colors.brand : 'transparent' }, { filter: cssFilterFor[f] } as object]}
                 />
                 <TText variant="bodySmall" color={active ? 'brand' : 'textSecondary'}>
@@ -270,7 +271,7 @@ export function EditorScreen() {
               onLongPress={() => setPageMenu(i)}
               style={{ alignItems: 'center', gap: 2 }}
             >
-              <Image source={{ uri: p.processedUri }} style={{ width: 40, height: 52, borderRadius: radius.sm, borderWidth: 2, borderColor: i === index ? colors.brand : colors.divider }} />
+              <SecureImage uri={p.processedUri} style={{ width: 40, height: 52, borderRadius: radius.sm, borderWidth: 2, borderColor: i === index ? colors.brand : colors.divider }} />
               <TText variant="caption" color={i === index ? 'brand' : 'textSecondary'}>
                 {String(i + 1)}
               </TText>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Ellipsis, Images, Layers, Lock, Timer, X, Zap, ZapOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTheme } from '@/design-system';
 import type { CaptureMode, DraftPage } from '@/core/document-engine/model';
 import type { CaptureQuality } from '@/native/OneScanCameraView';
 import { scan, SHUTTER, TOP_BAR } from './scannerStyle';
+import { SecureImage } from '@/features/shared/SecureImage';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -190,7 +191,7 @@ export function PagesButton(props: { pages: DraftPage[]; multi: boolean; onToggl
       <View style={styles.sideIcon}>
         {count > 1 ? <View style={[styles.stackBack, { backgroundColor: '#9DA3AD' }]} /> : null}
         <View style={styles.stackFront}>
-          <Image source={{ uri: last.processedUri }} resizeMode="cover" resizeMethod="resize" style={StyleSheet.absoluteFill} />
+          <SecureImage uri={last.processedUri} resizeMode="cover" resizeMethod="resize" style={StyleSheet.absoluteFill} />
           {last.processing ? <Beam /> : null}
         </View>
         <View style={styles.badge}>
@@ -253,7 +254,7 @@ export function PreparingCard({ uri, aspect }: { uri: string; aspect: number }) 
   return (
     <View style={[StyleSheet.absoluteFill, styles.center, { backgroundColor: 'rgba(0,0,0,0.66)', gap: 14 }]} pointerEvents="none">
       <View style={[styles.preparing, { width: w, height: h }]}>
-        <Image source={{ uri }} resizeMode="cover" resizeMethod="resize" style={StyleSheet.absoluteFill} />
+        <SecureImage uri={uri} resizeMode="cover" resizeMethod="resize" style={StyleSheet.absoluteFill} />
         <Beam height={h} />
       </View>
       <View style={styles.preparingChip}>

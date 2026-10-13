@@ -37,7 +37,8 @@
       [
         "expo-sqlite",
         {
-          "enableFTS": true
+          "enableFTS": true,
+          "useSQLCipher": true
         }
       ],
       "expo-sharing",

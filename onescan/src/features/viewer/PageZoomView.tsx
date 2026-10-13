@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, Modal, PanResponder, PixelRatio, StyleSheet, View } from 'react-native';
+import { Animated, Modal, PanResponder, PixelRatio, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { TIconButton, TText, useTheme } from '@/design-system';
 import type { PageRecord } from '@/core/document-engine/model';
+import { SecureImage } from '@/features/shared/SecureImage';
 
 const MAX_ZOOM = 6;
 const DOUBLE_TAP_ZOOM = 2.5;
@@ -158,10 +159,10 @@ export function PageZoomView({ page, onClose }: { page: PageRecord | null; onClo
           {page && box.width ? (
             <Animated.View style={[imageStyle, { transform }]} pointerEvents="none">
               {!masterLoaded && page.previewUri ? (
-                <Image source={{ uri: page.previewUri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+                <SecureImage uri={page.previewUri} style={StyleSheet.absoluteFill} resizeMode="contain" />
               ) : null}
-              <Image
-                source={{ uri: page.imageUri }}
+              <SecureImage
+                uri={page.imageUri}
                 style={StyleSheet.absoluteFill}
                 resizeMode="contain"
                 // Keep the full decode (Android would otherwise downsample to the view).

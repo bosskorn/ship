@@ -1,4 +1,5 @@
 import { Directory, File, Paths } from 'expo-file-system';
+import { OneScanVision } from '@/native/OneScanVision';
 
 /**
  * Sandboxed, device-local file layout:
@@ -26,14 +27,28 @@ export const DocumentFileStore = {
     return ensure(new Directory(Paths.cache, 'onescan', 'drafts', sessionId));
   },
 
-  /** Copy a file into a document folder under a stable name (may include one subfolder). */
-  adopt(sourceUri: string, docId: string, name: string): File {
+  /**
+   * Copy a file into a document folder under a stable name (may include one subfolder).
+   * With the native module the copy is encrypted at rest (AES-256-GCM, Keystore-wrapped
+   * key — see SecureFiles.kt); readers get a decrypted cache copy via `readableUri`.
+   */
+  async adopt(sourceUri: string, docId: string, name: string): Promise<File> {
     const slash = name.lastIndexOf('/');
     const dir = slash > 0 ? ensure(new Directory(this.docDir(docId), name.slice(0, slash))) : this.docDir(docId);
     const target = new File(dir, name.slice(slash + 1));
+    if (OneScanVision?.encryptFileAsync) {
+      await OneScanVision.encryptFileAsync(sourceUri, target.uri);
+      return target;
+    }
     if (target.exists) target.delete();
     new File(sourceUri).copySync(target);
     return target;
+  },
+
+  /** A URI other components can read (decrypted cache copy for encrypted files). */
+  async readableUri(uri: string, name?: string): Promise<string> {
+    if (!OneScanVision?.plainUriAsync) return uri;
+    return OneScanVision.plainUriAsync(uri, name ?? null);
   },
 
   size(uri: string): number {

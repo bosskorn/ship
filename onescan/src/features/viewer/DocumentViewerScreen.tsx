@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { useDocumentActions } from '@/features/documents/useDocumentActions';
 import { useDocument } from './useDocument';
 import { PageZoomView } from './PageZoomView';
 import { useScanSession } from '@/features/scanner/scanSession';
+import { SecureImage } from '@/features/shared/SecureImage';
 
 export function DocumentViewerScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -105,8 +106,8 @@ export function DocumentViewerScreen() {
           renderItem={({ item, index }) => (
             // Preview for scrolling; tapping opens the full-resolution master with zoom.
             <Pressable accessibilityRole="imagebutton" accessibilityLabel={t('viewer.zoom_page', { page: index + 1 })} onPress={() => setZoomPage(item)}>
-              <Image
-                source={{ uri: item.previewUri ?? item.imageUri }}
+              <SecureImage
+                uri={item.previewUri ?? item.imageUri}
                 resizeMode="contain"
                 style={{ width: '100%', height: pageHeight(item), backgroundColor: colors.bgContainer }}
               />

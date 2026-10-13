@@ -1,9 +1,10 @@
 import React, { memo } from 'react';
-import { Image, Pressable, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { TIcon, TIconButton, TText, useTheme } from '@/design-system';
 import type { DocumentRecord } from '@/core/document-engine/model';
 import { formatBytes, formatDate } from '@/core/i18n/format';
+import { SecureImage } from '@/features/shared/SecureImage';
 
 export interface DocumentListItemProps {
   doc: DocumentRecord;
@@ -53,7 +54,7 @@ export const DocumentListItem = memo(function DocumentListItem({ doc, onPress, o
         }}
       >
         {doc.thumbnailUri ? (
-          <Image source={{ uri: doc.thumbnailUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          <SecureImage uri={doc.thumbnailUri} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
         ) : (
           <TIcon name="documents" size="md" color={colors.textPlaceholder} />
         )}

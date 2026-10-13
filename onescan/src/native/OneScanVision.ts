@@ -51,6 +51,17 @@ export interface OneScanVisionModule {
     maxEdge: number,
     withMask?: boolean,
   ): Promise<{ width: number; height: number; data: string; cb?: string; cr?: string; mask?: string }>;
+  /** Documents at rest (SecureFiles.kt): encrypted copy of `src` at `dst`. */
+  encryptFileAsync?(src: string, dst: string): Promise<string>;
+  /** Readable URI: decrypted cache copy of an encrypted file, or the file itself. */
+  plainUriAsync?(uri: string, name: string | null): Promise<string>;
+  isEncryptedAsync?(uri: string): Promise<boolean>;
+  /** Encrypt a plaintext file in place (verified, atomic). False if already encrypted. */
+  migrateFileAsync?(uri: string): Promise<boolean>;
+  /** SQLCipher key (hex) derived from the Keystore-protected data key. */
+  databaseKeyAsync?(): Promise<string>;
+  clearPlainCacheAsync?(): Promise<void>;
+  isPlainSqliteAsync?(path: string): Promise<boolean>;
   /** Same planes (+ page mask) for one normalised region of the upright photo, at `maxEdge` px. */
   grayscaleRegionAsync?(
     imageUri: string,

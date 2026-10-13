@@ -4,7 +4,7 @@ import { OCREngine } from '@/core/document-engine/ocr/OCREngine';
 const mockRecognize = jest.fn();
 jest.mock('@/native/OneScanVision', () => ({ OneScanVision: { recognizeTextAsync: (...a: unknown[]) => mockRecognize(...a) } }));
 
-const page = (i: number) => ({ id: `p${i}`, sourceUri: `file:///p${i}.jpg`, width: 10, height: 10, filter: 'auto' as const, rotation: 0 });
+const page = (i: number) => ({ id: `p${i}`, sourceUri: `file:///p${i}.jpg`, processedUri: `file:///p${i}.jpg`, width: 10, height: 10, filter: 'auto' as const, rotation: 0 as const });
 
 describe('production guards', () => {
   it('caps a document at MAX_SCAN_PAGES pages (camera, import, duplicate)', () => {
