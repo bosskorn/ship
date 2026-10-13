@@ -2,7 +2,15 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
-| `OneScan-v1.1.1-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.1.1 (versionCode 9), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+| `OneScan-v1.1.2-arm64.apk` | branch `claude/onescan-mobile-v1` | V1.1.2 (versionCode 10), arm64-v8a, release build signed with the debug key — for testing only. Installs over earlier builds. |
+
+## Changes in 1.1.2 (auto crop hotfix, interim)
+- Automatic crop no longer takes "the biggest region": outlines are scored on text, paper, edges, segmentation and background; grout/tile lines and floors lose.
+- Confident crops are applied; less confident ones show "Adjust edges"; unsure ones open the crop editor with suggested corners.
+- Crops never clip text at the edges (up to 2% margin added).
+- Improved page-segmentation weights.
+- Settings → Scan diagnostics shows why a crop was chosen (candidates, scores, confidence).
+- Measured on held-out photos: ~2.5× more crops right than 1.1.1, but not yet at the 95% target.
 
 ## Changes in 1.1.1 (pre device-QA fixes)
 - Cancelling the system scanner returns to the OneScan camera.
