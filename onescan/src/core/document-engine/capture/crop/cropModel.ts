@@ -5,10 +5,13 @@ export interface CropModel {
   weights: number[];
   /** Confidence = sigmoid(c0 + c1 · top score + c2 · (top − runner-up)). */
   calibration: [number, number, number];
+  /** Auto-apply at or above this confidence (chosen for >= 98% precision on tune photos). */
+  autoThreshold: number;
 }
 
 export const CROP_MODEL: CropModel = {
   version: 'v1-1782',
   weights: [-4.74018, -4.70793, 0.282427, -0.311029, 6.59386, -2.90168, -8.66288, -0.573924, 3.55323, -0.391587, 2.06084, 6.58984, 1.92458, 0.0113247, 3.56384, 4.2067, 1.52538, 0.886019, -1.73255, -2.67701, -6.05667, 0.556547, -1.24468, 0.670356, 4.19579, -0.131849, 0.375537, 7.85255e-06, 4.58943, 0.114212, -0.265318, -0.424735, -2.28601, -5.50653, 1.9838, 3.52975, 1.65929],
   calibration: [-0.818658, 0.214953, 0.226967],
+  autoThreshold: 1.01,
 };

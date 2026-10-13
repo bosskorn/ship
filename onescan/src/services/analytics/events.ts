@@ -29,6 +29,8 @@ export const analyticsEvents = [
   'hd_used',
   'max_used',
   'multipage_used',
+  'crop_result',
+  'crop_corrected',
 ] as const;
 
 export type AnalyticsEvent = (typeof analyticsEvents)[number];

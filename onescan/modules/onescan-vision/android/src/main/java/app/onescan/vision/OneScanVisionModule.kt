@@ -1,5 +1,6 @@
 package app.onescan.vision
 
+import android.graphics.Bitmap
 import android.content.Context
 import android.util.Base64
 import expo.modules.kotlin.Promise
@@ -12,6 +13,14 @@ import expo.modules.kotlin.records.Record
 class PointRecord : Record {
   @Field val x: Double = 0.0
   @Field val y: Double = 0.0
+}
+
+/** Normalised (0..1) rectangle of the upright image. */
+class RegionRecord : Record {
+  @Field val x: Double = 0.0
+  @Field val y: Double = 0.0
+  @Field val width: Double = 1.0
+  @Field val height: Double = 1.0
 }
 
 class ProcessOptions : Record {
@@ -55,6 +64,40 @@ class OneScanVisionModule : Module() {
         out
       } finally {
         bmp.recycle()
+      }
+    }
+
+    // Zoomed second pass for small documents: the same planes (+ page mask) for one region
+    // of the photo, decoded at a resolution that gives the region `maxEdge` pixels.
+    AsyncFunction("grayscaleRegionAsync") { uri: String, region: RegionRecord, maxEdge: Int, withMask: Boolean? ->
+      val frac = maxOf(region.width, region.height).coerceIn(0.05, 1.0)
+      val full = ImageIO.loadUpright(ImageIO.fileFromUri(uri), minOf(2048, (maxEdge / frac).toInt()))
+      try {
+        val x0 = (region.x * full.width).toInt().coerceIn(0, full.width - 2)
+        val y0 = (region.y * full.height).toInt().coerceIn(0, full.height - 2)
+        val w = (region.width * full.width).toInt().coerceIn(2, full.width - x0)
+        val h = (region.height * full.height).toInt().coerceIn(2, full.height - y0)
+        val s = minOf(1.0, maxEdge.toDouble() / maxOf(w, h))
+        val crop = Bitmap.createBitmap(full, x0, y0, w, h)
+        val bmp = if (s < 1.0) Bitmap.createScaledBitmap(crop, maxOf(2, (w * s).toInt()), maxOf(2, (h * s).toInt()), true).also { if (it != crop) crop.recycle() } else crop
+        try {
+          val (y, cb, cr) = ImageIO.ycbcr(bmp)
+          val out = mutableMapOf<String, Any>(
+            "width" to bmp.width,
+            "height" to bmp.height,
+            "data" to Base64.encodeToString(y, Base64.NO_WRAP),
+            "cb" to Base64.encodeToString(cb, Base64.NO_WRAP),
+            "cr" to Base64.encodeToString(cr, Base64.NO_WRAP),
+          )
+          if (withMask == true) {
+            DocSeg.get(context)?.let { out["mask"] = Base64.encodeToString(it.mask(y, cb, cr, bmp.width, bmp.height), Base64.NO_WRAP) }
+          }
+          out
+        } finally {
+          if (bmp != full) bmp.recycle()
+        }
+      } finally {
+        full.recycle()
       }
     }
 

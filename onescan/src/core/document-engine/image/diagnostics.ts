@@ -19,6 +19,8 @@ export interface StageInfo {
 }
 
 export interface PageDiagnostics {
+  /** Unique per entry (links a captured page to its diagnostics). */
+  id?: number;
   page: number;
   at: number;
   /** Where a freshly captured page came from (absent for pages rendered on save). */
@@ -45,21 +47,30 @@ export interface PageDiagnostics {
     marginGrown: boolean;
     ms: number;
   };
+  /** The user adjusted this page's automatic crop by hand. */
+  cropCorrected?: boolean;
 }
 
 interface DiagnosticsState {
   pages: PageDiagnostics[];
-  record: (page: Omit<PageDiagnostics, 'at'>) => void;
+  record: (page: Omit<PageDiagnostics, 'at'>) => number;
+  markCropCorrected: (id: number) => void;
   /** Add a stage to the most recent entry for `page` (e.g. the document thumbnail). */
   attach: (page: number, stage: DiagnosticStage, info: StageInfo | undefined) => void;
   clear: () => void;
 }
 
 const MAX_PAGES = 20;
+let nextId = 0;
 
 export const useScanDiagnostics = create<DiagnosticsState>((set) => ({
   pages: [],
-  record: (page) => set((s) => ({ pages: [{ ...page, at: Date.now() }, ...s.pages].slice(0, MAX_PAGES) })),
+  record: (page) => {
+    const id = ++nextId;
+    set((s) => ({ pages: [{ ...page, id, at: Date.now() }, ...s.pages].slice(0, MAX_PAGES) }));
+    return id;
+  },
+  markCropCorrected: (id) => set((s) => ({ pages: s.pages.map((p) => (p.id === id ? { ...p, cropCorrected: true } : p)) })),
   attach: (page, stage, info) =>
     set((s) => {
       if (!info) return s;
@@ -117,6 +128,7 @@ export function diagnosticsReport(pages: PageDiagnostics[], header: string): str
     }
     if (p.timings) out.push(`Capture: ${p.timings.captureMs ?? '–'} ms · Process: ${p.timings.processMs ?? '–'} ms`);
     if (p.crop) out.push(...cropLines(p.crop));
+    if (p.cropCorrected) out.push('User corrected crop: true');
   }
   return out.join('\n');
 }

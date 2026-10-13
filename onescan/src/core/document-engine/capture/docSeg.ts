@@ -356,6 +356,8 @@ export interface MaskRegionQuad {
   /** Longest run of the region along any frame edge, share of that edge. */
   edgeRun: number;
   threshold: number;
+  /** Convex hull of the region (normalised), for rectangle candidates. */
+  hull: Point[];
 }
 
 /**
@@ -413,7 +415,8 @@ export function maskRegionQuads(m: Float32Array, n = DOCSEG_MASK, threshold = 0.
       }
       if (lo >= 0) pts.push({ x: lo, y }, { x: hi, y });
     }
-    const coarse = maxAreaQuad(convexHull(pts));
+    const hullPx = convexHull(pts);
+    const coarse = maxAreaQuad(hullPx);
     if (!coarse) continue;
     const q = orderQuad(coarse);
     // Clockwise in y-down coordinates (positive signed area): (-ty, tx) points inside.
@@ -451,6 +454,7 @@ export function maskRegionQuads(m: Float32Array, n = DOCSEG_MASK, threshold = 0.
       size: size / N,
       edgeRun: Math.max(...edge) / n,
       threshold,
+      hull: hullPx.map((p) => ({ x: (p.x + 0.5) / n, y: (p.y + 0.5) / n })),
     });
   }
   return out;

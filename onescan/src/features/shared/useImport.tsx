@@ -7,6 +7,7 @@ import { StyleSheet, View } from 'react-native';
 import { TProgress, TText, useTheme, useToast } from '@/design-system';
 import { defaultFilterFor } from '@/core/document-engine/image/filters';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
+import { noteCropResult } from '@/features/scanner/cropStats';
 import { useScanSession } from '@/features/scanner/scanSession';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { track } from '@/services/analytics/analytics';
@@ -46,7 +47,13 @@ export function useImport() {
       const session = useScanSession.getState();
       // From the camera, imported photos join the current scan session.
       if (!opts?.append) session.start();
-      for (const a of res.assets) session.addPage(await DocumentEngine.processCapture(a.uri, defaultFilterFor(useScanSession.getState().docType)));
+      for (const a of res.assets) {
+        const docType = useScanSession.getState().docType;
+        const prior = docType === 'id_card' || docType === 'business_card' ? 'card' : docType === 'receipt' ? 'receipt' : null;
+        const page = await DocumentEngine.processCapture(a.uri, defaultFilterFor(docType), { prior });
+        session.addPage(page);
+        noteCropResult(page);
+      }
       if (!opts?.append) router.push('/editor');
       return true;
     } catch {

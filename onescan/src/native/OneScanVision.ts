@@ -51,6 +51,13 @@ export interface OneScanVisionModule {
     maxEdge: number,
     withMask?: boolean,
   ): Promise<{ width: number; height: number; data: string; cb?: string; cr?: string; mask?: string }>;
+  /** Same planes (+ page mask) for one normalised region of the upright photo, at `maxEdge` px. */
+  grayscaleRegionAsync?(
+    imageUri: string,
+    region: { x: number; y: number; width: number; height: number },
+    maxEdge: number,
+    withMask?: boolean,
+  ): Promise<{ width: number; height: number; data: string; cb?: string; cr?: string; mask?: string }>;
   /**
    * System document scanner (Android: ML Kit Document Scanner via Play services;
    * iOS: VisionKit). Edge detection, auto capture and perspective correction run on

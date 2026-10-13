@@ -17,12 +17,60 @@ import { CROP_MODEL, CropModel } from './cropModel';
  * auto / review / manual gate. Nothing here is tuned to one surface or colour.
  */
 
-export type CandidateSource = 'mask' | 'edge' | 'text' | 'frame';
+export type CandidateSource = 'mask' | 'edge' | 'text' | 'rect' | 'frame';
+
+/** What the user said they are scanning (scanner mode), when known. */
+export type DocPrior = 'card' | 'receipt' | 'page' | null;
+
+/** A second, zoomed segmentation pass: page probabilities for one region of the photo. */
+export interface ZoomMask {
+  mask: Float32Array;
+  n: number;
+  region: { x: number; y: number; width: number; height: number };
+}
+
+/**
+ * Region for the zoomed pass: the first-pass page region grown by 35%, when the page is
+ * small in the frame (the 64×64 map has too few pixels on it for accurate corners).
+ */
+export function zoomRegion(mask: Float32Array, n = 64): ZoomMask['region'] | null {
+  const r = maskRegionQuads(mask, n, 0.5, 1)[0];
+  if (!r || r.size > 0.3) return null;
+  const xs = r.hull.map((p) => p.x);
+  const ys = r.hull.map((p) => p.y);
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const hw = ((Math.max(...xs) - Math.min(...xs)) / 2) * 1.35 + 0.03;
+  const hh = ((Math.max(...ys) - Math.min(...ys)) / 2) * 1.35 + 0.03;
+  const x = Math.max(0, cx - hw);
+  const y = Math.max(0, cy - hh);
+  const region = { x, y, width: Math.min(1, cx + hw) - x, height: Math.min(1, cy + hh) - y };
+  return region.width * region.height > 0.7 ? null : region;
+}
+
+/** ID-1 (ID cards, driving licences, bank cards): 85.6 × 54 mm. */
+export const ID1_RATIO = 85.6 / 54;
 
 /** How many of the leading mask/edge outlines also get an edge-snapped (refined) variant. */
 const REFINE_TOP = 10;
 /** Edge-detector outlines kept as candidates (best first). */
 const EDGE_TOP = 36;
+/** Leading outlines that also get +1% / +2% grown variants. */
+const GROW_TOP = 12;
+
+/** Push every corner `amt` of the image diagonal away from the centre. */
+function growQuad(q: Quad, amt: number, sx: number, sy: number): Quad {
+  const cx = (q[0].x + q[1].x + q[2].x + q[3].x) / 4;
+  const cy = (q[0].y + q[1].y + q[2].y + q[3].y) / 4;
+  const diag = Math.hypot(sx, sy);
+  return q.map((p) => {
+    const vx = (p.x - cx) * sx;
+    const vy = (p.y - cy) * sy;
+    const l = Math.hypot(vx, vy) || 1;
+    const k = (l + amt * diag) / l;
+    return { x: Math.min(1, Math.max(0, cx + (p.x - cx) * k)), y: Math.min(1, Math.max(0, cy + (p.y - cy) * k)) };
+  }) as Quad;
+}
 
 export interface CropCandidate {
   quad: Quad;
@@ -61,6 +109,9 @@ export interface CropFeatures {
   backgroundPenalty: number;
   hasMask: number;
   hasText: number;
+  /** Shape agreement with the scanner mode's document type (0 when unknown). */
+  priorMatch: number;
+  hasPrior: number;
   /** Relative to the other candidates of the same photo (see `addRelative`). */
   outerEdge: number;
   innerEdge: number;
@@ -81,11 +132,17 @@ export interface CropResult {
   selected: number;
 }
 
-export const AUTO_CROP = 0.85;
+/**
+ * Auto-apply only above the model's threshold, chosen on held-in photos for >= 98%
+ * precision (precision over coverage: no crop beats a wrong crop). Until a threshold
+ * reaches that, nothing is auto-applied.
+ */
+export const autoCropThreshold = (model: CropModel = CROP_MODEL) => model.autoThreshold;
+/** Below this the crop is not even suggested as applied: original + crop editor. */
 export const REVIEW_CROP = 0.65;
 
-export const decisionFor = (confidence: number): CropDecision =>
-  confidence >= AUTO_CROP ? 'auto' : confidence >= REVIEW_CROP ? 'review' : 'manual';
+export const decisionFor = (confidence: number, model: CropModel = CROP_MODEL): CropDecision =>
+  confidence >= autoCropThreshold(model) ? 'auto' : confidence >= REVIEW_CROP ? 'review' : 'manual';
 
 const FULL: Quad = [
   { x: 0, y: 0 },
@@ -144,7 +201,16 @@ function textBox(cm: CellMap, grow: number): Quad | null {
       }
     }
   }
-  const hull = convexHull(pts);
+  return minAreaRect(pts, grow, 1, 1);
+}
+
+/**
+ * Smallest rotated rectangle around `points` (rotating calipers on their hull), grown by
+ * `grow` of its size per side. `sx`/`sy` give the pixel aspect of the normalised space so
+ * the rectangle is a true rectangle in the image.
+ */
+export function minAreaRect(points: Point[], grow: number, sx: number, sy: number, ratio?: number): Quad | null {
+  const hull = convexHull(points.map((p) => ({ x: p.x * sx, y: p.y * sy })));
   if (hull.length < 3) return null;
   let best: { area: number; box: Point[] } | null = null;
   for (let i = 0; i < hull.length; i++) {
@@ -168,9 +234,16 @@ function textBox(cm: CellMap, grow: number): Quad | null {
     }
     const area = (maxU - minU) * (maxV - minV);
     if (!best || area < best.area) {
-      const gu = (maxU - minU) * grow;
-      const gv = (maxV - minV) * grow;
-      const corner = (u: number, v: number) => ({ x: u * ux - v * uy, y: u * uy + v * ux });
+      let gu = (maxU - minU) * grow;
+      let gv = (maxV - minV) * grow;
+      if (ratio) {
+        // Snap to a known aspect (ID-1 cards): grow the short side to match.
+        const lu = maxU - minU + 2 * gu;
+        const lv = maxV - minV + 2 * gv;
+        if (lu >= lv) gv += (lu / ratio - lv) / 2;
+        else gu += (lv / ratio - lu) / 2;
+      }
+      const corner = (u: number, v: number) => ({ x: (u * ux - v * uy) / sx, y: (u * uy + v * ux) / sy });
       best = {
         area,
         box: [corner(minU - gu, minV - gv), corner(maxU + gu, minV - gv), corner(maxU + gu, maxV + gv), corner(minU - gu, maxV + gv)],
@@ -194,9 +267,17 @@ interface Evidence {
   cells: CellMap;
   edge: { w: number; h: number; near: Uint8Array[]; light: Uint8Array };
   textTotal: number;
+  prior: DocPrior;
 }
 
 /** Measurements of one candidate outline (normalised quad). */
+function priorMatch(aspect: number, prior: DocPrior): number {
+  if (prior === 'card') return Math.exp(-Math.abs(Math.log(aspect / ID1_RATIO)) / 0.08);
+  if (prior === 'receipt') return Math.min(1, Math.max(0, (aspect - 1.3) / 1.2));
+  if (prior === 'page') return Math.exp(-Math.abs(Math.log(aspect / Math.SQRT2)) / 0.2);
+  return 0;
+}
+
 export function cropFeatures(q: Quad, ev: Evidence): CropFeatures {
   const { cells: cm } = ev;
   const px = q.map((p) => ({ x: p.x * ev.w, y: p.y * ev.h }));
@@ -332,6 +413,8 @@ export function cropFeatures(q: Quad, ev: Evidence): CropFeatures {
     backgroundPenalty: texInN ? rough / texInN : 0,
     hasMask: ev.mask ? 1 : 0,
     hasText: ev.textTotal >= 6 ? 1 : 0,
+    priorMatch: priorMatch(aspect, ev.prior),
+    hasPrior: ev.prior ? 1 : 0,
     outerEdge: 0,
     innerEdge: 0,
     recallRel: 0,
@@ -415,6 +498,9 @@ export function featureVector(f: CropFeatures, source: CandidateSource, refined 
     Math.min(1, f.textOutside),
     f.hasText * f.mainRecall,
     f.hasText * (1 - f.mainRecall) * (1 - f.mainRecall),
+    f.priorMatch,
+    f.hasPrior * (1 - f.priorMatch),
+    source === 'rect' ? 1 : 0,
   ];
 }
 
@@ -437,6 +523,8 @@ export function cropCandidates(
   img: GrayImage,
   mask: Float32Array | null,
   maskN = 64,
+  prior: DocPrior = null,
+  zoom: ZoomMask | null = null,
 ): { candidates: { quad: Quad; source: CandidateSource; refined: boolean }[]; ev: Evidence } {
   const cells = cellMap(img, 8);
   const small = shrink(img, Math.max(1, Math.round(Math.max(img.width, img.height) / 192)));
@@ -447,8 +535,40 @@ export function cropCandidates(
     if (list.some((c) => sameQuad(c.quad, quad))) return;
     list.push({ quad, source, refined });
   };
+  const sx = img.width / Math.max(img.width, img.height);
+  const sy = img.height / Math.max(img.width, img.height);
   if (mask) {
-    for (const t of [0.5, 0.35, 0.65, 0.8]) for (const r of maskRegionQuads(mask, maskN, t, 2)) add(r.quad, 'mask');
+    // Low threshold too: faded receipts and low-contrast pages score weakly.
+    for (const t of [0.5, 0.35, 0.65, 0.8, 0.25]) {
+      for (const r of maskRegionQuads(mask, maskN, t, 2)) {
+        add(r.quad, 'mask');
+        // Rectangle candidates: rotated bounding rectangle of the region (rounded card
+        // corners make the inscribed quad cut the corners off), and an ID-1-ratio one.
+        const rect = minAreaRect(r.hull, 0, sx, sy);
+        if (rect) add(rect, 'rect');
+        if (prior !== 'receipt') {
+          const card = minAreaRect(r.hull, 0, sx, sy, ID1_RATIO);
+          if (card && (prior === 'card' || r.size < 0.35)) add(card, 'rect');
+        }
+      }
+    }
+  }
+  if (zoom) {
+    // Zoomed pass: same region rules, corners mapped back to the full photo.
+    const { region: g0 } = zoom;
+    const back = (p: Point) => ({ x: g0.x + p.x * g0.width, y: g0.y + p.y * g0.height });
+    for (const t of [0.5, 0.35, 0.65]) {
+      for (const r of maskRegionQuads(zoom.mask, zoom.n, t, 1)) {
+        if (r.edgeRun > 0.2) continue; // region runs off the zoom window: not the whole page
+        add(orderQuad(r.quad.map(back)), 'mask');
+        const rect = minAreaRect(r.hull.map(back), 0, sx, sy);
+        if (rect) add(rect, 'rect');
+        if (prior === 'card') {
+          const card = minAreaRect(r.hull.map(back), 0, sx, sy, ID1_RATIO);
+          if (card) add(card, 'rect');
+        }
+      }
+    }
   }
   const ranked = [...edge.candidates].sort((a, b) => b.score - a.score || b.support.mean - a.support.mean).slice(0, EDGE_TOP);
   for (const c of ranked) add(orderQuad(c.quad.map((p) => ({ x: p.x / (small.width - 1), y: p.y / (small.height - 1) }))), 'edge');
@@ -461,6 +581,11 @@ export function cropCandidates(
     px = refineQuadRobust(px, g, img.width, img.height, search).quad;
     px = refineQuadRobust(px, g, img.width, img.height, 3).quad;
     add(orderQuad(px.map((p) => ({ x: p.x / (img.width - 1), y: p.y / (img.height - 1) }))), c.source, true);
+  }
+  // Slightly larger variants of the leading outlines: a crop 1–2% inside the page cuts
+  // content; the ranker decides whether the grown one fits the edges better.
+  for (const c of list.filter((x) => x.source !== 'frame').slice(0, GROW_TOP)) {
+    for (const amt of [0.01, 0.02]) add(growQuad(c.quad, amt, sx, sy), c.source, c.refined);
   }
   const tb = textBox(cells, 0.04);
   if (tb) {
@@ -482,6 +607,7 @@ export function cropCandidates(
     cells,
     edge: { w: small.width, h: small.height, near: edge.near, light: edge.light },
     textTotal: cells.textCount,
+    prior,
   };
   return { candidates: list, ev };
 }
@@ -490,8 +616,14 @@ export function cropCandidates(
  * Detect the document on a post-capture analysis image (≈ 384–512 px long edge) with the
  * DocSeg page probabilities (64×64) when available.
  */
-export function detectDocument(img: GrayImage, mask: Float32Array | null, model: CropModel = CROP_MODEL): CropResult {
-  const { candidates, ev } = cropCandidates(img, mask);
+export function detectDocument(
+  img: GrayImage,
+  mask: Float32Array | null,
+  model: CropModel = CROP_MODEL,
+  prior: DocPrior = null,
+  zoom: ZoomMask | null = null,
+): CropResult {
+  const { candidates, ev } = cropCandidates(img, mask, 64, prior, zoom);
   const withF = candidates.map((c) => ({ ...c, features: cropFeatures(c.quad, ev) }));
   addRelative(withF);
   const scored: CropCandidate[] = withF.map((c) => ({ ...c, score: rankScore(featureVector(c.features, c.source, c.refined), model) }));
@@ -501,7 +633,7 @@ export function detectDocument(img: GrayImage, mask: Float32Array | null, model:
   if (!best || best.source === 'frame') return { quad: null, confidence: 0, decision: 'manual', candidates: scored, selected };
   const runnerUp = scored.reduce<number | null>((m, c, i) => (i === selected ? m : m === null ? c.score : Math.max(m, c.score)), null);
   const confidence = cropConfidence(best.score, runnerUp, model);
-  return { quad: best.quad, confidence, decision: decisionFor(confidence), candidates: scored, selected };
+  return { quad: best.quad, confidence, decision: decisionFor(confidence, model), candidates: scored, selected };
 }
 
 /**

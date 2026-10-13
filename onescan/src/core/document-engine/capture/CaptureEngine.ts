@@ -1,7 +1,7 @@
 import { OneScanVision } from '@/native/OneScanVision';
 import type { Quad } from '../model';
 import { maskToQuad } from './docSeg';
-import { CropDecision, CropResult, decisionFor, detectDocument, textSafeQuad } from './crop/documentCrop';
+import { CropDecision, CropResult, decisionFor, detectDocument, DocPrior, textSafeQuad, ZoomMask, zoomRegion } from './crop/documentCrop';
 import { cellMap } from './crop/cellMap';
 import { base64ToUint8, decodeGray, detectQuad, GrayImage, QuadDetection, sharpnessOf } from './quadDetector';
 
@@ -44,6 +44,8 @@ export interface CropDebug {
 
 /** Post-capture analysis size (candidates, text map, features). */
 const ANALYSIS_EDGE = 384;
+/** Zoomed second pass resolution (region long edge). */
+const ZOOM_EDGE = 256;
 
 function debugOf(r: CropResult, marginGrown: boolean, started: number): CropDebug {
   const c = r.candidates[r.selected];
@@ -125,7 +127,7 @@ export const CaptureEngine = {
    * downscaled analysis image + DocSeg page mask → scored candidates (crop/documentCrop)
    * (raw and edge-snapped outlines) → text safe margin → confidence gate.
    */
-  async detect(imageUri: string): Promise<DetectionResult> {
+  async detect(imageUri: string, prior: DocPrior = null): Promise<DetectionResult> {
     const none: DetectionResult = { quad: fullFrameQuad, detected: false, confidence: 0, brightness: 1, sharpness: 1, decision: 'manual' };
     if (!OneScanVision) return none;
     const started = Date.now();
@@ -137,7 +139,23 @@ export const CaptureEngine = {
       mask = new Float32Array(raw.length);
       for (let i = 0; i < raw.length; i++) mask[i] = raw[i] / 255;
     }
-    const r = detectDocument(img, mask);
+    // Small page in the frame: segment again on a zoomed crop around it.
+    let zoom: ZoomMask | null = null;
+    const region = mask ? zoomRegion(mask) : null;
+    if (region && OneScanVision.grayscaleRegionAsync) {
+      try {
+        const z = await OneScanVision.grayscaleRegionAsync(imageUri, region, ZOOM_EDGE, true);
+        if (z.mask) {
+          const raw = base64ToUint8(z.mask);
+          const zm = new Float32Array(raw.length);
+          for (let i = 0; i < raw.length; i++) zm[i] = raw[i] / 255;
+          zoom = { mask: zm, n: Math.round(Math.sqrt(raw.length)), region };
+        }
+      } catch {
+        // First pass only.
+      }
+    }
+    const r = detectDocument(img, mask, undefined, prior, zoom);
     let brightness = 0;
     for (let i = 0; i < img.data.length; i++) brightness += img.data[i];
     brightness = img.data.length ? brightness / img.data.length / 255 : 0;

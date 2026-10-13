@@ -145,6 +145,8 @@ const en = {
     footer: 'Applies to documents you save from now on. The original scan is always kept, and filters can be changed later without losing quality.',
   },
   scan_diagnostics: {
+    crop_title: 'Automatic crop',
+    crop_footer: 'Counts on this device only. Manual correction rate = crops the app applied or suggested that were then adjusted by hand.',
     copy: 'Copy report',
     copied: 'Report copied',
     title: 'Scan diagnostics',
@@ -164,6 +166,9 @@ const en = {
     clear: 'Clear',
   },
   editor: {
+    check_edges: 'Check the edges',
+    no_auto_crop: 'Not cropped automatically',
+    use_this_crop: 'Use this crop',
     adjust_edges: 'Adjust edges',
     title: 'Edit',
     crop: 'Crop',

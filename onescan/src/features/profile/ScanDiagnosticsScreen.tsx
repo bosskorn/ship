@@ -5,6 +5,8 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TButton, TCellGroup, TEmpty, TNavigationBar, TScreen, TText, useTheme, useToast } from '@/design-system';
+import { useSettings } from '@/core/config/settingsStore';
+import { manualCorrectionRate } from '@/features/scanner/cropStats';
 import { cropLines, diagnosticsReport, DiagnosticStage, megapixels, pixelRetention, StageInfo, useScanDiagnostics } from '@/core/document-engine/image/diagnostics';
 
 const order = ['source', 'master', 'preview', 'thumbnail'] as const satisfies readonly DiagnosticStage[];
@@ -33,12 +35,29 @@ export function ScanDiagnosticsScreen() {
   const pages = useScanDiagnostics((s) => s.pages);
   const clear = useScanDiagnostics((s) => s.clear);
   const toast = useToast();
+  const cropStats = useSettings((s) => s.cropStats);
+  const resetCropStats = useSettings((s) => s.resetCropStats);
+  const rate = manualCorrectionRate(cropStats);
+  const cropSummary = [
+    `Auto crop: ${cropStats.auto} · suggested: ${cropStats.review} (accepted ${cropStats.reviewAccepted}) · not cropped: ${cropStats.manual}`,
+    `Corrected by hand: auto ${cropStats.autoCorrected}, suggested ${cropStats.reviewCorrected}`,
+    `Manual correction rate: ${rate === null ? '–' : `${Math.round(rate * 1000) / 10}%`}`,
+  ];
   const copy = async () => {
-    await Clipboard.setStringAsync(diagnosticsReport(pages, deviceLine()));
+    await Clipboard.setStringAsync(`${diagnosticsReport(pages, deviceLine())}\n\n${cropSummary.join('\n')}`);
     toast(t('scan_diagnostics.copied'), 'success');
   };
   return (
     <TScreen scroll header={<TNavigationBar title={t('scan_diagnostics.title')} onBack={() => router.back()} />}>
+      <TCellGroup title={t('scan_diagnostics.crop_title')} footer={t('scan_diagnostics.crop_footer')}>
+        <View style={{ padding: spacing.md, gap: spacing.xxs }}>
+          {cropSummary.map((l) => (
+            <TText key={l} variant="bodySmall">
+              {l}
+            </TText>
+          ))}
+        </View>
+      </TCellGroup>
       {pages.length === 0 ? (
         <TEmpty icon="info" title={t('scan_diagnostics.empty')} description={t('scan_diagnostics.empty_hint')} />
       ) : (
@@ -88,7 +107,15 @@ export function ScanDiagnosticsScreen() {
       {pages.length ? (
         <View style={{ margin: spacing.md, gap: spacing.sm }}>
           <TButton label={t('scan_diagnostics.copy')} block onPress={copy} />
-          <TButton label={t('scan_diagnostics.clear')} variant="outline" block onPress={clear} />
+          <TButton
+            label={t('scan_diagnostics.clear')}
+            variant="outline"
+            block
+            onPress={() => {
+              clear();
+              resetCropStats();
+            }}
+          />
         </View>
       ) : null}
     </TScreen>

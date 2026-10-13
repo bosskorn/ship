@@ -24,6 +24,7 @@ import { useImport } from '@/features/shared/useImport';
 import { CaptureQueue } from './captureQueue';
 import { EdgeOverlay } from './EdgeOverlay';
 import { chooseEngine } from './engine';
+import { noteCropResult } from './cropStats';
 import { scanHaptics } from './haptics';
 import { CoachTone, QualityCoach } from './QualityCoach';
 import { CaptureFlash, ImportButton, ModeSelector, PagesButton, PreparingCard, PrivacyNote, ScannerTopBar, ShutterButton } from './ScannerControls';
@@ -279,12 +280,14 @@ export function ScannerScreen() {
       void queue.enqueue(async () => {
         try {
           const page = await DocumentEngine.processCapture(photo.uri, filter, {
+            prior: s.mode === 'id' ? 'card' : s.mode === 'receipt' ? 'receipt' : null,
             engine: live ? 'onescan' : 'camera',
             tier: quality,
             jpegQuality: photo.quality,
             captureMs: photo.captureMs,
           });
           updatePage(id, { ...page, id, quality: tier, processing: false });
+          noteCropResult(page);
         } catch {
           track('capture_failed', { stage: 'processing', engine });
           scanHaptics.error();

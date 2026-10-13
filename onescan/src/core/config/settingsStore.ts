@@ -48,6 +48,23 @@ export interface ScannerSettings {
  * and cleared once it is ready (or the scanner closes); still set on the next open means
  * the last open crashed or hung.
  */
+/**
+ * Automatic-crop outcomes on this device (counts only), for the Manual Correction Rate:
+ * how often a crop the app applied or suggested was then changed by hand.
+ */
+export interface CropStats {
+  auto: number;
+  review: number;
+  manual: number;
+  /** Auto-applied crops the user then adjusted. */
+  autoCorrected: number;
+  /** Suggested crops the user accepted as they were / adjusted. */
+  reviewAccepted: number;
+  reviewCorrected: number;
+}
+
+export const emptyCropStats: CropStats = { auto: 0, review: 0, manual: 0, autoCorrected: 0, reviewAccepted: 0, reviewCorrected: 0 };
+
 export interface ScannerHealth {
   opening: boolean;
   failures: number;
@@ -71,6 +88,9 @@ interface SettingsState {
   security: SecuritySettings;
   scanner: ScannerSettings;
   scannerHealth: ScannerHealth;
+  cropStats: CropStats;
+  countCrop: (key: keyof CropStats) => void;
+  resetCropStats: () => void;
   setScannerHealth: (patch: Partial<ScannerHealth>) => void;
   completeOnboarding: () => void;
   setLanguage: (l: LanguageCode | null) => void;
@@ -91,6 +111,9 @@ export const useSettings = create<SettingsState>()(
       security: { appLock: false, biometric: false, autoLock: 'immediately', screenshotProtection: false },
       scanner: { autoCapture: false, multiPage: false, showGrid: false, quality: defaultScanQuality, engine: 'auto', cardPrivacySeen: false },
       scannerHealth: { opening: false, failures: 0 },
+      cropStats: emptyCropStats,
+      countCrop: (key) => set((s) => ({ cropStats: { ...s.cropStats, [key]: s.cropStats[key] + 1 } })),
+      resetCropStats: () => set({ cropStats: emptyCropStats }),
       setScannerHealth: (patch) => set((s) => ({ scannerHealth: { ...s.scannerHealth, ...patch } })),
       completeOnboarding: () => set({ onboardingCompleted: true }),
       setLanguage: (language) => set({ language }),
@@ -121,6 +144,7 @@ export const useSettings = create<SettingsState>()(
           security: { ...current.security, ...p.security },
           scanner: { ...current.scanner, ...p.scanner },
           scannerHealth: { ...current.scannerHealth, ...p.scannerHealth },
+          cropStats: { ...emptyCropStats, ...p.cropStats },
         };
       },
       onRehydrateStorage: () => () => {

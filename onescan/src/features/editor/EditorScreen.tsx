@@ -12,6 +12,7 @@ import { cssFilterFor, pageFilters } from '@/core/document-engine/image/filters'
 import type { DraftPage, PageFilter, Quad, Rotation } from '@/core/document-engine/model';
 import { formatDateTimeCompact } from '@/core/i18n/format';
 import { useScanSession } from '@/features/scanner/scanSession';
+import { noteCropAccepted, noteCropCorrected } from '@/features/scanner/cropStats';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { CropEditor } from './CropEditor';
 import { documentRepository } from '@/core/database/repositories/documentRepository';
@@ -197,18 +198,37 @@ export function EditorScreen() {
             </View>
           )}
         />
-        {current?.crop && current.crop.decision !== 'auto' && nativeVision ? (
+        {current?.crop && current.crop.decision !== 'auto' && !current.crop.confirmed && nativeVision ? (
           <View style={styles.cropHint} pointerEvents="box-none">
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setCropping(true)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.mediaOverlay, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6 }}
-            >
-              <TIcon name="crop" size="sm" color={colors.mediaText} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.mediaOverlay, borderRadius: 999, paddingLeft: spacing.sm, paddingRight: 4, paddingVertical: 4 }}>
               <TText variant="bodySmall" color="mediaText">
-                {t('editor.adjust_edges')}
+                {current.crop.decision === 'review' ? t('editor.check_edges') : t('editor.no_auto_crop')}
               </TText>
-            </Pressable>
+              {current.crop.decision === 'review' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    noteCropAccepted(current);
+                    replacePage(index, { ...current, crop: { ...current.crop!, confirmed: true } });
+                  }}
+                  style={{ backgroundColor: colors.brand, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6 }}
+                >
+                  <TText variant="bodySmall" color="textAnti" weight="600">
+                    {t('editor.use_this_crop')}
+                  </TText>
+                </Pressable>
+              ) : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setCropping(true)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 6, borderWidth: 1, borderColor: colors.mediaText }}
+              >
+                <TIcon name="crop" size="sm" color={colors.mediaText} />
+                <TText variant="bodySmall" color="mediaText">
+                  {t('editor.adjust_edges')}
+                </TText>
+              </Pressable>
+            </View>
           </View>
         ) : null}
         {pages.length > 1 ? (
@@ -326,6 +346,7 @@ export function EditorScreen() {
           onCancel={() => setCropping(false)}
           onDone={(quad) => {
             setCropping(false);
+            noteCropCorrected(current);
             void update(index, { quad });
           }}
         />

@@ -1,5 +1,6 @@
 import { decisionFor, detectDocument, textSafeQuad } from '@/core/document-engine/capture/crop/documentCrop';
 import { cellMap } from '@/core/document-engine/capture/crop/cellMap';
+import { CROP_MODEL } from '@/core/document-engine/capture/crop/cropModel';
 import type { GrayImage } from '@/core/document-engine/capture/quadDetector';
 import type { Point, Quad } from '@/core/document-engine/model';
 
@@ -140,10 +141,18 @@ describe('auto crop: marble_floor_document_false_positive', () => {
     for (const c of floor) expect(c.score).toBeLessThan(r.candidates[r.selected].score);
   });
 
-  it('auto-applies a confident crop when the mask agrees', () => {
+  it('crops tightly and is at least suggested when the mask agrees', () => {
     const r = detectDocument(img, maskFrom((x, y) => (inside(page, x, y) ? 0.95 : 0.05)));
     expect(cornerError(r.quad!, page)).toBeLessThan(0.02);
-    expect(r.decision).toBe('auto');
+    expect(r.decision).not.toBe('manual');
+  });
+
+  it('auto-applies only above the precision threshold of the model', () => {
+    const mask = maskFrom((x, y) => (inside(page, x, y) ? 0.95 : 0.05));
+    const strict = { ...CROP_MODEL, autoThreshold: 1.01 };
+    expect(detectDocument(img, mask, strict).decision).not.toBe('auto');
+    const lenient = { ...CROP_MODEL, autoThreshold: 0 };
+    expect(detectDocument(img, mask, lenient).decision).toBe('auto');
   });
 
   it.each(['wood', 'dark', 'white'] as const)('finds the page on %s', (surface) => {
@@ -161,12 +170,13 @@ describe('auto crop: marble_floor_document_false_positive', () => {
 });
 
 describe('auto crop: gate and text margin', () => {
-  it('maps confidence to auto / review / manual', () => {
-    expect(decisionFor(0.9)).toBe('auto');
-    expect(decisionFor(0.85)).toBe('auto');
-    expect(decisionFor(0.7)).toBe('review');
-    expect(decisionFor(0.65)).toBe('review');
-    expect(decisionFor(0.5)).toBe('manual');
+  it('maps confidence to auto / review / manual around the model threshold', () => {
+    const m = { ...CROP_MODEL, autoThreshold: 0.93 };
+    expect(decisionFor(0.95, m)).toBe('auto');
+    expect(decisionFor(0.93, m)).toBe('auto');
+    expect(decisionFor(0.9, m)).toBe('review');
+    expect(decisionFor(0.65, m)).toBe('review');
+    expect(decisionFor(0.5, m)).toBe('manual');
   });
 
   it('grows a side that would clip text, and leaves clear sides alone', () => {

@@ -60,7 +60,7 @@ export interface DraftPage {
    * Automatic crop outcome: `auto` applied, `review` applied but worth a look ("adjust
    * edges"), `manual` not applied — `suggestion` pre-fills the crop editor.
    */
-  crop?: { decision: 'auto' | 'review' | 'manual'; confidence: number; suggestion?: Quad };
+  crop?: { decision: 'auto' | 'review' | 'manual'; confidence: number; suggestion?: Quad; diagId?: number; confirmed?: boolean };
 }
 
 export type SyncState = 'local_only' | 'pending_upload' | 'synced' | 'pending_delete';

@@ -1,5 +1,6 @@
 import { documentRepository, folderRepository } from '@/core/database/repositories/documentRepository';
 import { CaptureEngine, CropDebug } from './capture/CaptureEngine';
+import type { DocPrior } from './capture/crop/documentCrop';
 import { ImageEngine } from './image/ImageEngine';
 import { OCREngine } from './ocr/OCREngine';
 import { PDFEngine } from './pdf/PDFEngine';
@@ -56,6 +57,8 @@ const toPageRow = (p: StoredPage, i: number): Omit<PageRecord, 'id' | 'documentI
 
 /** Camera facts for diagnostics (numbers only). */
 export interface CaptureMeta {
+  /** Document type the user chose (scanner mode), a shape prior for the crop. */
+  prior?: DocPrior;
   engine?: string;
   tier?: string;
   jpegQuality?: number;
@@ -71,7 +74,7 @@ async function recordDraft(
   meta?: CaptureMeta & { processMs?: number; crop?: CropDebug },
 ) {
   const [src, prev] = await Promise.all([ImageEngine.info(sourceUri), ImageEngine.info(preview.uri)]);
-  useScanDiagnostics.getState().record({
+  return useScanDiagnostics.getState().record({
     page: 0,
     scanner,
     filter,
@@ -98,10 +101,10 @@ export const DocumentEngine = {
   /** Capture → detect edges → preview render (the master is rendered on save, spec §13). */
   async processCapture(sourceUri: string, filter: PageFilter = 'auto', meta?: CaptureMeta): Promise<DraftPage> {
     const started = Date.now();
-    const det = await CaptureEngine.detect(sourceUri);
+    const det = await CaptureEngine.detect(sourceUri, meta?.prior ?? null);
     const quad = det.detected ? det.quad : null;
     const out = await ImageEngine.preview(sourceUri, { quad, filter, rotation: 0 });
-    await recordDraft(sourceUri, out, 'camera', filter, { ...meta, processMs: Date.now() - started, crop: det.debug });
+    const diagId = await recordDraft(sourceUri, out, 'camera', filter, { ...meta, processMs: Date.now() - started, crop: det.debug });
     return {
       id: newId(),
       sourceUri,
@@ -111,7 +114,7 @@ export const DocumentEngine = {
       quad: quad ?? undefined,
       filter,
       rotation: 0,
-      crop: { decision: det.decision, confidence: det.confidence, suggestion: det.suggestion },
+      crop: { decision: det.decision, confidence: det.confidence, suggestion: det.suggestion, diagId },
     };
   },
 

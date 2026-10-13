@@ -14,7 +14,8 @@ for (const [k, m] of Object.entries(meta)) {
   const img = { width: m.w, height: m.h, data: rd('bin'), cb: rd('cb'), cr: rd('cr') };
   const mb = rd(process.env.MASK_EXT || 'mask'); const mask = new Float32Array(mb.length); for (let i = 0; i < mb.length; i++) mask[i] = mb[i] / 255;
   const t0 = Date.now();
-  const { candidates, ev } = C.cropCandidates(img, mask);
+  const prior = process.env.PRIOR ? ({ card: 'card', receipt: 'receipt' })[process.env.PRIOR === 'cat' ? m.group : ''] ?? null : null;
+  const { candidates, ev } = C.cropCandidates(img, mask, 64, prior);
   const mag = Q.sobel(Q.boxBlur(img.data, m.w, m.h, 1), m.w, m.h).mag;
   const G = Q.gradients(img.data, m.w, m.h);
   const refine = (q) => {

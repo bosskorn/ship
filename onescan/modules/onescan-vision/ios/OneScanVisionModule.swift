@@ -1,6 +1,13 @@
 import ExpoModulesCore
 import UIKit
 
+struct RegionRecord: Record {
+  @Field var x: Double = 0
+  @Field var y: Double = 0
+  @Field var width: Double = 1
+  @Field var height: Double = 1
+}
+
 struct PointRecord: Record {
   @Field var x: Double = 0
   @Field var y: Double = 0
@@ -29,6 +36,31 @@ public class OneScanVisionModule: Module {
       let image = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: CGFloat(maxEdge))
       guard let p = OneScanImageIO.ycbcr(image) else {
         throw NSError(domain: "OneScanVision", code: 20, userInfo: [NSLocalizedDescriptionKey: "Could not read pixels"])
+      }
+      var out: [String: Any] = [
+        "width": p.0,
+        "height": p.1,
+        "data": p.2.base64EncodedString(),
+        "cb": p.3.base64EncodedString(),
+        "cr": p.4.base64EncodedString(),
+      ]
+      if withMask == true, let model = DocSeg.shared() {
+        out["mask"] = model.mask(y: [UInt8](p.2), cb: [UInt8](p.3), cr: [UInt8](p.4), width: p.0, height: p.1).base64EncodedString()
+      }
+      return out
+    }
+
+    // Zoomed second pass for small documents (see Android): planes + mask for one region.
+    AsyncFunction("grayscaleRegionAsync") { (uri: String, region: RegionRecord, maxEdge: Int, withMask: Bool?) -> [String: Any] in
+      let frac = min(max(max(region.width, region.height), 0.05), 1.0)
+      let full = try OneScanImageIO.loadUpright(OneScanImageIO.url(from: uri), maxEdge: min(2048, CGFloat(Double(maxEdge) / frac)))
+      let e = full.extent
+      // Core Image origin is bottom-left; the region is top-left based.
+      let rect = CGRect(x: e.minX + region.x * e.width, y: e.minY + (1 - region.y - region.height) * e.height,
+                        width: region.width * e.width, height: region.height * e.height).integral.intersection(e)
+      let crop = OneScanImageIO.scaled(full.cropped(to: rect), maxEdge: CGFloat(maxEdge))
+      guard let p = OneScanImageIO.ycbcr(crop) else {
+        throw NSError(domain: "OneScanVision", code: 21, userInfo: [NSLocalizedDescriptionKey: "Could not read pixels"])
       }
       var out: [String: Any] = [
         "width": p.0,

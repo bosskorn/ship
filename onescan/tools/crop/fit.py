@@ -8,8 +8,8 @@ logistic weights, `test` is held out and only reported. Writes cropModel.ts.
         --cases real/cases.json syn/cases.json --old old_real.json old_syn.json \
         --out ../../src/core/document-engine/capture/crop/cropModel.ts
 
-A candidate counts as right when its worst corner is within OK of the true corner
-(fraction of the image diagonal). No images are stored in the repository.
+A crop is right when every corner is within OK (3%) of the image diagonal from the true corner
+and >= 98% of the true page lies inside it (nothing cut off). No images are stored in the repository.
 """
 import json, sys
 import numpy as np
@@ -50,7 +50,7 @@ def fit_listwise(cases, l2=3e-3, iters=3000, lr=0.3):
         if c['neg']:
             ok = [r['s'] == 'frame' for r in c['rows']]
         else:
-            ok = [r['e'] <= OK for r in c['rows']]
+            ok = [correct(c, r) for r in c['rows']]
         if any(ok):
             groups.append((np.array([r['v'] for r in c['rows']]), np.array(ok, float)))
     allX = np.vstack([g[0] for g in groups])
@@ -77,7 +77,7 @@ def calibrate(cases, wts):
         if top['s'] == 'frame':
             continue
         F.append([1, z[o[0]], z[o[0]] - (z[o[1]] if len(o) > 1 else z[o[0]] - 5)])
-        y.append(0.0 if c['neg'] else float(top['e'] <= OK))
+        y.append(0.0 if c['neg'] else float(correct(c, top)))
     F, y = np.array(F), np.array(y)
     a = np.zeros(3)
     for _ in range(5000):
@@ -117,69 +117,70 @@ def poly_iou(a, b):
 TRUTH = {}
 
 
-def evaluate(cases, wts, label, calib):
-    stats = {}
-    cal = []
+CUT = 0.015
+
+
+def correct(c, r):
+    """Right crop: every corner within OK (3%) of the diagonal from the true corner AND
+    nothing cut: no true page corner lies more than CUT (1.5%) of the diagonal outside it."""
+    if c['neg'] or r['e'] is None or r['e'] > OK or r['s'] == 'frame':
+        return False
+    t = TRUTH.get(c['k'])
+    if not t:
+        return True
+    from shapely.geometry import Point as SP, Polygon
+    pts, W, H = t
+    cp = Polygon([(x * W, y * H) for x, y in r['q']]).buffer(0)
+    diag = (W * W + H * H) ** 0.5
+    return all(cp.distance(SP(p)) <= CUT * diag for p in pts)
+
+
+def surface_of(c):
+    return c['k'].split('_')[1] if c['k'].startswith('syn_') else group(c['cat'])
+
+
+def results(cases, wts, calib):
+    """Per photo: candidate recall, selected-right, confidence."""
+    out = []
     for c in cases:
         V = np.array([r['v'] for r in c['rows']])
         i, conf = confidence(V, wts, calib); r = c['rows'][i]
-        g = group(c['cat'])
-        st = stats.setdefault(g, dict(n=0, ok2=0, ok3=0, ok4=0, oracle=0, auto=0, auto_ok=0, review=0, manual=0, frame=0))
-        st['n'] += 1
-        conf = 0.0 if r['s'] == 'frame' else conf
-        dec = 'auto' if conf >= 0.85 else 'review' if conf >= 0.65 else 'manual'
-        st[dec] += 1
-        if c['neg']:
-            st['ok3'] += r['s'] == 'frame' or dec == 'manual'
-            continue
-        e = r['e']
-        st['ok2'] += e <= 0.02; st['ok3'] += e <= OK; st['ok4'] += e <= 0.04
-        if c['k'] in TRUTH and r['s'] != 'frame':
-            t, W, H = TRUTH[c['k']]
-            st['iou90'] = st.get('iou90', 0) + (poly_iou([(x * W, y * H) for x, y in r['q']], t) >= 0.9)
-        st['oracle'] += min(x['e'] for x in c['rows']) <= OK
-        if dec == 'auto':
-            st['auto_ok'] += e <= OK
-        if r['s'] != 'frame':
-            cal.append((conf, e <= OK))
-    print(f'\n== {label}')
-    for g, st in sorted(stats.items()):
-        n = st['n']
-        if g == 'negative':
-            print(f'  {g:9s} n={n:4d}  no crop applied {100*st["ok3"]/n:5.1f}%   auto {100*st["auto"]/n:5.1f}%')
-            continue
-        pa = 100 * st['auto_ok'] / max(1, st['auto'])
-        print(f'  {g:9s} n={n:4d}  ≤2% {100*st["ok2"]/n:5.1f}%  ≤3% {100*st["ok3"]/n:5.1f}%  ≤4% {100*st["ok4"]/n:5.1f}%  '
-              f'(best candidate ≤3%: {100*st["oracle"]/n:5.1f}%) | auto {100*st["auto"]/n:5.1f}% (right {pa:5.1f}%) '
-              f'review {100*st["review"]/n:5.1f}% manual {100*st["manual"]/n:5.1f}%  IoU≥0.9 {100*st.get("iou90",0)/n:5.1f}%')
-    cal = np.array(cal, dtype=float)
-    if len(cal):
-        for lo, hi in ((0, .65), (.65, .85), (.85, 1.01)):
-            sel = (cal[:, 0] >= lo) & (cal[:, 0] < hi)
-            if sel.any():
-                print(f'  confidence {lo:.2f}–{min(hi,1):.2f}: n={sel.sum():4d} actually right {100*cal[sel,1].mean():5.1f}%')
+        sel_frame = r['s'] == 'frame'
+        out.append(dict(k=c['k'], g='negative' if c['neg'] else surface_of(c), neg=c['neg'],
+                        recall=any(correct(c, x) for x in c['rows']), right=correct(c, r),
+                        conf=0.0 if sel_frame else conf))
+    return out
 
 
-def surfaces(cases, wts, old, label, calib):
-    """Synthetic documents-on-surfaces: success per surface, new vs. old crop path."""
+def auto_threshold(res, target=0.98):
+    """Lowest confidence threshold whose auto-applied crops are >= target precise (tune photos)."""
+    pos = sorted([x for x in res], key=lambda x: -x['conf'])
+    best = 1.01; ok = 0
+    for n, x in enumerate(pos, 1):
+        ok += x['right']
+        if x['conf'] <= 0:
+            break
+        if n >= 20 and ok / n >= target:
+            best = x['conf']
+    return best
+
+
+def report(res, thr, label, review=0.65):
+    print(f'\n== {label}   (auto-apply threshold {thr:.3f})')
+    print(f'  {"group":9s} {"n":>5s} | {"cand.recall@3%":>14s} {"detection":>10s} | {"auto cov":>8s} {"auto prec":>9s} | {"suggest":>7s} {"original":>8s}')
     by = {}
-    for c in cases:
-        if c['neg']:
+    for x in res:
+        by.setdefault(x['g'], []).append(x)
+    for g, xs in sorted(by.items()):
+        n = len(xs)
+        auto = [x for x in xs if x['conf'] >= thr]
+        sug = [x for x in xs if review <= x['conf'] < thr]
+        if g == 'negative':
+            print(f'  {g:9s} {n:5d} | {"—":>14s} {"—":>10s} | false crop (auto) {100*len(auto)/n:5.1f}%  suggested {100*len(sug)/n:5.1f}%')
             continue
-        surf = c['k'].split('_')[1]
-        V = np.array([r['v'] for r in c['rows']]); i, conf = confidence(V, wts, calib); r = c['rows'][i]
-        conf = 0.0 if r['s'] == 'frame' else conf
-        st = by.setdefault(surf, dict(n=0, new=0, auto=0, autook=0, old=0, oldfull=0))
-        st['n'] += 1; st['new'] += r['e'] <= OK
-        if conf >= 0.85:
-            st['auto'] += 1; st['autook'] += r['e'] <= OK
-        if old and c['k'] in old:
-            st['old'] += old[c['k']]['e'] <= OK; st['oldfull'] += old[c['k']]['full']
-    print(f'\n== {label}')
-    for k, st in sorted(by.items()):
-        n = st['n']
-        print(f'  {k:7s} n={n:3d}  new ≤3% {100*st["new"]/n:5.1f}%  auto-applied {100*st["auto"]/n:5.1f}% (right {100*st["autook"]/max(1,st["auto"]):5.1f}%)'
-              + (f' | old ≤3% {100*st["old"]/n:5.1f}%, whole frame kept {100*st["oldfull"]/n:5.1f}%' if old else ''))
+        prec = 100 * sum(x['right'] for x in auto) / len(auto) if auto else float('nan')
+        print(f'  {g:9s} {n:5d} | {100*sum(x["recall"] for x in xs)/n:13.1f}% {100*sum(x["right"] for x in xs)/n:9.1f}% | '
+              f'{100*len(auto)/n:7.1f}% {prec:8.1f}% | {100*len(sug)/n:6.1f}% {100*(n-len(auto)-len(sug))/n:7.1f}%')
 
 
 if __name__ == '__main__':
@@ -201,23 +202,22 @@ if __name__ == '__main__':
     tune = [c for f in a.train for c in load(f) if c['split'] == 'tune']
     wts = fit_listwise(tune)
     calib = calibrate(tune, wts)
+    tune_res = results(tune, wts, calib)
+    thr = auto_threshold([x for x in tune_res if not x['neg']] + [x for x in tune_res if x['neg']])
     for f in a.test:
-        cs = load(f)
-        test = [c for c in cs if c['split'] == 'test']
-        if test and test[0]['k'].startswith('syn_'):
-            surfaces(test, wts, old, f'held-out synthetic documents on surfaces ({os.path.basename(f)})', calib)
-        else:
-            if old:
-                print(f'\n== old crop path (exact), held-out photos')
-                for g in ('card', 'document', 'receipt'):
-                    sel = [c for c in test if not c['neg'] and group(c['cat']) == g and c['k'] in old]
-                    if sel:
-                        print(f'  {g:9s} n={len(sel):4d}  ≤3% {100*sum(old[c["k"]]["e"] <= OK for c in sel)/len(sel):5.1f}%  whole frame kept {100*sum(old[c["k"]]["full"] for c in sel)/len(sel):5.1f}%')
-            evaluate(test, wts, f'held-out photos ({os.path.basename(f)}, {len(test)})', calib)
+        cs = [c for c in load(f) if c['split'] == 'test']
+        if old and not cs[0]['k'].startswith('syn_'):
+            print('\n== old crop path (exact), same held-out photos: corners ≤3%')
+            for g in ('card', 'document', 'receipt'):
+                sel = [c for c in cs if not c['neg'] and group(c['cat']) == g and c['k'] in old]
+                if sel:
+                    print(f'  {g:9s} n={len(sel):4d}  {100*sum(old[c["k"]]["e"] <= OK for c in sel)/len(sel):5.1f}%  (whole frame kept {100*sum(old[c["k"]]["full"] for c in sel)/len(sel):4.1f}%)')
+        report(results(cs, wts, calib), thr, f'held-out {os.path.basename(f)} ({len(cs)})')
     if a.out:
         open(a.out, 'w').write(
             '/** Logistic weights over `featureVector` (generated by tools/crop/fit.py; do not edit by hand). */\n'
             'export interface CropModel {\n  version: string;\n  /** Ranking weights over `featureVector` (softmax per photo). */\n  weights: number[];\n'
-            '  /** Confidence = sigmoid(c0 + c1 · top score + c2 · (top − runner-up)). */\n  calibration: [number, number, number];\n}\n\n'
+            '  /** Confidence = sigmoid(c0 + c1 · top score + c2 · (top − runner-up)). */\n  calibration: [number, number, number];\n'
+            '  /** Auto-apply at or above this confidence (chosen for >= 98% precision on tune photos). */\n  autoThreshold: number;\n}\n\n'
             f"export const CROP_MODEL: CropModel = {{\n  version: 'v1-{len(tune)}',\n  weights: [{', '.join(f'{v:.6g}' for v in wts)}],\n"
-            f"  calibration: [{', '.join(f'{v:.6g}' for v in calib)}],\n}};\n")
+            f"  calibration: [{', '.join(f'{v:.6g}' for v in calib)}],\n  autoThreshold: {thr:.4f},\n}};\n")
