@@ -114,7 +114,7 @@ export const DocumentEngine = {
       quad: quad ?? undefined,
       filter,
       rotation: 0,
-      crop: { decision: det.decision, confidence: det.confidence, suggestion: det.suggestion, diagId },
+      crop: { decision: det.decision, confidence: det.confidence, suggestion: det.suggestion, diagId, presence: det.presence },
     };
   },
 

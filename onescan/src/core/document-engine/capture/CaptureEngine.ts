@@ -3,6 +3,8 @@ import type { Quad } from '../model';
 import { maskToQuad } from './docSeg';
 import { CropDecision, CropResult, decisionFor, detectDocument, DocPrior, textSafeQuad, ZoomMask, zoomRegion } from './crop/documentCrop';
 import { cellMap } from './crop/cellMap';
+import { parsePresenceWeights, Presence, presenceGate, presenceProbability, PresenceWeights } from './crop/presence';
+import { PRESENCE_THRESHOLDS, PRESENCE_WEIGHTS_B64 } from './crop/presenceWeights';
 import { base64ToUint8, decodeGray, detectQuad, GrayImage, QuadDetection, sharpnessOf } from './quadDetector';
 
 export const fullFrameQuad: Quad = [
@@ -23,6 +25,9 @@ export interface DetectionResult {
   decision: CropDecision;
   /** Best outline even when it is not applied (`decision` = manual), for the crop editor. */
   suggestion?: Quad;
+  /** Document presence gate (before segmentation). */
+  presence?: Presence;
+  presenceP?: number;
   /** Why this crop (dev diagnostics): numbers only. */
   debug?: CropDebug;
 }
@@ -40,6 +45,40 @@ export interface CropDebug {
   decision: CropDecision;
   marginGrown: boolean;
   ms: number;
+  presence?: Presence;
+  presenceP?: number;
+  zoom?: boolean;
+}
+
+function emptyDebug(started: number): CropDebug {
+  return {
+    candidates: 0,
+    selected: 'none',
+    area: 0,
+    textCoverage: 0,
+    textDensity: 0,
+    paperScore: 0,
+    edgeScore: 0,
+    backgroundPenalty: 0,
+    confidence: 0,
+    decision: 'manual',
+    marginGrown: false,
+    ms: Date.now() - started,
+  };
+}
+
+let presenceWeights: PresenceWeights | null | undefined;
+
+/** Presence probability, or null when the gate's weights are not bundled. */
+function documentPresence(img: GrayImage): number | null {
+  if (presenceWeights === undefined) {
+    try {
+      presenceWeights = PRESENCE_WEIGHTS_B64 ? parsePresenceWeights(base64ToUint8(PRESENCE_WEIGHTS_B64)) : null;
+    } catch {
+      presenceWeights = null;
+    }
+  }
+  return presenceWeights ? presenceProbability(img, presenceWeights) : null;
 }
 
 /** Post-capture analysis size (candidates, text map, features). */
@@ -133,15 +172,29 @@ export const CaptureEngine = {
     const started = Date.now();
     const g = await OneScanVision.grayscaleAsync(imageUri, ANALYSIS_EDGE, true);
     const img = decodeGray(g.width, g.height, g.data, g.cb, g.cr);
+    let brightness = 0;
+    for (let i = 0; i < img.data.length; i++) brightness += img.data[i];
+    brightness = img.data.length ? brightness / img.data.length / 255 : 0;
+    const sharpness = sharpnessOf(img);
+
+    // 1. Presence gate: is there a document at all? "none" stops here — no crop, no suggestion.
+    const presenceP = documentPresence(img);
+    const presence: Presence = presenceP === null ? 'uncertain' : presenceGate(presenceP, PRESENCE_THRESHOLDS);
+    if (presence === 'none') {
+      return { ...none, brightness, sharpness, presence, presenceP: presenceP ?? undefined, debug: { ...emptyDebug(started), presence, presenceP: presenceP ?? -1 } };
+    }
+
+    // 2. Segmentation (first pass, whole photo).
     let mask: Float32Array | null = null;
     if (g.mask) {
       const raw = base64ToUint8(g.mask);
       mask = new Float32Array(raw.length);
       for (let i = 0; i < raw.length; i++) mask[i] = raw[i] / 255;
     }
-    // Small page in the frame: segment again on a zoomed crop around it.
+    // Zoomed second pass only where it pays: a document is present, its page region is
+    // small, and the first-pass region is not a clean page shape.
     let zoom: ZoomMask | null = null;
-    const region = mask ? zoomRegion(mask) : null;
+    const region = mask && presence === 'present' ? zoomRegion(mask) : null;
     if (region && OneScanVision.grayscaleRegionAsync) {
       try {
         const z = await OneScanVision.grayscaleRegionAsync(imageUri, region, ZOOM_EDGE, true);
@@ -155,18 +208,20 @@ export const CaptureEngine = {
         // First pass only.
       }
     }
+
+    // 3–4. Candidates + ranker.
     const r = detectDocument(img, mask, undefined, prior, zoom);
-    let brightness = 0;
-    for (let i = 0; i < img.data.length; i++) brightness += img.data[i];
-    brightness = img.data.length ? brightness / img.data.length / 255 : 0;
-    const sharpness = sharpnessOf(img);
-    if (!r.quad) return { ...none, brightness, sharpness, debug: debugOf(r, false, started) };
-    // Corners are already snapped to the paper edges (refined candidates, crop/documentCrop).
-    let quad: Quad = r.quad;
+    const debug = { ...debugOf(r, false, started), presence, presenceP: presenceP ?? -1, zoom: zoom !== null };
+    if (!r.quad) return { ...none, brightness, sharpness, presence, presenceP: presenceP ?? undefined, debug };
     // Never clip text at the edges: grow a side that has text on or just past it.
-    const safe = textSafeQuad(quad, cellMap(img, 8));
-    quad = safe.quad;
-    const decision = decisionFor(r.confidence);
+    const safe = textSafeQuad(r.quad, cellMap(img, 8));
+    const quad: Quad = safe.quad;
+    debug.marginGrown = safe.grown.some((v) => v > 0);
+
+    // 5. Confidence gate: an uncertain presence never auto-applies.
+    let decision = decisionFor(r.confidence);
+    if (presence === 'uncertain' && decision === 'auto') decision = 'review';
+    debug.decision = decision;
     return {
       quad: decision === 'manual' ? fullFrameQuad : quad,
       detected: decision !== 'manual',
@@ -175,7 +230,9 @@ export const CaptureEngine = {
       sharpness,
       decision,
       suggestion: quad,
-      debug: debugOf(r, safe.grown.some((v) => v > 0), started),
+      presence,
+      presenceP: presenceP ?? undefined,
+      debug,
     };
   },
 };

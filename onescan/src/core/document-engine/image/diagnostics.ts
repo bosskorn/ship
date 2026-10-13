@@ -46,6 +46,9 @@ export interface PageDiagnostics {
     decision: string;
     marginGrown: boolean;
     ms: number;
+    presence?: string;
+    presenceP?: number;
+    zoom?: boolean;
   };
   /** The user adjusted this page's automatic crop by hand. */
   cropCorrected?: boolean;
@@ -138,6 +141,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 /** Crop debug block (dev diagnostics, spec "Debug Diagnostics"). */
 export function cropLines(c: NonNullable<PageDiagnostics['crop']>): string[] {
   return [
+    ...(c.presence ? [`Document presence: ${c.presence}${c.presenceP !== undefined && c.presenceP >= 0 ? ` (${c.presenceP.toFixed(3)})` : ''}${c.zoom ? ' · zoom pass' : ''}`] : []),
     `Candidates: ${c.candidates} · Selected: ${c.selected}`,
     `Area: ${pct(c.area)} · Text coverage: ${pct(c.textCoverage)} · Text density: ${pct(c.textDensity)}`,
     `Paper score: ${c.paperScore.toFixed(2)} · Edge score: ${c.edgeScore.toFixed(2)} · Background penalty: ${c.backgroundPenalty.toFixed(2)}`,

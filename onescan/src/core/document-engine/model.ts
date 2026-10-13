@@ -60,7 +60,15 @@ export interface DraftPage {
    * Automatic crop outcome: `auto` applied, `review` applied but worth a look ("adjust
    * edges"), `manual` not applied — `suggestion` pre-fills the crop editor.
    */
-  crop?: { decision: 'auto' | 'review' | 'manual'; confidence: number; suggestion?: Quad; diagId?: number; confirmed?: boolean };
+  crop?: {
+    decision: 'auto' | 'review' | 'manual';
+    confidence: number;
+    suggestion?: Quad;
+    diagId?: number;
+    confirmed?: boolean;
+    /** Presence gate: 'none' = no document found, so no crop is proposed at all. */
+    presence?: 'present' | 'uncertain' | 'none';
+  };
 }
 
 export type SyncState = 'local_only' | 'pending_upload' | 'synced' | 'pending_delete';

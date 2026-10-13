@@ -96,12 +96,27 @@ def batch(imgs, corners, neg, idx, train):
     return x.contiguous(memory_format=torch.channels_last), y
 
 
+LOSS = 'dice'
+
+
 def loss_fn(logit, y):
-    bce = F.binary_cross_entropy_with_logits(logit, y)
     p = torch.sigmoid(logit)
-    inter = (p * y).sum((1, 2, 3)); den = (p + y).sum((1, 2, 3))
-    dice = 1 - (2 * inter + 1) / (den + 1)
-    return bce + dice.mean()
+    if LOSS == 'dice':
+        bce = F.binary_cross_entropy_with_logits(logit, y)
+        inter = (p * y).sum((1, 2, 3)); den = (p + y).sum((1, 2, 3))
+        dice = 1 - (2 * inter + 1) / (den + 1)
+        return bce + dice.mean()
+    # 'fp': focal BCE + Tversky weighted towards false-positive pixels (alpha 0.7) + a direct
+    # penalty on any page probability in photos without a document (empty masks).
+    ce = F.binary_cross_entropy_with_logits(logit, y, reduction='none')
+    pt = torch.where(y > 0.5, p, 1 - p)
+    focal = ((1 - pt) ** 2 * ce).mean()
+    tp = (p * y).sum((1, 2, 3)); fp = (p * (1 - y)).sum((1, 2, 3)); fn = ((1 - p) * y).sum((1, 2, 3))
+    empty = y.sum((1, 2, 3)) < 1
+    tversky = 1 - (tp + 1) / (tp + 0.7 * fp + 0.3 * fn + 1)
+    tversky = tversky[~empty].mean() if (~empty).any() else logit.new_zeros(())
+    neg_pen = p[empty].mean() * 4 if empty.any() else logit.new_zeros(())
+    return 3 * focal + tversky + neg_pen
 
 
 @torch.no_grad()
@@ -127,7 +142,10 @@ def main():
     ap.add_argument('--extra', default='', help='comma-separated extra .npz shards (e.g. hard photos)')
     ap.add_argument('--extra-repeat', type=int, default=1, help='oversample extra shards this many times')
     ap.add_argument('--val', default='', help='comma-separated .npz shards to validate on instead')
+    ap.add_argument('--loss', default='dice', choices=['dice', 'fp'], help="'fp': focal + FP-weighted Tversky + empty-mask penalty")
     a = ap.parse_args()
+    global LOSS
+    LOSS = a.loss
     torch.manual_seed(0); np.random.seed(0); torch.set_num_threads(4)
     paths = sorted(glob.glob(a.data + '/*.npz'))
     val_paths = a.val.split(',') if a.val else [p for p in paths if 'val' in p][:2]

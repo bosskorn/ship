@@ -50,19 +50,19 @@ export function EditorScreen() {
   const { width } = useWindowDimensions();
   const pager = useRef<FlatList<DraftPage>>(null);
   const { pages, docType, replacePage, removePage, duplicatePage, movePage, setRescan, setFromEditor, clear } = useScanSession();
-  const [index, setIndex] = useState(() => Math.max(0, useScanSession.getState().pages.findIndex((p) => p.crop?.decision === 'manual')));
+  const [index, setIndex] = useState(() => Math.max(0, useScanSession.getState().pages.findIndex((p) => p.crop?.decision === 'manual' && p.crop.presence !== 'none')));
   const [tool, setTool] = useState<Tool | null>(null);
   const [pageMenu, setPageMenu] = useState<number | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [saving, setSaving] = useState<{ stage: SaveStage; progress: number } | null>(null);
-  const [cropping, setCropping] = useState(() => DocumentEngine.capture.hasNativeVision() && useScanSession.getState().pages.some((p) => p.crop?.decision === 'manual'));
+  const [cropping, setCropping] = useState(() => DocumentEngine.capture.hasNativeVision() && useScanSession.getState().pages.some((p) => p.crop?.decision === 'manual' && p.crop.presence !== 'none'));
   const [working, setWorking] = useState(false);
   const current = pages[Math.min(index, pages.length - 1)];
   const nativeVision = DocumentEngine.capture.hasNativeVision();
 
   // Auto crop is the default; the crop editor opens by itself only when the crop was not
   // confident enough to apply (it starts from the suggested corners).
-  const [firstUnsure] = useState(() => (nativeVision ? pages.findIndex((p) => p.crop?.decision === 'manual') : -1));
+  const [firstUnsure] = useState(() => (nativeVision ? pages.findIndex((p) => p.crop?.decision === 'manual' && p.crop.presence !== 'none') : -1));
   useEffect(() => {
     if (firstUnsure > 0) requestAnimationFrame(() => pager.current?.scrollToIndex({ index: firstUnsure, animated: false }));
   }, [firstUnsure]);
@@ -198,7 +198,7 @@ export function EditorScreen() {
             </View>
           )}
         />
-        {current?.crop && current.crop.decision !== 'auto' && !current.crop.confirmed && nativeVision ? (
+        {current?.crop && current.crop.decision !== 'auto' && current.crop.presence !== 'none' && !current.crop.confirmed && nativeVision ? (
           <View style={styles.cropHint} pointerEvents="box-none">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.mediaOverlay, borderRadius: 999, paddingLeft: spacing.sm, paddingRight: 4, paddingVertical: 4 }}>
               <TText variant="bodySmall" color="mediaText">
