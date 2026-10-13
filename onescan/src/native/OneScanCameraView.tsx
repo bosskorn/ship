@@ -21,6 +21,8 @@ export interface CameraFrame {
 /** Still size tier (JPEG 97 either way): `hd` ≈ 12 MP, `max` = largest the camera offers up to ~26 MP. */
 export type CaptureQuality = 'hd' | 'max';
 
+export type CameraErrorCode = 'busy' | 'disabled' | 'no_frames' | 'failed';
+
 export interface CameraReadyInfo {
   captureQuality?: CaptureQuality;
   /** Upright still size the camera will capture at, when it reports one. */
@@ -36,7 +38,10 @@ export interface OneScanCameraViewProps extends ViewProps {
   captureQuality?: CaptureQuality;
   onCameraReady?: (e: NativeSyntheticEvent<CameraReadyInfo>) => void;
   onFrame?: (e: NativeSyntheticEvent<CameraFrame>) => void;
-  onCameraError?: (e: NativeSyntheticEvent<{ message: string }>) => void;
+  /** `code`: busy (another app), disabled (policy / Do Not Disturb), no_frames (black preview), failed. */
+  onCameraError?: (e: NativeSyntheticEvent<{ code?: CameraErrorCode; message: string }>) => void;
+  /** Changing it rebinds the camera ("Try again"). */
+  retryToken?: number;
 }
 
 export interface OneScanCameraViewRef {

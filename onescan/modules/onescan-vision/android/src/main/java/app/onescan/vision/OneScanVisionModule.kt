@@ -240,6 +240,7 @@ class OneScanVisionModule : Module() {
       Prop("frameMaxEdge") { view: OneScanCameraView, value: Int -> view.frameMaxEdge = value.coerceIn(96, 480) }
       Prop("frameIntervalMs") { view: OneScanCameraView, value: Int -> view.frameIntervalMs = value.coerceAtLeast(50).toLong() }
       Prop("captureQuality") { view: OneScanCameraView, value: String -> view.captureQuality = value }
+      Prop("retryToken") { view: OneScanCameraView, value: Int -> view.retryToken = value }
 
       AsyncFunction("takePhoto") { view: OneScanCameraView, promise: Promise -> view.takePhoto(promise) }
     }

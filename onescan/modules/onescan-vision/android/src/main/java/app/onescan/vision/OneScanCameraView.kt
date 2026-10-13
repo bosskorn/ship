@@ -12,6 +12,7 @@ import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CameraState
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -25,6 +26,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.Observer
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.viewevent.EventDispatcher
@@ -66,11 +68,27 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
   private var camera: Camera? = null
   private var imageCapture: ImageCapture? = null
   private var lastFrameAt = 0L
+  /** Any analysis frame (before throttling): proves the camera is really streaming. */
+  @Volatile private var anyFrameAt = 0L
+  private var boundAt = 0L
+  private var errorSent = false
+  private val watchdog = Handler(Looper.getMainLooper())
+  private var stateObserver: Observer<CameraState>? = null
 
   var torchEnabled = false
     set(value) {
       field = value
       camera?.cameraControl?.enableTorch(value)
+    }
+  /** Changing it rebinds the camera (the screen's "Try again"). */
+  var retryToken = 0
+    set(value) {
+      if (field == value) return
+      field = value
+      if (isAttachedToWindow && active) {
+        unbind()
+        bind()
+      }
     }
   var active = true
     set(value) {
@@ -106,12 +124,21 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
     unbind()
   }
 
+  /** Reported once per bind: `busy` (another app), `disabled` (policy / DND), `no_frames` (black preview), `failed`. */
+  private fun fail(code: String, message: String) {
+    if (errorSent) return
+    errorSent = true
+    onCameraError(mapOf("code" to code, "message" to message))
+  }
+
   private fun bind() {
     val owner = appContext.currentActivity as? LifecycleOwner
     if (owner == null) {
-      onCameraError(mapOf("message" to "No lifecycle owner"))
+      fail("failed", "No lifecycle owner")
       return
     }
+    analysisExecutor?.shutdown()
+    errorSent = false
     val executor = Executors.newSingleThreadExecutor().also { analysisExecutor = it }
     val future = ProcessCameraProvider.getInstance(context)
     future.addListener({
@@ -132,12 +159,40 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
         analysis.setAnalyzer(executor) { proxy -> analyze(proxy) }
         p.unbindAll()
         this.owner = owner
-        camera = p.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture, analysis)
-        camera?.cameraControl?.enableTorch(torchEnabled)
+        val cam = p.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, preview, capture, analysis)
+        camera = cam
+        cam.cameraControl.enableTorch(torchEnabled)
         imageCapture = capture
+        // Camera taken by another app, disabled, or failed after binding: the preview would
+        // just stay black, so report it.
+        val observer = Observer<CameraState> { state ->
+          val err = state.error ?: return@Observer
+          val code = when (err.code) {
+            CameraState.ERROR_CAMERA_IN_USE, CameraState.ERROR_MAX_CAMERAS_IN_USE -> "busy"
+            CameraState.ERROR_CAMERA_DISABLED, CameraState.ERROR_DO_NOT_DISTURB_MODE_ENABLED -> "disabled"
+            else -> "failed"
+          }
+          fail(code, "Camera state error ${err.code}")
+        }
+        stateObserver = observer
+        cam.cameraInfo.cameraState.observe(owner, observer)
+        boundAt = SystemClock.uptimeMillis()
+        watchdog.removeCallbacksAndMessages(null)
+        lateinit var check: Runnable
+        check = Runnable {
+          if (camera !== cam || anyFrameAt >= boundAt) return@Runnable
+          // In the background frames stop by design: look again once the app is back.
+          if (!owner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+            boundAt = SystemClock.uptimeMillis()
+            watchdog.postDelayed(check, NO_FRAMES_MS)
+            return@Runnable
+          }
+          fail("no_frames", "No camera frames")
+        }
+        watchdog.postDelayed(check, NO_FRAMES_MS)
         onCameraReady(readyPayload(capture))
       } catch (e: Exception) {
-        onCameraError(mapOf("message" to (e.message ?: "Camera unavailable")))
+        fail("failed", e.message ?: "Camera unavailable")
       }
     }, ContextCompat.getMainExecutor(context))
   }
@@ -199,6 +254,9 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
   }
 
   private fun unbind() {
+    watchdog.removeCallbacksAndMessages(null)
+    stateObserver?.let { o -> camera?.cameraInfo?.cameraState?.removeObserver(o) }
+    stateObserver = null
     try {
       provider?.unbindAll()
     } catch (_: Exception) {
@@ -213,6 +271,7 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
   private fun analyze(proxy: ImageProxy) {
     try {
       val now = SystemClock.uptimeMillis()
+      anyFrameAt = now
       if (now - lastFrameAt < frameIntervalMs) return
       lastFrameAt = now
       val yPlane = proxy.planes[0]
@@ -327,6 +386,8 @@ class OneScanCameraView(context: Context, appContext: AppContext) : ExpoView(con
     const val HD_PIXELS = 12_600_000L
     const val MAX_PIXELS = 26_000_000L
     const val JPEG_QUALITY = 97
+    /** No analysis frame this long after binding (while in the foreground) = black preview. */
+    const val NO_FRAMES_MS = 6000L
 
     /** The size the resolution selector aims for: largest within the cap, 4:3 preferred. */
     fun pickSize(sizes: List<Pair<Int, Int>>, cap: Long): Pair<Int, Int>? {

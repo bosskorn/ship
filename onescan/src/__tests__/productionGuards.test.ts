@@ -35,3 +35,24 @@ describe('production guards', () => {
     expect(r).toMatchObject({ available: false, failedPages: 2, text: '\n\n' });
   });
 });
+
+import { chooseEngine, FAILURE_MEMORY_MS, recentFailures } from '@/features/scanner/engine';
+
+describe('scanner crash guard', () => {
+  const both = { onescan: true, google: true };
+  it('falls back to Google only after repeated recent start failures', () => {
+    const now = Date.now();
+    expect(chooseEngine('auto', true, both, { opening: false, failures: 1, lastFailureAt: now }).engine).toBe('onescan');
+    expect(chooseEngine('auto', true, both, { opening: false, failures: 2, lastFailureAt: now }).engine).toBe('google');
+    // a start that never finished (app died while opening) counts once
+    expect(chooseEngine('auto', true, both, { opening: true, failures: 1, lastFailureAt: now }).engine).toBe('google');
+  });
+  it('forgets failures after a week', () => {
+    const old = Date.now() - FAILURE_MEMORY_MS - 1000;
+    expect(recentFailures({ opening: false, failures: 5, lastFailureAt: old })).toBe(0);
+    expect(chooseEngine('auto', true, both, { opening: false, failures: 5, lastFailureAt: old }).engine).toBe('onescan');
+  });
+  it('honours an explicit engine choice', () => {
+    expect(chooseEngine('onescan', true, both, { opening: false, failures: 9, lastFailureAt: Date.now() }).engine).toBe('onescan');
+  });
+});

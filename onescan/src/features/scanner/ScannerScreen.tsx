@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Linking, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, AppState, Linking, StyleSheet, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Line } from 'react-native-svg';
 import type { ParseKeys } from 'i18next';
@@ -16,14 +16,14 @@ import { newId } from '@/core/document-engine/ids';
 import type { CaptureMode, DraftPage, PageFilter } from '@/core/document-engine/model';
 import { useFeature } from '@/core/config/remoteConfig';
 import { useSettings } from '@/core/config/settingsStore';
-import { CameraReadyInfo, CaptureQuality, OneScanCameraView, OneScanCameraViewRef } from '@/native/OneScanCameraView';
+import { CameraErrorCode, CameraReadyInfo, CaptureQuality, OneScanCameraView, OneScanCameraViewRef } from '@/native/OneScanCameraView';
 import type { CapturedPhoto } from '@/native/OneScanVision';
 import { OneScanVision } from '@/native/OneScanVision';
 import { track } from '@/services/analytics/analytics';
 import { useImport } from '@/features/shared/useImport';
 import { CaptureQueue } from './captureQueue';
 import { EdgeOverlay } from './EdgeOverlay';
-import { chooseEngine } from './engine';
+import { chooseEngine, recentFailures } from './engine';
 import { noteCropResult } from './cropStats';
 import { scanHaptics } from './haptics';
 import { CoachTone, QualityCoach } from './QualityCoach';
@@ -82,7 +82,22 @@ export function ScannerScreen() {
   const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, getPermission] = useCameraPermissions();
+  // Permission granted in system Settings: pick it up when the app comes back.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') void getPermission();
+    });
+    return () => sub.remove();
+  }, [getPermission]);
+  // Camera off while another screen is pushed over the scanner (e.g. scan settings).
+  const [focused, setFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
   const nativeCamera = useRef<OneScanCameraViewRef>(null);
   const expoCamera = useRef<CameraView>(null);
 
@@ -136,17 +151,20 @@ export function ScannerScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit, when the camera engine is known
   }, [engine]);
 
-  // Crash guard for Auto fallback: `opening` stays set for the whole camera session, so an
-  // app that dies while the OneScan camera is open (crash, ANR kill, force close) is counted
-  // on the next visit. A session that closes normally after the camera worked resets it.
+  // Crash guard for Auto fallback: `opening` is set only while the OneScan camera is
+  // starting. An app that dies in that window (native crash while binding) is counted on the
+  // next visit; once the camera is ready the guard is cleared and failures reset, so a normal
+  // background kill later in the session never counts. Failures expire after a week.
   const sessionOk = useRef(false);
   useEffect(() => {
     if (engine !== 'onescan') return;
     const h = useSettings.getState().scannerHealth;
     sessionOk.current = false;
-    setHealth({ opening: true, failures: h.failures + (h.opening ? 1 : 0) });
-    return () => setHealth(sessionOk.current ? { opening: false, failures: 0 } : { opening: false });
+    setHealth(h.opening ? { opening: true, failures: recentFailures(h), lastFailureAt: Date.now() } : { opening: true });
+    return () => setHealth({ opening: false });
   }, [engine, setHealth]);
+  const [cameraError, setCameraError] = useState<CameraErrorCode | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
 
   const toEditor = () => {
     if (fromEditor) {
@@ -398,25 +416,36 @@ export function ScannerScreen() {
             ref={nativeCamera}
             style={StyleSheet.absoluteFill}
             torch={torch}
-            active
+            active={focused}
             captureQuality={quality}
             frameMaxEdge={192}
             frameIntervalMs={250}
+            retryToken={retryToken}
             onCameraReady={(e) => {
               setReady(true);
               setSwitching(false);
+              setCameraError(null);
               sessionOk.current = true;
+              setHealth({ opening: false, failures: 0 });
               cameraInfo.current = e.nativeEvent;
             }}
             onFrame={detection.onFrame}
-            onCameraError={() => {
-              sessionOk.current = false;
+            onCameraError={(e) => {
+              const code = e.nativeEvent.code ?? 'failed';
               setSwitching(false);
-              const h = useSettings.getState().scannerHealth;
-              setHealth({ opening: false, failures: h.failures + 1 });
-              track('capture_failed', { stage: 'open', engine: 'onescan' });
-              if (useSettings.getState().scanner.engine === 'auto' && hasSystemScanner()) fallBackToSystem('crashed');
-              else toast(t('scanner.unavailable'), 'error');
+              setReady(false);
+              track('capture_failed', { stage: code === 'failed' ? 'open' : code, engine: 'onescan' });
+              // Only a camera that cannot start at all counts towards Auto's fallback; busy /
+              // disabled / black preview get "Try again" (and the Google scanner) instead.
+              if (code === 'failed' && !sessionOk.current) {
+                const h = useSettings.getState().scannerHealth;
+                setHealth({ opening: false, failures: recentFailures(h) + 1, lastFailureAt: Date.now() });
+                if (useSettings.getState().scanner.engine === 'auto' && hasSystemScanner()) {
+                  fallBackToSystem('crashed');
+                  return;
+                }
+              }
+              setCameraError(code);
             }}
           />
         ) : (
@@ -444,6 +473,31 @@ export function ScannerScreen() {
           </View>
         ) : null}
         {preparing ? <PreparingCard uri={preparing.uri} aspect={preparing.aspect} /> : null}
+        {cameraError && live ? (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 }]}>
+            <TIcon name="camera" size="lg" color="#FFFFFF" />
+            <TText variant="body" style={{ color: '#FFFFFF', textAlign: 'center' }}>
+              {t(cameraError === 'busy' ? 'scanner.camera_busy' : cameraError === 'disabled' ? 'scanner.camera_disabled' : 'scanner.camera_failed')}
+            </TText>
+            <TButton
+              label={t('scanner.camera_retry')}
+              onPress={() => {
+                setCameraError(null);
+                setRetryToken((n) => n + 1);
+              }}
+            />
+            {hasSystemScanner() ? (
+              <TButton
+                label={t('scanner.use_system_scanner')}
+                variant="outline"
+                onPress={() => {
+                  setCameraError(null);
+                  fallBackToSystem('crashed');
+                }}
+              />
+            ) : null}
+          </View>
+        ) : null}
         <ScannerTopBar
           insetTop={insets.top}
           torch={torch}

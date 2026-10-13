@@ -13,6 +13,15 @@ export interface EngineAvailability {
 /** Consecutive OneScan camera failures after which Auto stops trying it. */
 export const MAX_ONESCAN_FAILURES = 2;
 
+/** Failures older than this are forgotten: Auto tries the OneScan camera again. */
+export const FAILURE_MEMORY_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Recent start failures, including a start that never finished (app died while opening). */
+export function recentFailures(h: ScannerHealth, now = Date.now()): number {
+  const fresh = h.lastFailureAt === undefined || now - h.lastFailureAt < FAILURE_MEMORY_MS;
+  return (fresh ? h.failures : 0) + (h.opening ? 1 : 0);
+}
+
 export interface EngineChoice {
   engine: ScannerEngine | null;
   /** Auto chose Google because OneScan can't run here (for `engine_fallback`). */
@@ -37,8 +46,7 @@ export function chooseEngine(
   if (!available.onescan) return { engine: google, fallbackReason: google ? 'unsupported' : undefined };
   if (setting === 'auto') {
     if (!customEnabled && google) return { engine: 'google', fallbackReason: 'disabled' };
-    const failures = health.failures + (health.opening ? 1 : 0);
-    if (failures >= MAX_ONESCAN_FAILURES && google) return { engine: 'google', fallbackReason: 'crashed' };
+    if (recentFailures(health) >= MAX_ONESCAN_FAILURES && google) return { engine: 'google', fallbackReason: 'crashed' };
   }
   return { engine: 'onescan' };
 }

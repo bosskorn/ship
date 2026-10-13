@@ -66,8 +66,12 @@ export interface CropStats {
 export const emptyCropStats: CropStats = { auto: 0, review: 0, manual: 0, autoCorrected: 0, reviewAccepted: 0, reviewCorrected: 0 };
 
 export interface ScannerHealth {
+  /** The OneScan camera is starting (set until its first frame / ready event). */
   opening: boolean;
+  /** Camera start failures (crash or error while starting), reset once the camera works. */
   failures: number;
+  /** When the last failure happened (ms); failures older than a week no longer count. */
+  lastFailureAt?: number;
 }
 
 export const defaultPrivacy: PrivacySettings = {
