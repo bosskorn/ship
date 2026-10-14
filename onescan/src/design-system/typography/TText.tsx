@@ -21,7 +21,7 @@ type TextColor = Extract<
 export interface TTextProps extends TextProps {
   variant?: TypographyVariant;
   color?: TextColor;
-  weight?: '400' | '500' | '600';
+  weight?: '400' | '500' | '600' | '700';
   align?: 'left' | 'center' | 'right';
 }
 

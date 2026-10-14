@@ -34,7 +34,7 @@ def is_text(s: str) -> bool:
 
 findings = []
 for dirpath, _, files in os.walk(ROOT):
-    if '__tests__' in dirpath or os.sep + 'locales' in dirpath:
+    if '__tests__' in dirpath or '__screens__' in dirpath or os.sep + 'locales' in dirpath:
         continue
     for f in files:
         if not f.endswith(('.tsx', '.ts')) or f.endswith('.d.ts'):
