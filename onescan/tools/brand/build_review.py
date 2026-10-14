@@ -14,6 +14,11 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(__file__))
 from symbols import CONCEPTS, symbol_svg  # noqa: E402
+from symbols2 import CONCEPTS2  # noqa: E402
+
+# Round 2 (owner: Slit OS reads as an S inside a circle): python3 build_review.py OUT 2
+ROUND = sys.argv[2] if len(sys.argv) > 2 else '1'
+ALL = CONCEPTS + CONCEPTS2
 
 OUT = os.path.abspath(sys.argv[1])
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +32,7 @@ NIGHT = '#4D8DFF'     # brand on dark UI
 INK = '#0A0F1A'       # pure-black stand-in for text and mono
 WHITE = '#FFFFFF'
 
-FINALISTS = ['A2', 'B5', 'C1', 'C3', 'B2']
+FINALISTS = ['A2', 'B5', 'C1', 'C3', 'B2'] if ROUND == '1' else ['R1', 'R3', 'R4', 'C1']
 REJECTED = {
     'A1': 'Too close to Opera’s O and to a power symbol.',
     'A3': 'Reads as the London Underground roundel / theta.',
@@ -35,6 +40,11 @@ REJECTED = {
     'B3': 'Circle + rectangle reads as a camera.',
     'B4': 'Reads as a peeling sticker / pie chart.',
     'C2': 'Reads as the digit 5; the O is lost.',
+    'R2': 'Clipped-corner rectangle reads as a SIM card.',
+    'R5': 'The inward flap reads as a pie chart / clock hand.',
+    'R6': 'Reads as a puzzle piece.',
+    'R7': 'Reads as sync / refresh arrows; the S is snake-like.',
+    'R8': 'Four tiles: too close to a well-known OS logo.',
 }
 NOTES = {
     'A2': ('Corner O', 'O + one page corner. The single square corner is the whole idea: one capture, one page. '
@@ -46,6 +56,12 @@ NOTES = {
            'Watch: wave forms are used by audio and payment brands; keep the hard horizontal cut, never round it into a tilde.'),
     'C3': ('Slit OS', 'A solid O with two offset slits; the remaining material is an S. Most “enterprise”, works as a stamp or seal.',
            'Watch: S-in-a-circle marks exist (music, banking); ours is built only from straight slits, no curved S.'),
+    'R1': ('One Cut', 'An O with one flat facet, like the straight edge of a sheet. One cut, one page: the simplest silhouette of round 2.',
+           'Watch: round marks with a flat side exist (camera and fintech badges); ours is a ring, flat only at the top-right, never a full D.'),
+    'R3': ('Creased Corner', 'Corner O with a single crease: the square corner reads as paper folded once.',
+           'Watch: the crease thins below 24 px, where the mark falls back to the Corner O silhouette (still recognisable).'),
+    'R4': ('Half Page', 'Left half an O, right half a sheet with square corners: O and page in one outline.',
+           'Watch: can read as a lowercase a/d at text size; keep it as a symbol, never inside a word.'),
     'B2': ('Folded Square', 'A squared O in page proportions with a folded corner. Distinct square silhouette among round marks.',
            'Watch: closest to a generic document icon of the five; weakest as an ownable symbol.'),
 }
@@ -58,7 +74,7 @@ def write(path, text):
 
 
 def concept(code):
-    return next(c for c in CONCEPTS if c[0] == code)
+    return next(c for c in ALL if c[0] == code)
 
 
 def masters(code):
@@ -167,7 +183,7 @@ def board(code, d):
 
 def concept_sheet():
     cells = ''
-    for i, (code, direction, name, why, fn) in enumerate(CONCEPTS):
+    for i, (code, direction, name, why, fn) in enumerate(CONCEPTS if ROUND == '1' else CONCEPTS2):
         tag = ('<b style="color:#1E8E3E">Finalist</b>' if code in FINALISTS
                else f'<span style="color:#B3261E">Not selected — {REJECTED.get(code, "")}</span>')
         cells += f'''<div class="card"><div class="row" style="gap:18px">
@@ -176,7 +192,7 @@ def concept_sheet():
 <div style="margin-top:12px;font-weight:700">{code} · {name} <span style="color:#5B6478;font-weight:400">({direction})</span></div>
 <div style="color:#5B6478;font-size:14px;margin:4px 0">{why}</div>{tag}</div>'''
     write(f'{OUT}/concepts.html', f'''<!doctype html><meta charset=utf-8><style>{CSS}</style><div class="wrap">
-<h1>OneScan — {len(CONCEPTS)} logo concepts</h1><div class="sub">Original vector geometry on a 1024 grid. App icon · symbol · mono · 24 px.</div>
+<h1>OneScan — {'' if ROUND == '1' else 'round 2: '}{len(CONCEPTS if ROUND == '1' else CONCEPTS2)} logo concepts</h1><div class="sub">Original vector geometry on a 1024 grid. App icon · symbol · mono · 24 px.</div>
 <div class="grid" style="grid-template-columns:1fr 1fr">{cells}</div></div>''')
     subprocess.run(['node', f'{HERE}/shoot.js', f'{OUT}/concepts.html', f'{OUT}/concepts.png', '1300'], check=True)
 
@@ -190,8 +206,8 @@ def finalists_sheet():
 <div class="row" style="justify-content:center;margin:14px 0">{lockup(concept(code)[4], f'f{code}', PRIMARY, INK, 40, 26)}</div>
 <div style="font-weight:700">{code} · {name}</div><div style="color:#5B6478;font-size:13px;margin-top:4px">{why}</div></div>'''
     write(f'{OUT}/finalists.html', f'''<!doctype html><meta charset=utf-8><style>{CSS}</style><div class="wrap">
-<h1>OneScan — 5 finalists</h1><div class="sub">Side by side at the same size.</div>
-<div class="grid" style="grid-template-columns:repeat(5,1fr)">{cells}</div></div>''')
+<h1>OneScan — {len(FINALISTS)} finalists{'' if ROUND == '1' else ' (round 2)'}</h1><div class="sub">Side by side at the same size.</div>
+<div class="grid" style="grid-template-columns:repeat({len(FINALISTS)},1fr)">{cells}</div></div>''')
     subprocess.run(['node', f'{HERE}/shoot.js', f'{OUT}/finalists.html', f'{OUT}/finalists.png', '1600'], check=True)
 
 
