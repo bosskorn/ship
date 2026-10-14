@@ -241,6 +241,14 @@ export function VerifyEmailScreen() {
       </View>
       <ErrorBanner message={error ? errorText(error) : null} />
       <TButton testID="verify-open-mail" label={t('account.open_mail')} icon="mail" block onPress={openMailApp} />
+      {/* The link confirms the email on Supabase's side wherever it lands, so signing in here always works afterwards. */}
+      <TButton
+        testID="verify-done"
+        label={t('account.verify_done')}
+        variant="outline"
+        block
+        onPress={() => router.replace({ pathname: '/account/login', params: { email: pendingEmail ?? '' } })}
+      />
       <TButton
         testID="verify-resend"
         label={wait > 0 ? t('account.resend_wait', { seconds: wait }) : t('account.resend')}
@@ -259,7 +267,6 @@ export function VerifyEmailScreen() {
           router.replace('/account/register');
         }}
       />
-      <TButton label={t('account.back_to_login')} variant="text" block onPress={() => router.replace({ pathname: '/account/login', params: { email: pendingEmail ?? '' } })} />
     </AccountForm>
   );
 }

@@ -155,6 +155,13 @@ describe('Verify / Forgot', () => {
     expect(byId(r, 'verify-resend').props.disabled).toBe(true);
   });
 
+  it('after tapping the email link anywhere, "confirmed — sign in" opens login with the email filled in', async () => {
+    const r = render(<VerifyEmailScreen />);
+    expect(text(r)).toContain('ยืนยันแล้ว เข้าสู่ระบบ');
+    await press(r, 'verify-done');
+    expect(mockRouter.replace).toHaveBeenCalledWith({ pathname: '/account/login', params: { email: 'new@example.com' } });
+  });
+
   it('forgot password always shows the same neutral confirmation', async () => {
     const r = render(<ForgotPasswordScreen />);
     act(() => input(r, 'forgot-email').props.onChangeText('nobody@example.com'));
