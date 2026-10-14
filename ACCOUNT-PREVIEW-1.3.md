@@ -2,12 +2,20 @@
 
 | APK | SHA-256 |
 | --- | --- |
-| `OneScan-v1.3.0-Account-Preview.apk` (commit 43aa9d9, branch `claude/account-1.3`) | `f15114f94f36632bab7fd20e03ce09294fbab85a0a5e4aebb5c18bd1c4d433ae` |
+| `OneScan-v1.3.0-Account-Preview.apk` (commit 2671d02, branch `claude/account-1.3`) | `16fa74ec9df3d9560e93816c43ee9be662692f7846cdc0f3d26a51c77bc8655c` |
 
 **ไม่ใช่ QA1 และไม่ใช่ Production** — สำหรับดูและลองหน้า เข้าสู่ระบบ / สร้างบัญชี ในแท็บ ฉัน
 - เซ็นด้วย Upload Key เดิม (`1c10565d…0e960a8`) → ติดตั้งทับ 1.2.0 / RC4 / V3 Preview ได้ เอกสารเดิมอยู่ครบ
 - versionName `1.3.0-account-preview`, versionCode 13 · arm64 (มือถือ Android 64-bit ทั่วไป)
 - เซิร์ฟเวอร์: Supabase project `kqvpwvexirxfxrfkyjbe` + OneScan API (Edge Function `onescan-api`)
+
+## สิ่งใหม่ในรอบนี้
+- เปิดแอปครั้งแรกหลังอัปเดต: หน้า "อนุญาตการเข้าถึง" (กล้อง) กด "ไว้ทีหลัง" ได้
+- ฉัน: การ์ดบัญชีด้านบน (แตะเข้า บัญชีของฉัน), ออกจากระบบอยู่ล่างสุด, ลบบัญชีอยู่ใน บัญชีของฉัน
+- ฉัน → ชื่อไฟล์สแกน: ตั้งคำนำหน้าชื่อไฟล์ (ค่าเริ่มต้น OneScan_ปี-เดือน-วัน_ชั่วโมง-นาที)
+- เครื่องมือ: ออกแบบใหม่ (การ์ดสแกนหลัก + หมวดหมู่)
+- เอกสาร: แสดงแบบรายการ (ชื่อ + ไอคอนประเภท) ไม่ใช่รูป; สลับเป็นตารางรูปได้ที่ปุ่มด้านบน
+- นโยบายความเป็นส่วนตัว / ข้อกำหนดการใช้งาน อ่านในแอปได้เลย (ฉัน → เกี่ยวกับ)
 
 ## ก่อนทดสอบ (ต้องทำครั้งเดียว)
 1. Supabase Dashboard → Authentication → URL Configuration → Redirect URLs → เพิ่ม
