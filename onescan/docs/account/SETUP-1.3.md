@@ -69,3 +69,19 @@ EXPO_PUBLIC_ACCOUNT_API_URL=https://onescan-api.<account>.workers.dev
 - โดเมนจริง + Android App Links (Security Review M1)
 - Terms/Privacy ผ่านการตรวจ + หน้าเว็บลบบัญชี + Google Play Data safety (M2)
 - Supabase project แยกสำหรับ Production
+
+## 5. Android App Links (M1, required for production)
+
+ต้องมีโดเมนจริงของ OneScan (เช่น `links.<โดเมน>`) ที่ชี้ไปยังเซิร์ฟเวอร์ซึ่งเสิร์ฟ 2 path:
+`/.well-known/assetlinks.json` (JSON, 200, ไม่มี redirect) และ `/auth/link` (หน้าแจ้งให้เปิดบนมือถือ)
+— Cloudflare Worker ใน `backend/api` ทำทั้งสองอย่างแล้ว (ตั้ง `ANDROID_CERT_SHA256` = upload key + Play app-signing key)
+
+1. Build แอปด้วย `EXPO_PUBLIC_APP_LINK_HOST=<host>` → `app.config.js` เพิ่ม intent filter `android:autoVerify="true"` สำหรับ `https://<host>/auth/link`
+   (ต้อง `npx expo prebuild --platform android` ใหม่เพื่อให้ AndroidManifest ได้ intent filter นี้)
+2. Supabase → Authentication → URL Configuration: Site URL และ Redirect URLs = `https://<host>/auth/link`
+   (ลบ redirect แบบ `onescan://` และ URL ของ QA ออกจากโปรเจกต์ production)
+3. ตรวจ: `node scripts/verify-app-links.mjs <host> --apk <apk> --cert <upload SHA-256> --cert <Play signing SHA-256>`
+4. บนเครื่อง: `adb shell pm get-app-links app.onescan.mobile` ต้องเห็น `<host>: verified`
+   และ `adb shell am start -a android.intent.action.VIEW -d "https://<host>/auth/link#token_hash=test&type=email"` ต้องเปิด OneScan
+
+เมื่อตั้ง host แล้ว แอปไม่รับลิงก์อีเมลแบบ `onescan://` อีก (ทิ้งทั้งใน native intent และหน้า callback)

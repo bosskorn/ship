@@ -35,8 +35,8 @@
 
 | # | ระดับ | เรื่อง | แผน |
 | --- | --- | --- | --- |
-| M1 | Medium | ลิงก์ในอีเมลเปิดแอปผ่าน custom scheme `onescan://` แอปอื่นที่ลงทะเบียน scheme เดียวกันอาจดัก `token_hash` ได้ (ผลกระทบจำกัด: token ใช้ครั้งเดียว อายุ 1 ชม.) | ใช้ Android App Links (https ที่ verify แล้ว) บนโดเมนจริง: Worker เสิร์ฟ `/.well-known/assetlinks.json` แล้ว (ต้องใส่ fingerprint ของ Play app-signing key) + เพิ่ม intent-filter `autoVerify` ใน app config เมื่อได้โดเมน |
-| M2 | Medium | ข้อความ Terms/Privacy ใน `backend/api/src/legal.ts` เป็นร่างที่ตรงกับการทำงานจริง แต่ยังไม่ผ่านการตรวจทางกฎหมาย (PDPA) และ Google Play ต้องการหน้าเว็บสำหรับขอลบบัญชี + Data safety form | Owner/ที่ปรึกษาตรวจข้อความ, เพิ่มหน้าเว็บลบบัญชี + ช่องทางติดต่อ, กรอก Data safety (email, device info, account management) |
+| M1 | Medium · **โค้ดพร้อม รอโดเมน** | ลิงก์ในอีเมลเปิดแอปผ่าน custom scheme `onescan://` แอปอื่นที่ลงทะเบียน scheme เดียวกันอาจดัก `token_hash` ได้ (ผลกระทบจำกัด: token ใช้ครั้งเดียว อายุ 1 ชม.) | ใช้ Android App Links (https ที่ verify แล้ว) บนโดเมนจริง: Worker เสิร์ฟ `/.well-known/assetlinks.json` แล้ว (ต้องใส่ fingerprint ของ Play app-signing key) + เพิ่ม intent-filter `autoVerify` ใน app config เมื่อได้โดเมน — ทำแล้ว: `EXPO_PUBLIC_APP_LINK_HOST`, `app.config.js`, ปฏิเสธ `onescan://` เมื่อมี host, Worker `/auth/link` ไม่ส่งต่อ custom scheme, `scripts/verify-app-links.mjs`; เหลือ: โดเมนจริง + deploy + Play signing fingerprint + ตรวจบนเครื่อง |
+| M2 | Medium · **เปิดอยู่** | ข้อความ Terms/Privacy (ตอนนี้แสดงในแอปแล้ว แต่ยังเป็น Product Draft) ใน `backend/api/src/legal.ts` เป็นร่างที่ตรงกับการทำงานจริง แต่ยังไม่ผ่านการตรวจทางกฎหมาย (PDPA) และ Google Play ต้องการหน้าเว็บสำหรับขอลบบัญชี + Data safety form | Owner/ที่ปรึกษาตรวจข้อความ, เพิ่มหน้าเว็บลบบัญชี + ช่องทางติดต่อ, กรอก Data safety (email, device info, account management) |
 
 ## Low / Info (บันทึกไว้)
 
