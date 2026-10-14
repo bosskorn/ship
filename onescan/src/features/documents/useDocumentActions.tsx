@@ -1,12 +1,33 @@
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TActionSheet, TDialog, TInput, useToast } from '@/design-system';
+import { View } from 'react-native';
+import { TActionSheet, TDialog, TInput, TText, useTheme, useToast } from '@/design-system';
 import type { DocumentRecord } from '@/core/document-engine/model';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { documentRepository } from '@/core/database/repositories/documentRepository';
 import { useFeature, useRemoteConfig } from '@/core/config/remoteConfig';
 import { track } from '@/services/analytics/analytics';
 import { useDocuments } from './documentsStore';
+import { DocumentThumb, useDocumentMeta } from './DocumentListItem';
+
+/** Bottom-sheet header: which document the actions apply to. */
+function SheetHeader({ doc }: { doc: DocumentRecord }) {
+  const { spacing } = useTheme();
+  const meta = useDocumentMeta(doc);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.xl, paddingTop: spacing.xs, paddingBottom: spacing.sm }}>
+      <DocumentThumb doc={doc} width={36} height={46} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <TText variant="title" numberOfLines={1}>
+          {doc.title}
+        </TText>
+        <TText variant="bodySmall" color="textSecondary" numberOfLines={1}>
+          {meta}
+        </TText>
+      </View>
+    </View>
+  );
+}
 
 type Pending = { kind: 'menu' | 'rename' | 'delete' | 'move'; doc: DocumentRecord } | null;
 
@@ -76,10 +97,11 @@ export function useDocumentActions() {
         cancelLabel={t('common.cancel')}
         onClose={close}
         onSelect={onSelect}
+        header={pending?.kind === 'menu' ? <SheetHeader doc={pending.doc} /> : undefined}
         items={[
-          { key: 'share', label: t('documents.share'), icon: 'share' },
           { key: 'rename', label: t('documents.rename'), icon: 'edit' },
-          { key: 'move', label: t('documents.move'), icon: 'folder' },
+          { key: 'move', label: t('documents.move_to_folder'), icon: 'folder' },
+          { key: 'share', label: t('documents.share_pdf'), icon: 'share' },
           { key: 'duplicate', label: t('documents.duplicate'), icon: 'duplicate' },
           { key: 'delete', label: t('documents.delete'), icon: 'delete', danger: true },
         ]}

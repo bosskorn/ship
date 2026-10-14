@@ -218,6 +218,9 @@ const th: LocaleResource = {
     default_name: 'สแกน {{date}}',
   },
   documents: {
+    select_all: 'เลือกทั้งหมด',
+    share_pdf: 'แชร์เป็น PDF',
+    move_to_folder: 'ย้ายไปโฟลเดอร์',
     view_grid: 'มุมมองตาราง',
     view_list: 'มุมมองรายการ',
     selected: 'เลือก {{count}} รายการ',
@@ -284,6 +287,8 @@ const th: LocaleResource = {
     not_found: 'ไม่พบเอกสาร',
   },
   search: {
+    found: 'พบ {{count}} เอกสาร',
+    clear: 'ล้างคำค้นหา',
     placeholder: 'ลองพิมพ์ "ใบแจ้งหนี้ ตุลาคม"',
     local_note: 'ค้นหาบนเครื่องนี้เท่านั้น',
     no_results: 'ไม่พบเอกสารที่ตรงกัน',
@@ -366,6 +371,9 @@ const th: LocaleResource = {
     select_pages: 'เนื้อหาที่จะส่ง',
   },
   tools: {
+    scan_id: 'สแกนบัตร',
+    scan_receipt: 'สแกนใบเสร็จ',
+    import_photos: 'นำเข้ารูป',
     section_import: 'นำเข้า',
     import_pdf: 'นำเข้า PDF',
     title: 'เครื่องมือ',
@@ -408,6 +416,7 @@ const th: LocaleResource = {
     byoc: 'ใช้คลาวด์ของคุณเองได้ ไม่จำเป็นต้องใช้พื้นที่ของ OneScan',
   },
   profile: {
+    section_general: 'ทั่วไป',
     section_data: 'ข้อมูลและความเป็นส่วนตัว',
     section_app: 'การตั้งค่าแอป',
     section_about: 'เกี่ยวกับ',

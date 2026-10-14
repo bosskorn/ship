@@ -121,7 +121,7 @@ export const useSettings = create<SettingsState>()(
       onboardingCompleted: false,
       language: null,
       ocrLanguage: defaultOcrLanguage,
-      documentsView: 'list',
+      documentsView: 'grid',
       setDocumentsView: (documentsView) => set({ documentsView }),
       appearance: 'system',
       privacy: defaultPrivacy,

@@ -17,17 +17,24 @@ import { HomeScreen } from '@/features/home/HomeScreen';
 import { DocumentsScreen } from '@/features/documents/DocumentsScreen';
 import { ToolsScreen } from '@/features/tools/ToolsScreen';
 import { ProfileScreen } from '@/features/profile/ProfileScreen';
+import { SearchScreen } from '@/features/search/SearchScreen';
 import { AppTabBar } from '@/navigation/AppTabBar';
 import { useSettings } from '@/core/config/settingsStore';
 import type { DocumentRecord, FolderRecord } from '@/core/document-engine/model';
 
 const OUT = process.env.SHOTS_OUT ?? path.join(__dirname, 'out');
-const mockState: { docs: DocumentRecord[]; folders: FolderRecord[] } = { docs: [], folders: [] };
+const mockState: { docs: DocumentRecord[]; folders: FolderRecord[]; ocr: Record<string, string> } = { docs: [], folders: [], ocr: {} };
 
 jest.mock('@/core/storage/kvStorage', () => ({ kvStore: { getItem: jest.fn(), setItem: jest.fn(), removeItem: jest.fn() } }));
 jest.mock('@/core/document-engine/ids', () => ({ newId: () => 'shot-id' }));
 jest.mock('@/core/document-engine/DocumentEngine', () => ({ DocumentEngine: {} }));
-jest.mock('@/core/database/repositories/documentRepository', () => ({ folderRepository: { create: jest.fn() }, documentRepository: {} }));
+jest.mock('@/core/database/repositories/documentRepository', () => ({
+  folderRepository: { create: jest.fn() },
+  documentRepository: {
+    search: async () => mockState.docs.filter((d) => d.id === '3' || d.id === '7'),
+    ocrText: async (id: string) => mockState.ocr[id] ?? '',
+  },
+}));
 jest.mock('@/features/scanner/scanSession', () => ({ useScanSession: { getState: () => ({ start: () => undefined }) } }));
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), navigate: jest.fn() },
@@ -68,10 +75,12 @@ const DOCS: Record<string, DocumentRecord[]> = {
   th: [
     doc('1', 'ใบเสร็จร้านกาแฟ', 1, 412, 0), doc('2', 'สัญญาเช่าคอนโด', 6, 3870, 2), doc('3', 'ใบแจ้งหนี้ค่าไฟ ต.ค.', 2, 958, 5),
     doc('4', 'สำเนาบัตรประชาชน', 1, 520, 8), doc('5', 'ใบสมัครงาน', 3, 1460, 12), doc('6', 'บันทึกการประชุม', 4, 2210, 20),
+    doc('7', 'ใบแจ้งหนี้ค่าไฟ ก.ย.', 2, 940, 33),
   ],
   en: [
     doc('1', 'Coffee receipt', 1, 412, 0), doc('2', 'Apartment lease', 6, 3870, 2), doc('3', 'Electricity bill Oct', 2, 958, 5),
     doc('4', 'ID card copy', 1, 520, 8), doc('5', 'Job application', 3, 1460, 12), doc('6', 'Meeting notes', 4, 2210, 20),
+    doc('7', 'Electricity bill Sep', 2, 940, 33),
   ],
 };
 const folder = (id: string, name: string, itemCount: number): FolderRecord => ({ id, name, systemKey: null, createdAt: now, itemCount });
@@ -80,7 +89,7 @@ const FOLDERS: Record<string, FolderRecord[]> = {
   en: [folder('f1', 'Work', 4), folder('f2', 'Home', 2), folder('f3', 'Taxes 2026', 7)],
 };
 
-type Tab = 'index' | 'documents' | 'tools' | 'profile';
+type Tab = 'index' | 'documents' | 'tools' | 'profile' | 'search';
 interface Shot {
   lang: 'th' | 'en';
   scheme: 'light' | 'dark';
@@ -93,6 +102,8 @@ interface Shot {
   /** Long-press these test IDs (enters selection mode). */
   hold?: string[];
   sheet?: boolean;
+  /** Type into the search field. */
+  type?: string;
 }
 
 function setWidth(width: number) {
@@ -112,6 +123,7 @@ const SCREENS: Record<Tab, () => React.ReactElement> = {
   documents: () => <DocumentsScreen />,
   tools: () => <ToolsScreen />,
   profile: () => <ProfileScreen />,
+  search: () => <SearchScreen />,
 };
 
 async function holdByTestId(id: string) {
@@ -130,6 +142,9 @@ async function render(shot: Shot) {
   const height = 915;
   mockState.docs = shot.docs ? DOCS[shot.lang] : [];
   mockState.folders = shot.folders ? FOLDERS[shot.lang] : [];
+  mockState.ocr = shot.lang === 'th'
+    ? { '3': 'การไฟฟ้านครหลวง ใบแจ้งค่าไฟฟ้า ประจำเดือนตุลาคม 2569 ยอดชำระ 1,284.50 บาท', '7': 'รวมค่าไฟฟ้าและภาษีมูลค่าเพิ่ม 1,102.75 บาท ชำระภายในวันที่ 25 กันยายน' }
+    : { '3': 'Metropolitan Electricity Authority, electricity bill for October 2026, amount due 1,284.50 THB', '7': 'Total electricity charge incl. VAT 1,102.75 THB, due by 25 September' };
   useSettings.setState({ documentsView: shot.view ?? 'list' });
   setWidth(width);
   const routes = ['index', 'documents', 'scan', 'tools', 'profile'].map((name) => ({ key: name, name }));
@@ -144,7 +159,7 @@ async function render(shot: Shot) {
         <TToastProvider>
           <View style={{ width, height, overflow: 'hidden' }}>
             <View style={{ flex: 1 }}>{SCREENS[shot.tab]()}</View>
-            <AppTabBar {...tabProps} />
+            {shot.tab === 'search' ? null : <AppTabBar {...tabProps} />}
           </View>
         </TToastProvider>
       </ThemeProvider>
@@ -155,6 +170,15 @@ async function render(shot: Shot) {
   const root = createRoot(document.getElementById('root')!);
   act(() => root.render(<App />));
   for (const id of shot.press ?? []) pressByTestId(id);
+  if (shot.type) {
+    const input = document.querySelector<HTMLInputElement>('[data-testid="search-input"]')!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(input, shot.type);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 400));
+    });
+  }
   for (const id of shot.hold ?? []) await holdByTestId(id);
   // Android has no <button>; nested buttons would be split by the HTML parser.
   const html = document.body.innerHTML.replace(/<button\b/g, '<div').replace(/<\/button>/g, '</div>');
@@ -183,6 +207,9 @@ const shots: Record<string, Shot> = {
   'app-09-home-docs-dark-th': { lang: 'th', scheme: 'dark', tab: 'index', docs: true },
   'app-09b-documents-grid-dark-en': { lang: 'en', scheme: 'dark', tab: 'documents', docs: true, view: 'grid' },
   'app-09c-home-fresh-dark-th': { lang: 'th', scheme: 'dark', tab: 'index' },
+  'app-11-search-th': { lang: 'th', scheme: 'light', tab: 'search', docs: true, type: 'ค่าไฟ' },
+  'app-11b-search-en-dark': { lang: 'en', scheme: 'dark', tab: 'search', docs: true, type: 'electricity' },
+  'app-12-folder-empty-chip-th': { lang: 'th', scheme: 'light', tab: 'documents', docs: true, press: ['chip-folders'] },
   'app-10-home-docs-360-th': { lang: 'th', scheme: 'light', tab: 'index', docs: true, width: 360 },
   'app-10b-home-fresh-360-en': { lang: 'en', scheme: 'light', tab: 'index', width: 360 },
 };

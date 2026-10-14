@@ -20,17 +20,17 @@ export function ProfileScreen() {
   return (
     <TScreen scroll surface="container" header={<TTopAppBar title={t('profile.title')} />}>
       {/* v1: no account, no plans, no cloud — everything stays on this phone. */}
-      <TCellGroup title={t('profile.section_data')}>
-        <TCell icon="storage" title={t('profile.storage')} note={t('profile.storage_local')} />
-        <TCell icon="shield" title={t('profile.privacy')} arrow onPress={go('/privacy')} testID="profile-privacy" />
-        <TCell icon="lock" title={t('profile.security')} arrow onPress={go('/security')} />
-      </TCellGroup>
-
-      <TCellGroup title={t('profile.section_app')}>
+      <TCellGroup title={t('profile.section_general')}>
         <TCell icon="translate" title={t('profile.language')} note={langLabel} arrow onPress={go('/language')} />
         <TCell icon="ocr" title={t('ocr_language.title')} note={t(ocr.labelKey)} arrow onPress={go('/ocr-language')} />
         <TCell icon="appearance" title={t('profile.appearance')} note={t(`appearance.${appearance}`)} arrow onPress={go('/appearance')} />
         <TCell icon="camera" title={t('scan_quality.title')} note={t(`scan_quality.${scanQuality}`)} arrow onPress={go('/scan-quality')} />
+      </TCellGroup>
+
+      <TCellGroup title={t('profile.section_data')}>
+        <TCell icon="storage" title={t('profile.storage')} note={t('profile.storage_local')} />
+        <TCell icon="shield" title={t('profile.privacy')} arrow onPress={go('/privacy')} testID="profile-privacy" />
+        <TCell icon="lock" title={t('profile.security')} arrow onPress={go('/security')} />
       </TCellGroup>
 
       <TCellGroup title={t('profile.section_about')}>

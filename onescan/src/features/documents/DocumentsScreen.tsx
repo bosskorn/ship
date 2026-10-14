@@ -88,6 +88,7 @@ export function DocumentsScreen() {
   };
   const selectedDocs = () => documents.filter((d) => selected.has(d.id));
 
+  const docs = filter === 'recent' ? recent : documents;
   const header = selecting ? (
     <TTopAppBar
       leading={
@@ -99,6 +100,7 @@ export function DocumentsScreen() {
         </View>
       }
       actions={[
+        { icon: 'selectAll', label: t('documents.select_all'), onPress: () => setSelected(new Set(docs.map((d) => d.id))) },
         ...(folders.length ? [{ icon: 'folder' as const, label: t('documents.move'), onPress: () => setBulk('move') }] : []),
         { icon: 'delete', label: t('documents.delete'), onPress: () => setBulk('delete') },
       ]}
@@ -116,7 +118,6 @@ export function DocumentsScreen() {
     />
   );
 
-  const docs = filter === 'recent' ? recent : documents;
   const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brand]} tintColor={colors.brand} />;
 
   return (

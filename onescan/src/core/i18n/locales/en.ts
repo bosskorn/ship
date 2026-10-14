@@ -216,6 +216,9 @@ const en = {
     default_name: 'Scan {{date}}',
   },
   documents: {
+    select_all: 'Select all',
+    share_pdf: 'Share as PDF',
+    move_to_folder: 'Move to folder',
     view_grid: 'Grid view',
     view_list: 'List view',
     selected: '{{count}} selected',
@@ -282,6 +285,8 @@ const en = {
     not_found: 'Document not found',
   },
   search: {
+    found: '{{count}} documents found',
+    clear: 'Clear search',
     placeholder: 'Try "invoice October"',
     local_note: 'Search runs on this device',
     no_results: 'No matching documents',
@@ -364,6 +369,9 @@ const en = {
     select_pages: 'Content to send',
   },
   tools: {
+    scan_id: 'Scan ID card',
+    scan_receipt: 'Scan receipt',
+    import_photos: 'Import photos',
     section_import: 'Import',
     import_pdf: 'Import PDF',
     title: 'Tools',
@@ -406,6 +414,7 @@ const en = {
     byoc: 'Bring your own cloud — no OneScan storage required.',
   },
   profile: {
+    section_general: 'General',
     section_data: 'Data and privacy',
     section_app: 'App settings',
     section_about: 'About',

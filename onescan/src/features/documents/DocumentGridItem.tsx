@@ -1,14 +1,17 @@
 import React, { memo } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, useWindowDimensions, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { TIconButton, TText, useTheme } from '@/design-system';
-import { DocumentListItemProps, DocumentThumb, SelectionMark, useDocumentMeta } from './DocumentListItem';
+import { DocumentListItemProps, DocumentPaper, SelectionMark, useDocumentMeta } from './DocumentListItem';
 
 /** Grid cell: the page itself is the hero (A4 proportions), title and meta below. */
 export const DocumentGridItem = memo(function DocumentGridItem({ doc, onPress, onMore, onLongPress, selected, selecting }: DocumentListItemProps) {
   const { t } = useTranslation();
   const { colors, spacing, radius } = useTheme();
   const meta = useDocumentMeta(doc);
+  // Two columns with 16 dp gutters: the page keeps A-series proportions (3:4).
+  const { width } = useWindowDimensions();
+  const pageHeight = Math.round(((width - 16 * 2 - 12) / 2 - 8) * (4 / 3));
   return (
     <Pressable
       testID={`doc-${doc.id}`}
@@ -24,7 +27,9 @@ export const DocumentGridItem = memo(function DocumentGridItem({ doc, onPress, o
       })}
     >
       <View>
-        <DocumentThumb doc={doc} width="100%" height={196} />
+        <View style={selected ? { borderRadius: 8, borderWidth: 3, borderColor: colors.brand, margin: -3 } : undefined}>
+          <DocumentPaper doc={doc} width="100%" height={pageHeight} />
+        </View>
         {selecting ? (
           <View style={{ position: 'absolute', top: spacing.xs, end: spacing.xs }}>
             <SelectionMark selected={!!selected} />

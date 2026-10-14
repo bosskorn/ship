@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { TText } from '../typography/TText';
 import { IconName, TIcon } from '../icons/TIcon';
@@ -41,8 +41,11 @@ export function TChip({ label, selected, icon, onPress, testID }: { label: strin
 export function TChipRow({ children }: { children: React.ReactNode }) {
   const { spacing } = useTheme();
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}>
-      {children}
-    </ScrollView>
+    // Fixed height: a horizontal scroller must not collapse or stretch inside a column.
+    <View style={{ height: 50 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.xs, paddingHorizontal: spacing.md, alignItems: 'center' }}>
+        {children}
+      </ScrollView>
+    </View>
   );
 }

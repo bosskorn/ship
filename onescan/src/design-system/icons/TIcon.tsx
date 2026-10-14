@@ -61,6 +61,7 @@ const registry = {
   camera: Camera,
   layers: Layers,
   list: List,
+  selectAll: ListChecks,
   merge: Merge,
   split: Split,
   compress: Minimize2,

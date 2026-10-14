@@ -16,6 +16,7 @@ export interface TActionSheetItem {
 export function TActionSheet({
   visible,
   title,
+  header,
   items,
   cancelLabel,
   onSelect,
@@ -23,6 +24,8 @@ export function TActionSheet({
 }: {
   visible: boolean;
   title?: string;
+  /** Rich header (e.g. the document's thumbnail and name); replaces `title`. */
+  header?: React.ReactNode;
   items: TActionSheetItem[];
   cancelLabel: string;
   onSelect: (key: string) => void;
@@ -46,11 +49,11 @@ export function TActionSheet({
         <View style={{ alignItems: 'center', paddingTop: spacing.xs, paddingBottom: spacing.xxs }}>
           <View style={{ width: 32, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
         </View>
-        {title ? (
+        {header ?? (title ? (
           <TText variant="title" numberOfLines={1} style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xs, paddingBottom: spacing.xs }}>
             {title}
           </TText>
-        ) : null}
+        ) : null)}
         {items.map((it) => (
           <Pressable
             key={it.key}
