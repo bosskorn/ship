@@ -209,56 +209,128 @@ const TERMS_TH: LegalDocument = {
   title: 'ข้อกำหนดการใช้งาน',
   updated: 'ปรับปรุงล่าสุด 14 ตุลาคม 2569',
   version: 'เวอร์ชัน 1.3',
-  intro: 'ข้อกำหนดนี้ใช้กับการใช้งานแอป OneScan และบัญชี OneScan การใช้แอปหรือสร้างบัญชีถือว่าคุณยอมรับข้อกำหนดนี้',
+  intro:
+    'ข้อกำหนดการใช้งานฉบับนี้ ("ข้อกำหนด") เป็นข้อตกลงระหว่างคุณกับผู้พัฒนา OneScan ("เรา") ว่าด้วยการใช้แอป OneScan และบัญชี OneScan โปรดอ่านให้ครบถ้วนก่อนใช้งาน',
+  highlights: [
+    { icon: 'documents', title: 'เอกสารเป็นของคุณ', body: 'เราไม่ได้รับสิทธิใด ๆ ในเนื้อหาเอกสารที่คุณสแกน' },
+    { icon: 'profile', title: 'ใช้งานได้โดยไม่ต้องมีบัญชี', body: 'บัญชีเป็นทางเลือก และยกเลิกได้ทุกเมื่อ' },
+    { icon: 'check', title: 'ใช้อย่างถูกกฎหมาย', body: 'สแกนเฉพาะเอกสารที่คุณมีสิทธิใช้งาน' },
+    { icon: 'storage', title: 'สำรองเอกสารสำคัญเสมอ', body: 'เอกสารอยู่บนเครื่อง หากเครื่องสูญหายหรือลบแอป เอกสารจะหายไปด้วย' },
+  ],
   sections: [
     {
-      title: 'บริการ',
+      title: 'การยอมรับข้อกำหนด',
       paragraphs: [
-        'OneScan เป็นแอปสแกนเอกสารที่ทำงานบนอุปกรณ์ของคุณ การสแกน การอ่านข้อความ (OCR) การค้นหา และการสร้าง PDF ใช้ได้โดยไม่ต้องมีบัญชี บัญชี OneScan เป็นทางเลือก',
+        'เมื่อคุณติดตั้ง เปิดใช้ หรือสร้างบัญชี OneScan ถือว่าคุณได้อ่าน เข้าใจ และตกลงผูกพันตามข้อกำหนดนี้และนโยบายความเป็นส่วนตัว หากคุณไม่ยอมรับ โปรดหยุดใช้แอป',
+        'หากคุณมีอายุต่ำกว่า 20 ปี (ผู้เยาว์ตามกฎหมายไทย) คุณควรใช้งานโดยได้รับความยินยอมจากผู้ปกครอง และบริการบัญชีไม่เปิดให้ผู้มีอายุต่ำกว่า 13 ปี',
       ],
     },
     {
-      title: 'บัญชีของคุณ',
+      title: 'บริการ OneScan',
+      paragraphs: [
+        'OneScan เป็นแอปสำหรับสแกน จัดเก็บ ค้นหา และส่งออกเอกสาร โดยการสแกน การปรับภาพ การอ่านข้อความ (OCR) และการสร้าง PDF ทำงานบนอุปกรณ์ของคุณ บัญชี OneScan เป็นบริการเสริมที่ไม่จำเป็นต่อการใช้ฟีเจอร์หลัก',
+        'เราอาจเพิ่ม ปรับปรุง หรือยุติฟีเจอร์บางส่วนเพื่อพัฒนาบริการ หากเป็นการเปลี่ยนแปลงที่กระทบคุณอย่างมีนัยสำคัญ เราจะแจ้งให้ทราบในแอปล่วงหน้าตามสมควร',
+      ],
+    },
+    {
+      title: 'สิทธิการใช้งานแอป',
+      paragraphs: [
+        'เราให้สิทธิแก่คุณในการใช้แอป OneScan เพื่อวัตถุประสงค์ส่วนตัวหรือการทำงานของคุณเอง แบบไม่ผูกขาด โอนไม่ได้ และเพิกถอนได้ ตามข้อกำหนดนี้ สิทธิใดที่ไม่ได้ระบุไว้อย่างชัดแจ้งยังคงเป็นของเรา',
+      ],
+    },
+    {
+      title: 'บัญชี OneScan',
       bullets: [
-        'ใช้อีเมลที่เป็นของคุณและให้ข้อมูลที่ถูกต้อง',
-        'เก็บรหัสผ่านเป็นความลับ และแจ้งเราหากสงสัยว่ามีผู้อื่นเข้าถึงบัญชี',
-        'คุณรับผิดชอบการใช้งานที่เกิดขึ้นในบัญชีของคุณ',
-        'คุณออกจากระบบหรือลบบัญชีได้ทุกเมื่อในแอป',
+        'ใช้อีเมลที่เป็นของคุณ และให้ข้อมูลที่ถูกต้องเป็นปัจจุบัน',
+        'บัญชีหนึ่งบัญชีสำหรับผู้ใช้หนึ่งคน ห้ามโอน ขาย หรือให้ผู้อื่นใช้บัญชีของคุณ',
+        'เก็บรักษารหัสผ่านเป็นความลับ และแจ้งเราทันทีหากสงสัยว่ามีการเข้าถึงโดยไม่ได้รับอนุญาต',
+        'คุณรับผิดชอบต่อการกระทำทั้งหมดที่เกิดขึ้นภายใต้บัญชีของคุณ',
+        'คุณออกจากระบบ จัดการอุปกรณ์ หรือลบบัญชีได้ด้วยตนเองในแอป',
       ],
     },
     {
-      title: 'เอกสารของคุณ',
+      title: 'เอกสารและเนื้อหาของคุณ',
       paragraphs: [
-        'เอกสารที่คุณสแกนเป็นของคุณ และเก็บไว้บนอุปกรณ์ของคุณ เราไม่ได้รับสิทธิใด ๆ ในเนื้อหาเอกสาร คุณควรสำรองเอกสารสำคัญด้วยการส่งออกเป็นประจำ เพราะเอกสารจะหายไปหากอุปกรณ์สูญหาย ถูกล้างข้อมูล หรือถอนการติดตั้งแอป',
+        'คุณเป็นเจ้าของเอกสารและเนื้อหาทั้งหมดที่สแกนหรือนำเข้า เอกสารถูกจัดเก็บและเข้ารหัสบนอุปกรณ์ของคุณ เราไม่ได้รับสิทธิในการเข้าถึง ใช้ หรือเผยแพร่เนื้อหาดังกล่าว',
+        'คุณรับรองว่ามีสิทธิโดยชอบในการสแกน จัดเก็บ และแชร์เอกสารที่ใช้กับแอป โดยเฉพาะเอกสารที่มีข้อมูลส่วนบุคคลของผู้อื่น เช่น บัตรประจำตัวประชาชน และจะปฏิบัติตามกฎหมายคุ้มครองข้อมูลส่วนบุคคลที่เกี่ยวข้อง',
+        'เนื่องจากเอกสารไม่ได้ถูกสำรองไว้บนเซิร์ฟเวอร์ของเรา คุณควรส่งออกเอกสารสำคัญเก็บไว้เป็นประจำ เราไม่สามารถกู้คืนเอกสารที่สูญหายจากอุปกรณ์ได้',
       ],
+    },
+    {
+      title: 'ความเป็นส่วนตัว',
+      paragraphs: ['การเก็บและใช้ข้อมูลส่วนบุคคลเป็นไปตามนโยบายความเป็นส่วนตัวของ OneScan ซึ่งถือเป็นส่วนหนึ่งของข้อกำหนดนี้'],
     },
     {
       title: 'การใช้งานที่ไม่อนุญาต',
       bullets: [
-        'ใช้บริการเพื่อกระทำผิดกฎหมายหรือละเมิดสิทธิของผู้อื่น',
-        'พยายามเข้าถึงบัญชีของผู้อื่น หรือโจมตี รบกวน หรือทดสอบระบบโดยไม่ได้รับอนุญาต',
-        'ดัดแปลง แยกส่วน หรือทำวิศวกรรมย้อนกลับแอป เว้นแต่กฎหมายอนุญาต',
+        'ใช้บริการเพื่อกระทำความผิดกฎหมาย ฉ้อโกง ปลอมแปลงเอกสาร หรือละเมิดสิทธิของบุคคลอื่น',
+        'สแกนหรือเผยแพร่เอกสารที่คุณไม่มีสิทธิ หรือละเมิดทรัพย์สินทางปัญญาของผู้อื่น',
+        'พยายามเข้าถึงบัญชีหรือข้อมูลของผู้อื่น หรือเข้าถึงระบบโดยไม่ได้รับอนุญาต',
+        'โจมตี รบกวน ทดสอบช่องโหว่ หรือทำให้ระบบรับภาระเกินสมควร',
+        'ดัดแปลง แยกส่วน ทำวิศวกรรมย้อนกลับ หรือสร้างงานดัดแปลงจากแอป เว้นแต่กฎหมายอนุญาต',
+        'ใช้โปรแกรมอัตโนมัติเพื่อสร้างบัญชีหรือเรียกใช้บริการบัญชีจำนวนมาก',
       ],
     },
     {
-      title: 'การเปลี่ยนแปลงและการยุติ',
+      title: 'ทรัพย์สินทางปัญญา',
       paragraphs: [
-        'เราอาจปรับปรุงบริการหรือข้อกำหนดนี้ และจะแจ้งการเปลี่ยนแปลงที่สำคัญในแอป เราอาจระงับบัญชีที่ฝ่าฝืนข้อกำหนด การยุติบัญชีไม่ลบเอกสารบนอุปกรณ์ของคุณ',
+        'แอป OneScan ชื่อ โลโก้ การออกแบบ และซอฟต์แวร์เป็นทรัพย์สินของผู้พัฒนาและได้รับความคุ้มครองตามกฎหมาย ซอฟต์แวร์โอเพนซอร์สที่ใช้ในแอปอยู่ภายใต้สัญญาอนุญาตของแต่ละโครงการ',
       ],
     },
     {
-      title: 'ข้อจำกัดความรับผิด',
+      title: 'บริการของบุคคลภายนอก',
       paragraphs: [
-        'บริการให้ตามสภาพที่เป็น ผลการสแกนและ OCR อาจไม่สมบูรณ์ โปรดตรวจสอบเอกสารสำคัญก่อนนำไปใช้ ภายในขอบเขตที่กฎหมายอนุญาต เราไม่รับผิดต่อความเสียหายทางอ้อมที่เกิดจากการใช้บริการ',
+        'บางฟีเจอร์อาศัยบริการของบุคคลภายนอก เช่น ตัวสแกนเอกสารของระบบผ่าน Google Play services และผู้ให้บริการยืนยันตัวตนและส่งอีเมลสำหรับบัญชี การใช้บริการเหล่านั้นอาจอยู่ภายใต้ข้อกำหนดของผู้ให้บริการนั้นด้วย',
       ],
     },
     {
-      title: 'กฎหมายที่ใช้บังคับ',
-      paragraphs: ['ข้อกำหนดนี้อยู่ภายใต้กฎหมายไทย'],
+      title: 'การระงับและการยุติ',
+      paragraphs: [
+        'คุณเลิกใช้แอปหรือลบบัญชีได้ทุกเมื่อ เราอาจระงับหรือยุติบัญชีที่ฝ่าฝืนข้อกำหนด เป็นภัยต่อผู้ใช้อื่นหรือระบบ หรือเมื่อกฎหมายกำหนด การยุติบัญชีไม่ลบเอกสารที่อยู่บนอุปกรณ์ของคุณ',
+      ],
+    },
+    {
+      title: 'การปฏิเสธการรับประกัน',
+      paragraphs: [
+        'บริการให้ "ตามสภาพที่เป็น" และ "ตามที่มีให้บริการ" เราไม่รับประกันว่าบริการจะไม่หยุดชะงักหรือปราศจากข้อผิดพลาด และไม่รับประกันความถูกต้องสมบูรณ์ของผลการสแกน การครอบตัด หรือ OCR คุณควรตรวจสอบเอกสารสำคัญก่อนนำไปใช้อ้างอิง',
+      ],
+    },
+    {
+      title: 'การจำกัดความรับผิด',
+      paragraphs: [
+        'ภายในขอบเขตสูงสุดที่กฎหมายอนุญาต เราไม่ต้องรับผิดต่อความเสียหายทางอ้อม ความเสียหายพิเศษ การสูญเสียข้อมูล รายได้ หรือโอกาสทางธุรกิจ ที่เกิดจากการใช้หรือไม่สามารถใช้บริการ ทั้งนี้ ไม่จำกัดความรับผิดที่กฎหมายไม่อนุญาตให้จำกัด รวมถึงสิทธิของผู้บริโภคตามกฎหมายไทย',
+      ],
+    },
+    {
+      title: 'การชดใช้ความเสียหาย',
+      paragraphs: [
+        'คุณตกลงชดใช้ความเสียหายแก่เรา หากมีการเรียกร้องจากบุคคลภายนอกอันเนื่องมาจากการที่คุณฝ่าฝืนข้อกำหนดนี้ หรือใช้บริการกับเอกสารที่คุณไม่มีสิทธิ',
+      ],
+    },
+    {
+      title: 'การแก้ไขข้อกำหนด',
+      paragraphs: [
+        'เราอาจแก้ไขข้อกำหนดนี้เป็นครั้งคราว และจะแจ้งการเปลี่ยนแปลงที่สำคัญในแอปก่อนมีผลบังคับใช้ การใช้งานต่อหลังจากวันที่มีผลถือว่าคุณยอมรับข้อกำหนดฉบับแก้ไข',
+      ],
+    },
+    {
+      title: 'กฎหมายที่ใช้บังคับและการระงับข้อพิพาท',
+      paragraphs: [
+        'ข้อกำหนดนี้อยู่ภายใต้และตีความตามกฎหมายแห่งราชอาณาจักรไทย คู่สัญญาจะพยายามระงับข้อพิพาทโดยการเจรจาก่อน หากไม่สามารถตกลงกันได้ ให้ศาลไทยที่มีเขตอำนาจเป็นผู้พิจารณา',
+      ],
+    },
+    {
+      title: 'ข้อกำหนดทั่วไป',
+      bullets: [
+        'หากข้อใดของข้อกำหนดนี้ไม่มีผลใช้บังคับ ข้ออื่นยังคงมีผลต่อไป',
+        'การที่เราไม่ใช้สิทธิตามข้อกำหนดในครั้งใด ไม่ถือเป็นการสละสิทธินั้น',
+        'ข้อกำหนดนี้และนโยบายความเป็นส่วนตัวเป็นข้อตกลงทั้งหมดระหว่างคุณกับเราเกี่ยวกับบริการ',
+        'หากฉบับภาษาไทยและภาษาอังกฤษขัดแย้งกัน ให้ถือฉบับภาษาไทยเป็นหลัก',
+      ],
     },
     {
       title: 'ติดต่อเรา',
-      paragraphs: ['ติดต่อผู้พัฒนา OneScan ได้ทางอีเมลที่ระบุในหน้าแอป OneScan บน Google Play'],
+      paragraphs: ['หากมีคำถามเกี่ยวกับข้อกำหนดนี้ ติดต่อผู้พัฒนา OneScan ได้ทางอีเมลที่ระบุในหน้าแอป OneScan บน Google Play'],
     },
   ],
 };
@@ -267,56 +339,128 @@ const TERMS_EN: LegalDocument = {
   title: 'Terms of Use',
   updated: 'Last updated 14 October 2026',
   version: 'Version 1.3',
-  intro: 'These terms apply to the OneScan app and OneScan accounts. By using the app or creating an account you agree to them.',
+  intro:
+    'These Terms of Use (the "Terms") are an agreement between you and the developer of OneScan ("we", "us") about your use of the OneScan app and OneScan accounts. Please read them carefully.',
+  highlights: [
+    { icon: 'documents', title: 'Your documents are yours', body: 'We get no rights to the content you scan.' },
+    { icon: 'profile', title: 'No account needed', body: 'An account is optional and you can end it at any time.' },
+    { icon: 'check', title: 'Use it lawfully', body: 'Only scan documents you are entitled to use.' },
+    { icon: 'storage', title: 'Back up what matters', body: 'Documents live on your device; losing the device or the app loses them too.' },
+  ],
   sections: [
     {
-      title: 'The service',
+      title: 'Accepting these Terms',
       paragraphs: [
-        'OneScan is a document scanner that works on your device. Scanning, text recognition (OCR), search and PDF creation work without an account. A OneScan account is optional.',
+        'By installing, opening or creating a OneScan account you confirm that you have read, understood and agree to these Terms and our Privacy Policy. If you do not agree, please stop using the app.',
+        'If you are under 20 (a minor under Thai law), use OneScan with a parent’s or guardian’s consent. The account service is not available to children under 13.',
       ],
     },
     {
-      title: 'Your account',
+      title: 'The OneScan service',
+      paragraphs: [
+        'OneScan lets you scan, store, search and export documents. Scanning, image enhancement, text recognition (OCR) and PDF creation run on your device. A OneScan account is an optional extra and is not needed for the core features.',
+        'We may add, change or retire features to improve the service. If a change affects you significantly, we will give you reasonable notice in the app.',
+      ],
+    },
+    {
+      title: 'Licence to use the app',
+      paragraphs: [
+        'We grant you a personal, non-exclusive, non-transferable and revocable licence to use OneScan for your own personal or work purposes under these Terms. All rights not expressly granted are reserved.',
+      ],
+    },
+    {
+      title: 'Your OneScan account',
       bullets: [
-        'Use an email address you own and give accurate information.',
-        'Keep your password secret and tell us if you think someone else has accessed your account.',
-        'You are responsible for activity on your account.',
-        'You can sign out or delete your account at any time in the app.',
+        'Use an email address you own and keep your details accurate.',
+        'One account per person; do not transfer, sell or share your account.',
+        'Keep your password secret and tell us straight away if you suspect unauthorised access.',
+        'You are responsible for all activity under your account.',
+        'You can sign out, manage devices or delete your account yourself in the app.',
       ],
     },
     {
-      title: 'Your documents',
+      title: 'Your documents and content',
       paragraphs: [
-        'Documents you scan are yours and are stored on your device. We get no rights to their content. Export important documents regularly as a backup: they are lost if the device is lost or reset, or the app is uninstalled.',
+        'You own all documents and content you scan or import. They are stored and encrypted on your device, and we get no right to access, use or publish them.',
+        'You confirm you have the right to scan, store and share the documents you use with the app — particularly documents containing other people’s personal data, such as ID cards — and that you will comply with applicable data protection laws.',
+        'Because documents are not backed up on our servers, export important documents regularly. We cannot recover documents lost from your device.',
       ],
+    },
+    {
+      title: 'Privacy',
+      paragraphs: ['How we collect and use personal data is described in the OneScan Privacy Policy, which forms part of these Terms.'],
     },
     {
       title: 'Acceptable use',
       bullets: [
-        'Do not use the service for anything unlawful or to infringe others’ rights.',
-        'Do not try to access other people’s accounts, or attack, disrupt or probe our systems without permission.',
-        'Do not modify, decompile or reverse engineer the app except where the law allows.',
+        'Do not use the service for anything unlawful or fraudulent, to forge documents, or to infringe other people’s rights.',
+        'Do not scan or distribute documents you have no right to, or infringe others’ intellectual property.',
+        'Do not try to access other people’s accounts or data, or access our systems without permission.',
+        'Do not attack, disrupt, probe for vulnerabilities in, or overload our systems.',
+        'Do not modify, decompile, reverse engineer or create derivative works of the app, except where the law allows.',
+        'Do not use automated means to create accounts or call the account service in bulk.',
       ],
     },
     {
-      title: 'Changes and termination',
+      title: 'Intellectual property',
       paragraphs: [
-        'We may update the service or these terms and will tell you in the app about important changes. We may suspend accounts that break these terms. Ending an account never deletes documents on your device.',
+        'The OneScan app, name, logo, design and software belong to the developer and are protected by law. Open-source components included in the app are licensed under their own terms.',
       ],
     },
     {
-      title: 'Liability',
+      title: 'Third-party services',
       paragraphs: [
-        'The service is provided as is. Scans and OCR may be imperfect; check important documents before relying on them. To the extent the law allows, we are not liable for indirect losses arising from use of the service.',
+        'Some features rely on third parties, such as the system document scanner in Google Play services and the authentication and email providers used for accounts. Their own terms may also apply when you use them.',
       ],
     },
     {
-      title: 'Governing law',
-      paragraphs: ['These terms are governed by the laws of Thailand.'],
+      title: 'Suspension and termination',
+      paragraphs: [
+        'You may stop using the app or delete your account at any time. We may suspend or end an account that breaks these Terms, puts other users or our systems at risk, or where the law requires. Ending an account never deletes documents on your device.',
+      ],
+    },
+    {
+      title: 'Disclaimer of warranties',
+      paragraphs: [
+        'The service is provided "as is" and "as available". We do not promise that it will be uninterrupted or error-free, or that scans, crops or OCR results will be accurate or complete. Check important documents before relying on them.',
+      ],
+    },
+    {
+      title: 'Limitation of liability',
+      paragraphs: [
+        'To the fullest extent the law allows, we are not liable for indirect, special or consequential losses, or for loss of data, revenue or business opportunity arising from using or being unable to use the service. Nothing here limits liability that cannot be limited by law, including your rights as a consumer under Thai law.',
+      ],
+    },
+    {
+      title: 'Indemnity',
+      paragraphs: [
+        'You agree to compensate us for third-party claims arising from your breach of these Terms or from using the service with documents you had no right to use.',
+      ],
+    },
+    {
+      title: 'Changes to these Terms',
+      paragraphs: [
+        'We may update these Terms from time to time and will tell you in the app about important changes before they take effect. Continuing to use the service after that date means you accept the updated Terms.',
+      ],
+    },
+    {
+      title: 'Governing law and disputes',
+      paragraphs: [
+        'These Terms are governed by the laws of the Kingdom of Thailand. We will first try to resolve any dispute through good-faith discussion; otherwise it will be decided by the competent Thai courts.',
+      ],
+    },
+    {
+      title: 'General',
+      bullets: [
+        'If any part of these Terms is unenforceable, the rest remains in effect.',
+        'Not enforcing a right on one occasion does not waive it.',
+        'These Terms and the Privacy Policy are the entire agreement between you and us about the service.',
+        'If the Thai and English versions conflict, the Thai version prevails.',
+      ],
     },
     {
       title: 'Contact',
-      paragraphs: ['Contact the OneScan developer at the email address listed on OneScan’s Google Play page.'],
+      paragraphs: ['For questions about these Terms, contact the OneScan developer at the email address listed on OneScan’s Google Play page.'],
     },
   ],
 };

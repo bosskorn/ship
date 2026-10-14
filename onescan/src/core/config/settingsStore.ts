@@ -86,6 +86,11 @@ export const defaultPrivacy: PrivacySettings = {
 interface SettingsState {
   hydrated: boolean;
   onboardingCompleted: boolean;
+  /** The one-time permissions screen (after onboarding, or on first launch after updating) was shown. */
+  permissionsIntroSeen: boolean;
+  /** Name for new scans: `<prefix>_YYYY-MM-DD_HH-mm`. Empty = "OneScan". */
+  fileNamePrefix: string;
+  setFileNamePrefix(prefix: string): void;
   /** `null` = follow system language. */
   language: LanguageCode | null;
   /** OCR language (document text), independent of the app language. See ocrLanguages.ts. */
@@ -106,6 +111,7 @@ interface SettingsState {
   resetCropStats: () => void;
   setScannerHealth: (patch: Partial<ScannerHealth>) => void;
   completeOnboarding: () => void;
+  completePermissionsIntro: () => void;
   setLanguage: (l: LanguageCode | null) => void;
   setOcrLanguage: (id: OcrLanguageId) => void;
   setAppearance: (a: AppearancePreference) => void;
@@ -119,9 +125,12 @@ export const useSettings = create<SettingsState>()(
     (set) => ({
       hydrated: false,
       onboardingCompleted: false,
+      permissionsIntroSeen: false,
+      fileNamePrefix: '',
+      setFileNamePrefix: (fileNamePrefix) => set({ fileNamePrefix }),
       language: null,
       ocrLanguage: defaultOcrLanguage,
-      documentsView: 'grid',
+      documentsView: 'list',
       setDocumentsView: (documentsView) => set({ documentsView }),
       appearance: 'system',
       privacy: defaultPrivacy,
@@ -135,6 +144,7 @@ export const useSettings = create<SettingsState>()(
       resetCropStats: () => set({ cropStats: emptyCropStats }),
       setScannerHealth: (patch) => set((s) => ({ scannerHealth: { ...s.scannerHealth, ...patch } })),
       completeOnboarding: () => set({ onboardingCompleted: true }),
+      completePermissionsIntro: () => set({ permissionsIntroSeen: true }),
       setLanguage: (language) => set({ language }),
       setOcrLanguage: (ocrLanguage) => set({ ocrLanguage }),
       setAppearance: (appearance) => set({ appearance }),
@@ -152,8 +162,13 @@ export const useSettings = create<SettingsState>()(
     }),
     {
       name: 'onescan.settings.v1',
-      version: 1,
+      version: 2,
       storage: persistentJSONStorage,
+      // v2 (1.3): Documents opens as a list (names first) for everyone, once.
+      migrate: (persisted, version) => {
+        const p = (persisted ?? {}) as Partial<SettingsState>;
+        return (version < 2 ? { ...p, documentsView: 'list' } : p) as SettingsState;
+      },
       partialize: ({ hydrated: _h, ...rest }) => rest,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>;

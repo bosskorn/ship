@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,7 +11,7 @@ import { accountConfigured, useAccount } from '@/services/auth/accountStore';
 import type { DeviceInfo } from '@/services/auth/accountApi';
 import { isAuthError } from '@/services/auth/errors';
 import { AccountForm } from './AuthScreens';
-import { Checkbox, ErrorBanner, normalizeEmail, Notice, openLegal, PasswordField, useAuthErrorText, validEmail, EmailField } from './ui';
+import { Checkbox, ErrorBanner, normalizeEmail, Notice, PasswordField, useAuthErrorText, validEmail, EmailField } from './ui';
 
 /** Account available in this build: configured at build time and not switched off remotely. */
 export function useAccountEnabled() {
@@ -36,7 +36,7 @@ const dateText = (iso: string | null | undefined, language: string) => (iso ? fo
  */
 export function AccountSection() {
   const { t, i18n } = useTranslation();
-  const { colors, spacing, radius } = useTheme();
+  const { colors, spacing } = useTheme();
   const toast = useToast();
   const errorText = useAuthErrorText();
   useAccountInit();
@@ -45,9 +45,7 @@ export function AccountSection() {
   const pendingEmail = useAccount((s) => s.pendingEmail);
   const initialized = useAccount((s) => s.initialized);
   const refreshAccount = useAccount((s) => s.refreshAccount);
-  const logout = useAccount((s) => s.logout);
   const cancelDeletion = useAccount((s) => s.cancelDeletion);
-  const [confirmLogout, setConfirmLogout] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const signedIn = status === 'AUTHENTICATED' || status === 'TOKEN_REFRESHING' || status === 'OFFLINE_AUTHENTICATED';
 
@@ -102,39 +100,44 @@ export function AccountSection() {
   }
 
   const pendingDelete = account?.status === 'pending_deletion' && account.deletionScheduledFor;
+  const note = status === 'OFFLINE_AUTHENTICATED' ? t('account.offline') : unavailable ? t('account.unavailable') : null;
   return (
     <View testID="account-signed-in">
       <TCellGroup title={t('account.section')}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
-            <TText variant="bodyLarge" weight="600" style={{ color: colors.textAnti }}>
-              {(account?.email?.[0] ?? '?').toUpperCase()}
-            </TText>
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <TText testID="account-email" variant="bodyLarge" weight="600" numberOfLines={1}>
+        <Pressable
+          testID="account-my"
+          accessibilityRole="button"
+          accessibilityLabel={`${t('account.my_account')}, ${account?.email ?? ''}`}
+          onPress={() => router.push('/account' as never)}
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.sm,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.md,
+            backgroundColor: pressed ? colors.bgPressed : 'transparent',
+          })}
+        >
+          <AccountAvatar email={account?.email} size={48} />
+          <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+            <TText testID="account-email" variant="title" numberOfLines={1}>
               {account?.email ?? ''}
             </TText>
-            <TText variant="caption" color={account?.verified === false ? 'warning' : 'success'}>
-              {account?.verified === false ? t('account.not_verified') : t('account.verified')}
+            <TText variant="bodySmall" color={account?.verified === false ? 'warning' : 'textSecondary'} numberOfLines={1}>
+              {account?.verified === false ? t('account.not_verified') : `${t('account.verified')} · ${t('account.plan_free')}`}
             </TText>
           </View>
-        </View>
-        {status === 'OFFLINE_AUTHENTICATED' ? (
-          <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.xxs }}>
+          <TIcon name="chevronRight" size={20} color={colors.textPlaceholder} />
+        </Pressable>
+        {note ? (
+          <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}>
             <TText variant="bodySmall" color="textSecondary">
-              {t('account.offline')}
-            </TText>
-          </View>
-        ) : unavailable ? (
-          <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.xxs }}>
-            <TText variant="bodySmall" color="textSecondary">
-              {t('account.unavailable')}
+              {note}
             </TText>
           </View>
         ) : null}
         {pendingDelete ? (
-          <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.xs, gap: spacing.xs }}>
+          <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs }}>
             <TText variant="body" color="error">
               {t('account.pending_delete', { date: dateText(account?.deletionScheduledFor, i18n.language) })}
             </TText>
@@ -154,43 +157,55 @@ export function AccountSection() {
             />
           </View>
         ) : null}
-        <TCell icon="profile" title={t('account.my_account')} arrow onPress={() => router.push('/account' as any)} testID="account-my" />
-        <TCell icon="devices" title={t('account.devices')} arrow onPress={() => router.push('/account/devices')} testID="account-devices" />
-        <TCell icon="shield" title={t('account.privacy_policy')} arrow onPress={() => openLegal('privacy')} />
-        <TCell icon="info" title={t('account.terms')} arrow onPress={() => openLegal('terms')} />
-        <TCell icon="logout" title={t('account.logout')} onPress={() => setConfirmLogout(true)} testID="account-logout" />
+      </TCellGroup>
+    </View>
+  );
+}
+
+function AccountAvatar({ email, size }: { email?: string | null; size: number }) {
+  const { colors } = useTheme();
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
+      <TText variant={size >= 56 ? 'headline' : 'titleLarge'} weight="600" style={{ color: colors.textAnti }}>
+        {(email?.[0] ?? '?').toUpperCase()}
+      </TText>
+    </View>
+  );
+}
+
+/** Last item on the Me tab while signed in: sign out of this device (documents stay). */
+export function AccountLogoutCell() {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const status = useAccount((s) => s.status);
+  const logout = useAccount((s) => s.logout);
+  const [confirm, setConfirm] = useState(false);
+  const signedIn = status === 'AUTHENTICATED' || status === 'TOKEN_REFRESHING' || status === 'OFFLINE_AUTHENTICATED';
+  if (!signedIn) return null;
+  return (
+    <>
+      <TCellGroup>
+        <TCell icon="logout" title={t('account.logout')} onPress={() => setConfirm(true)} testID="account-logout" />
       </TCellGroup>
       <TDialog
-        visible={confirmLogout}
+        visible={confirm}
         title={t('account.logout_title')}
         content={t('account.logout_body')}
-        onRequestClose={() => setConfirmLogout(false)}
+        onRequestClose={() => setConfirm(false)}
         actions={[
-          { label: t('common.cancel'), onPress: () => setConfirmLogout(false) },
+          { label: t('common.cancel'), onPress: () => setConfirm(false) },
           {
             label: t('account.logout'),
             tone: 'primary',
             onPress: async () => {
-              setConfirmLogout(false);
+              setConfirm(false);
               await logout();
               toast(t('account.signed_out'), 'success');
             },
           },
         ]}
       />
-    </View>
-  );
-}
-
-export function AccountDeleteCell() {
-  const { t } = useTranslation();
-  const status = useAccount((s) => s.status);
-  const signedIn = status === 'AUTHENTICATED' || status === 'TOKEN_REFRESHING' || status === 'OFFLINE_AUTHENTICATED';
-  if (!signedIn) return null;
-  return (
-    <TCellGroup>
-      <TCell icon="delete" title={t('account.delete')} danger arrow onPress={() => router.push('/account/delete')} testID="account-delete" />
-    </TCellGroup>
+    </>
   );
 }
 
@@ -201,16 +216,37 @@ export function MyAccountScreen() {
   const { spacing } = useTheme();
   useAccountInit();
   const account = useAccount((s) => s.account);
+  const status = useAccount((s) => s.status);
+  const signedIn = status === 'AUTHENTICATED' || status === 'TOKEN_REFRESHING' || status === 'OFFLINE_AUTHENTICATED';
   return (
-    <TScreen scroll header={<TNavigationBar title={t('account.my_account')} onBack={() => router.back()} backLabel={t('common.back')} />}>
-      <TCellGroup>
+    <TScreen scroll surface="container" header={<TNavigationBar title={t('account.my_account')} onBack={() => router.back()} backLabel={t('common.back')} />}>
+      <View style={{ alignItems: 'center', gap: spacing.xs, paddingTop: spacing.xl, paddingBottom: spacing.md }}>
+        <AccountAvatar email={account?.email} size={64} />
+        <TText variant="titleLarge" align="center" numberOfLines={1} style={{ paddingHorizontal: spacing.md }}>
+          {account?.email ?? ''}
+        </TText>
+        <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+          <TTag
+            label={account?.verified === false ? t('account.not_verified') : t('account.verified')}
+            theme={account?.verified === false ? 'warning' : 'success'}
+          />
+        </View>
+      </View>
+      <TCellGroup title={t('account.details')}>
         <TCell title={t('account.email')} note={account?.email ?? ''} />
-        <TCell title={t('account.status')} note={account?.verified === false ? t('account.not_verified') : t('account.verified')} />
         <TCell title={t('account.plan')} note={t('account.plan_free')} />
       </TCellGroup>
-      <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.xs }}>
+      <TCellGroup title={t('account.security_section')}>
+        <TCell icon="devices" title={t('account.devices')} arrow onPress={() => router.push('/account/devices')} testID="account-devices" />
+      </TCellGroup>
+      <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
         <Notice message={t('account.documents_local')} icon="info" />
       </View>
+      {signedIn ? (
+        <TCellGroup title={t('account.danger_zone')} footer={t('account.delete_footer')}>
+          <TCell icon="delete" title={t('account.delete')} danger arrow onPress={() => router.push('/account/delete')} testID="account-delete" />
+        </TCellGroup>
+      ) : null}
     </TScreen>
   );
 }

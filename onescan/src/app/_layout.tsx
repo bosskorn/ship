@@ -10,6 +10,7 @@ function RootStack() {
   const { colors } = useTheme();
   const hydrated = useSettings((s) => s.hydrated);
   const onboarded = useSettings((s) => s.onboardingCompleted);
+  const permissionsSeen = useSettings((s) => s.permissionsIntroSeen);
 
   useEffect(() => {
     void bootstrapLocalData();
@@ -23,7 +24,11 @@ function RootStack() {
       <Stack.Protected guard={!onboarded}>
         <Stack.Screen name="onboarding" />
       </Stack.Protected>
-      <Stack.Protected guard={onboarded}>
+      {/* Once, right after onboarding (or the first launch after updating): what OneScan may access. */}
+      <Stack.Protected guard={onboarded && !permissionsSeen}>
+        <Stack.Screen name="permissions" />
+      </Stack.Protected>
+      <Stack.Protected guard={onboarded && permissionsSeen}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="scanner" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
         <Stack.Screen name="editor" options={{ gestureEnabled: false }} />
@@ -41,6 +46,7 @@ function RootStack() {
         <Stack.Screen name="privacy" />
         <Stack.Screen name="security" />
         <Stack.Screen name="scan-quality" />
+        <Stack.Screen name="file-name" />
         <Stack.Screen name="scan-diagnostics" />
         <Stack.Screen name="cloud" />
         <Stack.Screen name="pricing" />

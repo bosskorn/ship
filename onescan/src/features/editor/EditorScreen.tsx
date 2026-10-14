@@ -10,7 +10,7 @@ import {
 import { DocumentEngine, SaveStage } from '@/core/document-engine/DocumentEngine';
 import { cssFilterFor, pageFilters } from '@/core/document-engine/image/filters';
 import type { DraftPage, PageFilter, Quad, Rotation } from '@/core/document-engine/model';
-import { formatDateTimeCompact } from '@/core/i18n/format';
+import { scanFileName } from '@/features/scanner/fileName';
 import { useScanSession } from '@/features/scanner/scanSession';
 import { noteCropAccepted, noteCropCorrected } from '@/features/scanner/cropStats';
 import { isDiskFull, lowDisk, MIN_FREE_BYTES_SAVE } from '@/core/document-engine/storage/diskSpace';
@@ -51,7 +51,7 @@ function paperSize(page: DraftPage, maxW: number, maxH: number) {
 }
 
 export function EditorScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { colors, spacing, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
@@ -124,7 +124,7 @@ export function EditorScreen() {
       const doc = existing
         ? await DocumentEngine.saveEdits(existing, pages, onStage, quality)
         : await DocumentEngine.save(pages, {
-            title: t('editor.default_name', { date: formatDateTimeCompact(Date.now(), i18n.language) }),
+            title: scanFileName(useSettings.getState().fileNamePrefix),
             docType,
             quality,
             onStage,

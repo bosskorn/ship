@@ -82,6 +82,17 @@ export function DocumentPaper({ doc, width, height }: { doc: DocumentRecord; wid
   );
 }
 
+/** List rows show the document as text: a type badge instead of a page image (no decryption). */
+export function DocumentTypeBadge({ doc, size = 44 }: { doc: DocumentRecord; size?: number }) {
+  const { colors } = useTheme();
+  const icon = doc.docType === 'id_card' ? 'idCard' : doc.docType === 'receipt' ? 'receipt' : 'documents';
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 4, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' }}>
+      <TIcon name={icon} size={size / 2} color={colors.brand} />
+    </View>
+  );
+}
+
 export function SelectionMark({ selected }: { selected: boolean }) {
   const { colors } = useTheme();
   return (
@@ -124,7 +135,7 @@ export const DocumentListItem = memo(function DocumentListItem({ doc, onPress, o
         backgroundColor: selected ? colors.brandLight : pressed ? colors.bgPressed : colors.bgContainer,
       })}
     >
-      <DocumentThumb doc={doc} width={44} height={56} />
+      <DocumentTypeBadge doc={doc} />
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xxs }}>
           <TText variant="bodyLarge" numberOfLines={1} style={{ flexShrink: 1 }}>

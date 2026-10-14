@@ -5,7 +5,8 @@ import { TCell, TCellGroup, TScreen, TTopAppBar } from '@/design-system';
 import { useSettings } from '@/core/config/settingsStore';
 import { usableLanguage, languageInfo } from '@/core/i18n/languages';
 import { availableOcrLanguages } from '@/core/document-engine/ocr/ocrLanguages';
-import { AccountDeleteCell, AccountSection, useAccountEnabled } from '@/features/account/AccountScreens';
+import { DEFAULT_FILE_PREFIX } from '@/features/scanner/fileName';
+import { AccountLogoutCell, AccountSection, useAccountEnabled } from '@/features/account/AccountScreens';
 
 export function ProfileScreen() {
   const { t } = useTranslation();
@@ -18,6 +19,7 @@ export function ProfileScreen() {
   const ocr = availableOcrLanguages().find((l) => l.id === ocrLanguage) ?? availableOcrLanguages()[0];
   const go = (path: Parameters<typeof router.push>[0]) => () => router.push(path);
   const accountEnabled = useAccountEnabled();
+  const fileNamePrefix = useSettings((s) => s.fileNamePrefix);
 
   return (
     <TScreen scroll surface="container" header={<TTopAppBar title={t('profile.title')} />}>
@@ -28,6 +30,7 @@ export function ProfileScreen() {
         <TCell icon="ocr" title={t('ocr_language.title')} note={t(ocr.labelKey)} arrow onPress={go('/ocr-language')} />
         <TCell icon="appearance" title={t('profile.appearance')} note={t(`appearance.${appearance}`)} arrow onPress={go('/appearance')} />
         <TCell icon="camera" title={t('scan_quality.title')} note={t(`scan_quality.${scanQuality}`)} arrow onPress={go('/scan-quality')} />
+        <TCell icon="edit" title={t('file_name.title')} note={fileNamePrefix || DEFAULT_FILE_PREFIX} arrow onPress={go('/file-name')} testID="profile-file-name" />
       </TCellGroup>
 
       <TCellGroup title={t('profile.section_data')}>
@@ -38,10 +41,12 @@ export function ProfileScreen() {
 
       <TCellGroup title={t('profile.section_about')}>
         <TCell icon="info" title={t('profile.about')} arrow onPress={go('/about')} />
+        <TCell icon="shield" title={t('legal.privacy')} arrow onPress={go('/legal/privacy')} testID="profile-privacy-policy" />
+        <TCell icon="book" title={t('legal.terms')} arrow onPress={go('/legal/terms')} testID="profile-terms" />
       </TCellGroup>
 
-      {/* Delete account placed separately at the very end */}
-      {accountEnabled ? <AccountDeleteCell /> : null}
+      {/* Signed in: sign out is the last item. Deleting the account lives in My account. */}
+      {accountEnabled ? <AccountLogoutCell /> : null}
     </TScreen>
   );
 }
