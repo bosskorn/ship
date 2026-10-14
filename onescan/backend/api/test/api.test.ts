@@ -53,7 +53,8 @@ async function call(method: string, path: string, opts: { tok?: string | null; b
   if (opts.tok !== null) headers.authorization = `Bearer ${opts.tok ?? (await token())}`;
   const req = new Request(`https://api.onescan.test${path}`, { method, headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) });
   const res = await handle(req, opts.e ?? env(), { keys, fetcher: d.fetcher, now: () => NOW * 1000 });
-  return { res, body: await res.clone().json().catch(() => null), calls: d.calls };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON bodies inspected ad hoc in tests
+  return { res, body: (await res.clone().json().catch(() => null)) as any, calls: d.calls };
 }
 
 describe('authentication', () => {
