@@ -96,7 +96,7 @@ export function LoginScreen() {
 // ---------------------------------------------------------------- Register
 
 export function RegisterScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { spacing } = useTheme();
   const errorText = useAuthErrorText();
   const register = useAccount((s) => s.register);
@@ -149,8 +149,8 @@ export function RegisterScreen() {
       <Checkbox testID="register-consent" checked={consent} onChange={setConsent} error={!!fieldErr.consent}>
         <TText variant="body">
           {t('account.consent_before')}{' '}
-          <TextLink label={t('account.terms')} onPress={() => openLegal('terms', i18n.language)} /> {t('account.consent_and')}{' '}
-          <TextLink label={t('account.privacy_policy')} onPress={() => openLegal('privacy', i18n.language)} />
+          <TextLink label={t('account.terms')} onPress={() => openLegal('terms')} /> {t('account.consent_and')}{' '}
+          <TextLink label={t('account.privacy_policy')} onPress={() => openLegal('privacy')} />
         </TText>
         {fieldErr.consent ? (
           <TText variant="bodySmall" color="error" style={{ marginTop: 4 }}>

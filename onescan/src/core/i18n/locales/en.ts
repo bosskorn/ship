@@ -449,6 +449,11 @@ const en = {
     logout: 'Log out',
     cloud: 'Cloud',
   },
+  legal: {
+    highlights: 'At a glance',
+    privacy: 'Privacy Policy',
+    terms: 'Terms of Use',
+  },
   account: {
     title: 'OneScan Account',
     entry_body: 'Sign in to get ready for account services and more OneScan features',

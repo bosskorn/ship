@@ -451,6 +451,11 @@ const th: LocaleResource = {
     logout: 'ออกจากระบบ',
     cloud: 'คลาวด์',
   },
+  legal: {
+    highlights: 'สรุปสาระสำคัญ',
+    privacy: 'นโยบายความเป็นส่วนตัว',
+    terms: 'ข้อกำหนดการใช้งาน',
+  },
   account: {
     title: 'OneScan Account',
     entry_body: 'เข้าสู่ระบบเพื่อเตรียมพร้อมสำหรับบริการบัญชีและฟีเจอร์เพิ่มเติมของ OneScan',

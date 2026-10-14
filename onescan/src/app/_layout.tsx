@@ -55,6 +55,8 @@ function RootStack() {
         <Stack.Screen name="account/devices" />
         <Stack.Screen name="account/delete" />
         <Stack.Screen name="auth/callback" />
+        <Stack.Screen name="legal/privacy" />
+        <Stack.Screen name="legal/terms" />
       </Stack.Protected>
     </Stack>
   );

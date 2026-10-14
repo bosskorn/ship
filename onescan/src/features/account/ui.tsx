@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Linking, Pressable, TextInput, TextInputProps, View } from 'react-native';
+import { Pressable, TextInput, TextInputProps, View } from 'react-native';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TIcon, TIconButton, TText, useTheme } from '@/design-system';
-import { env } from '@/core/config/env';
 import { AuthErrorCode, isAuthError } from '@/services/auth/errors';
 
 /** Shared pieces of the account screens (design system V2, native forms). */
@@ -22,12 +22,9 @@ export function useAuthErrorText() {
   };
 }
 
-export function legalUrl(which: 'terms' | 'privacy', language: string) {
-  return `${env.accountApiUrl}/legal/${which}?lang=${language.startsWith('th') ? 'th' : 'en'}`;
-}
-
-export function openLegal(which: 'terms' | 'privacy', language: string) {
-  void Linking.openURL(legalUrl(which, language)).catch(() => undefined);
+/** Terms / Privacy open inside the app (offline, no browser). */
+export function openLegal(which: 'terms' | 'privacy') {
+  router.push(`/legal/${which}`);
 }
 
 /** Text field matching TInput, with an optional trailing control. */

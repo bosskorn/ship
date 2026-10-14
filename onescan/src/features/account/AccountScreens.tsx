@@ -156,8 +156,8 @@ export function AccountSection() {
         ) : null}
         <TCell icon="profile" title={t('account.my_account')} arrow onPress={() => router.push('/account' as any)} testID="account-my" />
         <TCell icon="devices" title={t('account.devices')} arrow onPress={() => router.push('/account/devices')} testID="account-devices" />
-        <TCell icon="shield" title={t('account.privacy_policy')} arrow onPress={() => openLegal('privacy', i18n.language)} />
-        <TCell icon="info" title={t('account.terms')} arrow onPress={() => openLegal('terms', i18n.language)} />
+        <TCell icon="shield" title={t('account.privacy_policy')} arrow onPress={() => openLegal('privacy')} />
+        <TCell icon="info" title={t('account.terms')} arrow onPress={() => openLegal('terms')} />
         <TCell icon="logout" title={t('account.logout')} onPress={() => setConfirmLogout(true)} testID="account-logout" />
       </TCellGroup>
       <TDialog

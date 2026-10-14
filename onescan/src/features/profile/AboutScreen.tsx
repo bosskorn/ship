@@ -41,6 +41,10 @@ export function AboutScreen() {
           }
         />
       </TCellGroup>
+      <TCellGroup>
+        <TCell testID="about-privacy" icon="shield" title={t('legal.privacy')} arrow onPress={() => router.push('/legal/privacy')} />
+        <TCell testID="about-terms" icon="book" title={t('legal.terms')} arrow onPress={() => router.push('/legal/terms')} />
+      </TCellGroup>
     </TScreen>
   );
 }
