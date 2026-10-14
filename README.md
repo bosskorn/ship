@@ -2,9 +2,17 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
+| `OneScan-v1.2.0-RC3-arm64.apk` | branch `claude/onescan-mobile-v1` @ eae3db8 | **1.2.0 RC3** (versionCode 12), arm64-v8a, release build signed with the **Play upload key** — current build for Visual/Real-device QA (see `QA-CHECKLIST-RC3.md`). Supersedes RC2. Fresh install, or update over RC1/RC2 (same key). Cannot update debug-key builds. |
 | `OneScan-v1.2.0-RC2-arm64.apk` | branch `claude/onescan-mobile-v1` @ 64a699e | **1.2.0 RC2** (versionCode 12), arm64-v8a, release build signed with the **Play upload key** — the current build for real-device QA (see `QA-CHECKLIST-RC2.md`). Fresh install, or update over RC1 (same key). Cannot update debug-key builds (1.1.x, RC1-QA). No debug-key copy of RC2 is made. |
 | `OneScan-v1.2.0-RC1-arm64.apk` | branch `claude/onescan-mobile-v1` @ 3a66553 | **1.2.0 RC1** (versionCode 11), arm64-v8a, release build signed with the **Play upload key**. Fresh installs. Cannot update earlier test builds (different signing key): uninstall them first, which deletes their documents. |
 | `OneScan-v1.2.0-RC1-QA-arm64.apk` | same APK, re-signed | Identical app signed with the **debug key**, so it **installs over 1.1.x** and keeps its documents — use it to test the migration of old documents (encryption + database). For QA only — **use only to test migration from 1.1.x** (migration code is unchanged in RC2). |
+
+## Changes in 1.2.0 RC3 (release candidate, UI)
+- New Home: "Every document. Ready in seconds.", one large Scan button, three benefits, a short privacy note, then recent documents or a "Start with your first document" state; shortcuts below.
+- New first launch: two pages in the same style, then Home.
+- Folders start empty: no automatic folders on a new install (empty automatic folders from older versions are hidden); "No folders yet" with New folder.
+- Text: benefit-led copy on onboarding, camera permission, saving and About; the Privacy screen keeps the full explanation.
+- Unchanged from RC2: camera, ML, OCR, encryption, database, PDF, migration.
 
 ## Changes in 1.2.0 RC2 (release candidate)
 - Production feature audit: unfinished features (sign-in, plans, cloud, AI, trash, app lock, redaction, auto capture…) are hidden and their links redirect; no "Coming soon".
