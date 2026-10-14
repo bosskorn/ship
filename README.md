@@ -2,10 +2,22 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
+| `OneScan-v1.2.0-RC4-arm64.apk` | branch `claude/onescan-mobile-v1` @ b2a175b | **1.2.0 Final RC (RC4)** (versionCode 12), arm64-v8a, release build (R8) signed with the **Play upload key** — current build for real-device QA (see `QA-CHECKLIST-RC4.md`). Supersedes RC3. Fresh install, or update over RC1–RC3 (same key). Cannot update debug-key builds. |
 | `OneScan-v1.2.0-RC3-arm64.apk` | branch `claude/onescan-mobile-v1` @ eae3db8 | **1.2.0 RC3** (versionCode 12), arm64-v8a, release build signed with the **Play upload key** — current build for Visual/Real-device QA (see `QA-CHECKLIST-RC3.md`). Supersedes RC2. Fresh install, or update over RC1/RC2 (same key). Cannot update debug-key builds. |
 | `OneScan-v1.2.0-RC2-arm64.apk` | branch `claude/onescan-mobile-v1` @ 64a699e | **1.2.0 RC2** (versionCode 12), arm64-v8a, release build signed with the **Play upload key** — the current build for real-device QA (see `QA-CHECKLIST-RC2.md`). Fresh install, or update over RC1 (same key). Cannot update debug-key builds (1.1.x, RC1-QA). No debug-key copy of RC2 is made. |
 | `OneScan-v1.2.0-RC1-arm64.apk` | branch `claude/onescan-mobile-v1` @ 3a66553 | **1.2.0 RC1** (versionCode 11), arm64-v8a, release build signed with the **Play upload key**. Fresh installs. Cannot update earlier test builds (different signing key): uninstall them first, which deletes their documents. |
 | `OneScan-v1.2.0-RC1-QA-arm64.apk` | same APK, re-signed | Identical app signed with the **debug key**, so it **installs over 1.1.x** and keeps its documents — use it to test the migration of old documents (encryption + database). For QA only — **use only to test migration from 1.1.x** (migration code is unchanged in RC2). |
+
+## Changes in 1.2.0 RC4 (Final RC, production UI from design V2)
+- First launch: three pages (Scan, Find & share, On-device privacy) in one visual style.
+- Home is a workspace: recent documents (real thumbnails, page count) and four quick actions; fresh install shows Scan, Import image, Import PDF only.
+- Navigation: Home | Documents | Scan (round button) | Tools | Me.
+- Documents: grid by default (list option), long-press selection with select all / move / delete, document sheet with thumbnail; Folders and Recent chips; folders start at 0.
+- Tools: Scan ID card, Scan receipt, Import image, Import PDF. Me: grouped settings.
+- Search shows the matching text from the scan, highlighted.
+- Camera (presentation only): "Looking for the document edges…", blue ready state, "Page N added" and tray count, "Enhancing…".
+- Review: page as paper, Crop / Adjust / Rotate / Delete page, page strip, "Save document". Viewer: Share / Edit / Text / More.
+- Unchanged: camera pipeline, crop ML, OCR, PDF, encryption, SQLCipher, search engine, migration.
 
 ## Changes in 1.2.0 RC3 (release candidate, UI)
 - New Home: "Every document. Ready in seconds.", one large Scan button, three benefits, a short privacy note, then recent documents or a "Start with your first document" state; shortcuts below.
