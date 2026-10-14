@@ -65,9 +65,9 @@ export function HomeScreen() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', columnGap: spacing.md, rowGap: spacing.xxs }}>
           {(
             [
-              ['home.badge_auto', 'scan'],
-              ['home.badge_local', 'devices'],
-              ['home.badge_private', 'shield'],
+              ['home.badge_sharp', 'scan'],
+              ['home.badge_search', 'search'],
+              ['home.badge_pdf', 'share'],
             ] as const
           ).map(([key, icon]) => (
             <View key={key} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
