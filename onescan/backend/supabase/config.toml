@@ -1,0 +1,74 @@
+# OneScan 1.3 — Supabase project settings (apply with `supabase config push`, or set the same
+# values in Dashboard → Authentication). Spec: docs/account/ACCOUNT-1.3-SPEC.md §5, PHASE 12/16.
+project_id = "onescan"
+
+[api]
+# `app` is exposed only so the OneScan API (service role) can call its functions over REST;
+# anon/authenticated have no privileges on it (see the migration).
+schemas = ["public", "graphql_public", "app"]
+extra_search_path = ["public", "extensions"]
+
+[auth]
+enabled = true
+# Bridge page served by the OneScan API; it hands the one-time link token to the app.
+site_url = "env(ONESCAN_API_ORIGIN)"
+additional_redirect_urls = ["env(ONESCAN_API_ORIGIN)/auth/link", "onescan://auth/callback"]
+# Access token: 15 minutes (Owner decision).
+jwt_expiry = 900
+# Refresh tokens rotate on every use; a reused token revokes the whole session family.
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+minimum_password_length = 8
+password_requirements = "letters_digits"
+
+[auth.sessions]
+# Refresh inactivity 30 days, absolute maximum 90 days (also enforced by app.enforce_session_policy).
+timebox = "2160h"
+inactivity_timeout = "720h"
+
+[auth.rate_limit]
+# Per hour, per IP unless noted.
+email_sent = 30
+sign_in_sign_ups = 30
+token_verifications = 30
+token_refresh = 150
+anonymous_users = 0
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+secure_password_change = true
+# One verification / reset email per address per minute.
+max_frequency = "60s"
+otp_length = 6
+otp_expiry = 3600
+
+[auth.email.template.confirmation]
+subject = "ยืนยันอีเมล OneScan / Confirm your OneScan email"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "รีเซ็ตรหัสผ่าน OneScan / Reset your OneScan password"
+content_path = "./supabase/templates/recovery.html"
+
+# Production SMTP (Supabase's built-in sender is for testing only). Fill in the provider
+# (e.g. Resend or Amazon SES) with SPF/DKIM/DMARC on the sending domain.
+[auth.email.smtp]
+enabled = false
+host = "env(SMTP_HOST)"
+port = 587
+user = "env(SMTP_USER)"
+pass = "env(SMTP_PASS)"
+admin_email = "env(SMTP_FROM)"
+sender_name = "OneScan"
+
+[auth.external.google]
+enabled = false
+[auth.external.apple]
+enabled = false
+[auth.sms]
+enable_signup = false
