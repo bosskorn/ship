@@ -135,7 +135,7 @@ export function useDocumentActions(opts: { inViewer?: boolean; onChanged?: () =>
           { key: 'tags', label: t('documents.tags'), icon: 'tag' },
           { key: 'move', label: t('documents.move_to_folder'), icon: 'folder' },
           { key: 'share', label: t('documents.share_pdf'), icon: 'share' },
-          ...(pending?.doc.pdfUri ? [{ key: 'print', label: t('documents.print'), icon: 'print' as const }] : []),
+          ...(pending?.doc.pdfUri && DocumentEngine.export.canPrint() ? [{ key: 'print', label: t('documents.print'), icon: 'print' as const }] : []),
           { key: 'duplicate', label: t('documents.duplicate'), icon: 'duplicate' },
           { key: 'delete', label: t('documents.delete'), icon: 'delete', danger: true },
         ]}

@@ -28,6 +28,10 @@ jest.mock('@/core/database/db', () => ({
   }),
 }));
 
+const mockFiles = { contentBytes: jest.fn(async () => 401_234), storageBytes: jest.fn(() => 1_234_567) };
+jest.mock('@/core/document-engine/storage/DocumentFileStore', () => ({
+  DocumentFileStore: { contentBytes: (...a: unknown[]) => mockFiles.contentBytes(...(a as [])), storageBytes: (...a: unknown[]) => mockFiles.storageBytes(...(a as [])) },
+}));
 let mockSeq = 0;
 jest.mock('@/core/document-engine/ids', () => ({ newId: () => `id-${++mockSeq}` }));
 
@@ -148,13 +152,39 @@ describe('document info', () => {
       pageCount: 2,
       createdAt: NOW,
       updatedAt: NOW + 1,
-      sizeBytes: 412000,
+      pdfBytes: 401_234,
+      storageBytes: 1_234_567,
       folder: { name: 'งาน', systemKey: null },
       tags: ['ภาษี'],
     });
     expect(Object.keys(info)).not.toContain('ocrLanguage');
+    // Measured from the files of this one document, not the value cached at save time (412000).
+    expect(mockFiles.contentBytes).toHaveBeenCalledWith('file:///docs/a/doc.pdf');
+    expect(mockFiles.storageBytes).toHaveBeenCalledWith('file:///docs/a/doc.pdf');
     const none = await DocumentMetadataService.info((await documentRepository.get('c'))!);
     expect(none.folder).toBeNull();
     expect(none.tags).toEqual([]);
+  });
+});
+
+describe('cost and cleanup', () => {
+  it('listing and searching documents never measures files (no per-document I/O in lists)', async () => {
+    mockFiles.contentBytes.mockClear();
+    mockFiles.storageBytes.mockClear();
+    for (let i = 0; i < 300; i++) addDoc(`bulk-${i}`, { body: 'x' });
+    expect((await documentRepository.list()).length).toBeGreaterThan(300);
+    await documentRepository.search('', 500, { favorite: false });
+    expect(mockFiles.contentBytes).not.toHaveBeenCalled();
+    expect(mockFiles.storageBytes).not.toHaveBeenCalled();
+  });
+
+  it('deleting a document permanently removes its favourite and tag links (the tag itself stays)', async () => {
+    const tax = await TagService.create('ภาษี');
+    await TagService.setAssigned('a', tax, true);
+    await DocumentMetadataService.setFavorite({ id: 'a' }, true);
+    await documentRepository.purge('a');
+    expect(mockDb.prepare("SELECT count(*) AS n FROM document_favorites WHERE document_id = 'a'").get()!.n).toBe(0);
+    expect(mockDb.prepare("SELECT count(*) AS n FROM document_tags WHERE document_id = 'a'").get()!.n).toBe(0);
+    expect((await TagService.list()).map((t) => t.name)).toEqual(['ภาษี']);
   });
 });

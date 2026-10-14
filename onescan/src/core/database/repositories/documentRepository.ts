@@ -258,6 +258,9 @@ export const documentRepository = {
     const db = await getDatabase();
     await db.withTransactionAsync(async () => {
       await db.runAsync('DELETE FROM document_fts WHERE document_id = ?', id);
+      // Also covered by ON DELETE CASCADE; explicit so no favourite/tag link can outlive its document.
+      await db.runAsync('DELETE FROM document_favorites WHERE document_id = ?', id);
+      await db.runAsync('DELETE FROM document_tags WHERE document_id = ?', id);
       await db.runAsync('DELETE FROM documents WHERE id = ?', id);
     });
   },

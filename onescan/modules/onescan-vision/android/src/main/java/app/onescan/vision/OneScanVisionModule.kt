@@ -3,6 +3,7 @@ package app.onescan.vision
 import android.graphics.Bitmap
 import android.content.Context
 import android.util.Base64
+import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
@@ -61,6 +62,18 @@ class OneScanVisionModule : Module() {
     }
 
     /** A readable copy (decrypted into the cache) — or the file itself when not encrypted. */
+    // Print a stored PDF (Android Print Framework); decrypted straight into the spooler, never to a file.
+    AsyncFunction("printPdfAsync") { uri: String, jobName: String ->
+      SecureFiles.init(context)
+      val activity = appContext.currentActivity ?: throw IllegalStateException("No activity")
+      PdfPrinter.print(activity, ImageIO.rawFileFromUri(uri), jobName)
+    }.runOnQueue(Queues.MAIN)
+
+    /** Real size of a stored file's content (the decrypted PDF size for encrypted files). */
+    AsyncFunction("plainSizeAsync") { uri: String ->
+      SecureFiles.plainLength(ImageIO.rawFileFromUri(uri)).toDouble()
+    }
+
     AsyncFunction("plainUriAsync") { uri: String, name: String? ->
       SecureFiles.init(context)
       ImageIO.uriOf(SecureFiles.plain(ImageIO.rawFileFromUri(uri), name))

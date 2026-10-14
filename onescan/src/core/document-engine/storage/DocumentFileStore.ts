@@ -51,6 +51,25 @@ export const DocumentFileStore = {
     return OneScanVision.plainUriAsync(uri, name ?? null);
   },
 
+  /**
+   * Bytes a document occupies on this device: every file in its folder (encrypted at rest).
+   * Walks one document's folder only, on demand (Document info) — never for a list.
+   */
+  storageBytes(pdfUri: string | null): number {
+    const id = pdfUri?.match(/docs\/([^/]+)\//)?.[1];
+    if (!id) return 0;
+    const walk = (d: Directory): number =>
+      d.list().reduce((n, e) => n + (e instanceof Directory ? walk(e) : ((e as File).size ?? 0)), 0);
+    const dir = new Directory(Paths.document, 'onescan', 'docs', id);
+    return dir.exists ? walk(dir) : 0;
+  },
+
+  /** The PDF's real size (decrypted size of an encrypted file, computed from its length). */
+  async contentBytes(uri: string): Promise<number> {
+    if (OneScanVision?.plainSizeAsync) return OneScanVision.plainSizeAsync(uri);
+    return this.size(uri);
+  },
+
   size(uri: string): number {
     const f = new File(uri);
     return f.exists ? f.size : 0;

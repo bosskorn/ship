@@ -55,6 +55,10 @@ export interface OneScanVisionModule {
   encryptFileAsync?(src: string, dst: string): Promise<string>;
   /** Readable URI: decrypted cache copy of an encrypted file, or the file itself. */
   plainUriAsync?(uri: string, name: string | null): Promise<string>;
+  /** Android Print Framework; the PDF is decrypted straight into the print spooler (no file). */
+  printPdfAsync?(uri: string, jobName: string): Promise<void>;
+  /** Real content size of a stored file (decrypted size for encrypted files), from its length. */
+  plainSizeAsync?(uri: string): Promise<number>;
   isEncryptedAsync?(uri: string): Promise<boolean>;
   /** Encrypt a plaintext file in place (verified, atomic). False if already encrypted. */
   migrateFileAsync?(uri: string): Promise<boolean>;

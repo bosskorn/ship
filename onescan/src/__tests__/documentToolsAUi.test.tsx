@@ -43,7 +43,7 @@ jest.mock('@/core/document-engine/DocumentEngine', () => ({
   DocumentEngine: {
     print: (...a: unknown[]) => mockEngine.print(...(a as [])),
     share: (...a: unknown[]) => mockEngine.share(...(a as [])),
-    export: { isShareAvailable: async () => true },
+    export: { isShareAvailable: async () => true, canPrint: () => true },
     duplicate: jest.fn(),
     moveToTrash: jest.fn(),
     deletePermanently: jest.fn(),

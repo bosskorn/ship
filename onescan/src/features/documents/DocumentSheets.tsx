@@ -125,7 +125,8 @@ export function DocumentInfoDialog({ doc, onClose }: { doc: DocumentRecord | nul
         [t('doc_info.pages'), String(info.pageCount)],
         [t('doc_info.created'), formatDate(info.createdAt, i18n.language)],
         [t('doc_info.modified'), formatDate(info.updatedAt, i18n.language)],
-        [t('doc_info.size'), formatBytes(info.sizeBytes, i18n.language)],
+        ...(info.pdfBytes !== null ? [[t('doc_info.size'), formatBytes(info.pdfBytes, i18n.language)] as [string, string]] : []),
+        [t('doc_info.storage'), formatBytes(info.storageBytes, i18n.language)],
         [t('doc_info.folder'), info.folder ? (info.folder.systemKey ? t(`folders.${info.folder.systemKey}`) : info.folder.name) : t('doc_info.no_folder')],
         [t('doc_info.tags'), info.tags.length ? info.tags.join(', ') : t('doc_info.no_tags')],
       ]

@@ -1,6 +1,7 @@
-import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import { DocumentFileStore } from '../storage/DocumentFileStore';
+import { OneScanVision } from '@/native/OneScanVision';
 
 const pdfName = (title: string) => `${title.replace(/[\\/:*?"<>|\n\r]+/g, ' ').trim().slice(0, 80) || 'OneScan'}.pdf`;
 
@@ -14,9 +15,16 @@ export const ExportEngine = {
     await Sharing.shareAsync(readable, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: title });
   },
 
-  /** Opens the system print dialog for the document's PDF (decrypted cache copy, on device). */
+  /** Printing needs the native print adapter (Android); otherwise the action is not offered. */
+  canPrint: () => Platform.OS === 'android' && !!OneScanVision?.printPdfAsync,
+
+  /**
+   * Opens the Android print dialog. The stored (encrypted) PDF is decrypted straight into the
+   * print spooler each time Android asks for it — no decrypted file is written, so nothing is
+   * left behind after printing.
+   */
   async printPdf(uri: string, title: string) {
-    const readable = await DocumentFileStore.readableUri(uri, pdfName(title));
-    await Print.printAsync({ uri: readable });
+    if (!OneScanVision?.printPdfAsync) throw new Error('print_unavailable');
+    await OneScanVision.printPdfAsync(uri, pdfName(title).replace(/\.pdf$/, ''));
   },
 };

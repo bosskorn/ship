@@ -9,6 +9,7 @@ import java.io.EOFException
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -40,6 +41,8 @@ internal object SecureFiles {
   private const val PLAIN_CACHE_MAX = 400L * 1024 * 1024
   private const val TAG_BITS = 128
   private const val LAST: Int = 1
+  /** Per-record bytes besides the data: flag (1) + length (4) + IV (12) + GCM tag (16). */
+  private const val RECORD_OVERHEAD = 1 + 4 + 12 + TAG_BITS / 8
   private val MAGIC = byteArrayOf(0x4f, 0x53, 0x45, 0x31) // "OSE1"
   private val random = SecureRandom()
   private val lock = Any()
@@ -174,6 +177,27 @@ internal object SecureFiles {
       tmp.delete()
       throw e
     }
+  }
+
+  /**
+   * Decrypts `src` record by record straight into `out` (e.g. the Android print spooler's
+   * stream): no plaintext file is written. Throws on any tampering or truncation; what was
+   * already written must then be discarded by the caller.
+   */
+  fun decryptTo(src: File, out: OutputStream) {
+    DataInputStream(FileInputStream(src).buffered(1 shl 16)).use { input -> decryptStream(input) { b, n -> out.write(b, 0, n) } }
+  }
+
+  /**
+   * Plaintext size of an encrypted file, from its length alone: "OSE1" + per record
+   * (flag 1 + length 4 + IV 12 + GCM tag 16 = 33 bytes overhead) + data, records of ≤ CHUNK.
+   * Unencrypted files: their length.
+   */
+  fun plainLength(file: File): Long {
+    if (!isEncrypted(file)) return file.length()
+    val body = file.length() - MAGIC.size
+    val records = maxOf(1L, (body + CHUNK + RECORD_OVERHEAD - 1) / (CHUNK + RECORD_OVERHEAD))
+    return maxOf(0L, body - records * RECORD_OVERHEAD)
   }
 
   private fun decryptStream(input: DataInputStream, sink: (ByteArray, Int) -> Unit) {
