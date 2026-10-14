@@ -62,6 +62,16 @@ export function DocumentsScreen() {
           data={folders}
           keyExtractor={(f) => f.id}
           ItemSeparatorComponent={() => <TDivider inset={spacing.md + 24 + spacing.sm} />}
+          ListEmptyComponent={
+            <TEmpty
+              icon="folder"
+              title={t('documents.folders_empty')}
+              description={t('documents.folders_empty_hint')}
+              actionLabel={t('documents.new_folder')}
+              onAction={() => setNewFolder('')}
+            />
+          }
+          contentContainerStyle={{ backgroundColor: colors.bgContainer, flexGrow: 1 }}
           renderItem={({ item }) => (
             <TCell
               icon="folder"

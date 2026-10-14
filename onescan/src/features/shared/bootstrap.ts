@@ -1,4 +1,3 @@
-import { folderRepository } from '@/core/database/repositories/documentRepository';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { useRemoteConfig } from '@/core/config/remoteConfig';
 import { useDocuments } from '@/features/documents/documentsStore';
@@ -7,13 +6,16 @@ import { cleanCache, encryptExistingFiles, sweepOrphanFolders } from '@/core/doc
 
 let started = false;
 
-/** One-time local setup: system folders, trash retention, initial list load. */
+/**
+ * One-time local setup: trash retention, initial list load. No folders are created: the
+ * user starts with none and makes their own (auto-category folders from earlier versions
+ * stay in the database and reappear once they hold documents).
+ */
 export async function bootstrapLocalData() {
   if (started) return;
   started = true;
   await cleanCache();
   try {
-    await folderRepository.ensureSystemFolders();
     await DocumentEngine.emptyExpiredTrash(useRemoteConfig.getState().config.trashRetentionDays);
   } catch {
     // Storage unavailable (e.g. web preview) — screens show empty states.

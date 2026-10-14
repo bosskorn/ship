@@ -9,7 +9,6 @@ import {
   Rotation,
   SyncState,
   SystemFolderKey,
-  systemFolderKeys,
 } from '@/core/document-engine/model';
 import { newId } from '@/core/document-engine/ids';
 import { monthRange, parseSearchQuery, toFtsMatch } from '../searchQuery';
@@ -296,18 +295,6 @@ export const documentRepository = {
 };
 
 export const folderRepository = {
-  /** Creates the auto-category folders once. Names are resolved via i18n by `systemKey`. */
-  async ensureSystemFolders() {
-    const db = await getDatabase();
-    const now = Date.now();
-    for (const key of systemFolderKeys) {
-      await db.runAsync(
-        'INSERT OR IGNORE INTO folders (id, name, system_key, created_at) VALUES (?, ?, ?, ?)',
-        newId(), key, key, now,
-      );
-    }
-  },
-
   async list(): Promise<FolderRecord[]> {
     const db = await getDatabase();
     const rows = await db.getAllAsync<{ id: string; name: string; system_key: string | null; created_at: number; item_count: number }>(

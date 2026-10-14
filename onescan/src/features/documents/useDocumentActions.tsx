@@ -45,6 +45,10 @@ export function useDocumentActions() {
         setName(doc.title);
         return setPending({ kind: 'rename', doc });
       case 'move':
+        if (!folders.length) {
+          close();
+          return toast(t('documents.no_folders_hint'), 'info');
+        }
         return setPending({ kind: 'move', doc });
       case 'delete':
         return setPending({ kind: 'delete', doc });

@@ -25,7 +25,8 @@ export const useDocuments = create<DocumentsState>((set) => ({
         documentRepository.list({ orderBy: 'opened', limit: 5 }),
         folderRepository.list(),
       ]);
-      set({ documents, recent, folders, loaded: true, error: false });
+      // Empty auto-category folders (created by versions before 1.2.0) are not shown.
+      set({ documents, recent, folders: folders.filter((f) => !f.systemKey || f.itemCount > 0), loaded: true, error: false });
     } catch {
       set({ loaded: true, error: true });
     }

@@ -36,6 +36,17 @@ try {
     // RN <Image> only paints after a load event that jsdom never fires: draw the logo here.
     const logo = `file://${path.join(root, 'assets/splash-icon.png')}`;
     await page.addStyleTag({ content: `[data-testid="home-logo"]{background:url("${logo}") center/contain no-repeat}` });
+    await page.addStyleTag({ content: `[data-testid="onboarding-logo"]{background:url("${logo}") center/contain no-repeat}` });
+    const pageNo = /^onboarding-(\d)/.exec(f);
+    if (pageNo) {
+      // Pager screens keep their viewport; show page N of the horizontal list.
+      await page.evaluate((n) => {
+        for (const el of document.querySelectorAll('div')) if (el.scrollWidth > el.clientWidth + 10) el.scrollLeft = el.clientWidth * (n - 1);
+      }, Number(pageNo[1]));
+      await page.screenshot({ path: path.join(out, f.replace('.html', '.png')) });
+      console.log(f.replace('.html', '.png'));
+      continue;
+    }
     await page.addStyleTag({ content: 'div{overflow:visible!important} #root,#root>div{height:auto!important;min-height:0!important}' });
     await page.screenshot({ path: path.join(out, f.replace('.html', '.png')), fullPage: true });
     console.log(f.replace('.html', '.png'));

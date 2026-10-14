@@ -1,6 +1,7 @@
 /**
- * Renders the Home screen in each review state to HTML (react-native-web), for
- * tools/screens/shoot.js to capture. Data is mocked; nothing touches real documents.
+ * Renders first-launch, Home and Documents screens in each review state to HTML
+ * (react-native-web), for src/__screens__/shoot.js to capture. Data is mocked; nothing
+ * touches real documents.
  */
 /// <reference types="node" />
 import fs from 'fs';
@@ -13,6 +14,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, TToastProvider } from '@/design-system';
 import { i18n, initI18n } from '@/core/i18n';
 import { HomeScreen } from '@/features/home/HomeScreen';
+import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
+import { DocumentsScreen } from '@/features/documents/DocumentsScreen';
 import type { DocumentRecord } from '@/core/document-engine/model';
 
 const OUT = process.env.SHOTS_OUT ?? path.join(__dirname, 'out');
@@ -23,8 +26,12 @@ jest.mock('@/core/document-engine/ids', () => ({ newId: () => 'shot-id' }));
 jest.mock('@/features/scanner/scanSession', () => ({ useScanSession: { getState: () => ({ start: () => undefined }) } }));
 jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() }, useFocusEffect: jest.fn() }));
 jest.mock('@/features/documents/documentsStore', () => ({
-  useDocuments: (sel: (s: object) => unknown) => sel({ recent: mockState.recent, refresh: () => undefined }),
+  useDocuments: (sel?: (s: object) => unknown) => {
+    const state = { recent: mockState.recent, documents: mockState.recent, folders: [], refresh: () => undefined };
+    return sel ? sel(state) : state;
+  },
 }));
+jest.mock('@/core/database/repositories/documentRepository', () => ({ folderRepository: { create: jest.fn() }, documentRepository: {} }));
 jest.mock('@/features/documents/useDocumentActions', () => ({ useDocumentActions: () => ({ open: jest.fn(), element: null }) }));
 jest.mock('@/features/shared/useImport', () => ({ useImport: () => ({ importPdf: jest.fn(), importPhotos: jest.fn(), overlay: null }) }));
 // Thumbnails: a drawn page instead of decrypting real files.
@@ -54,13 +61,44 @@ const DOCS: Record<string, DocumentRecord[]> = {
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-function page(lang: string, scheme: 'light' | 'dark', withDocs: boolean) {
-  mockState.recent = withDocs ? DOCS[lang] : [];
+type Screen = 'home' | 'onboarding' | 'documents';
+interface Shot {
+  lang: string;
+  scheme: 'light' | 'dark';
+  screen: Screen;
+  docs?: boolean;
+  width?: number;
+  /** Press these labels in order after the first render (e.g. a tab or "Next"). */
+  press?: string[];
+}
+
+function setWidth(width: number) {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+  Object.defineProperty(document.documentElement, 'clientWidth', { configurable: true, value: width });
+  window.dispatchEvent(new Event('resize'));
+}
+
+function pressByText(label: string) {
+  const el = Array.from(document.querySelectorAll<HTMLElement>('[role="button"], [role="tab"], button')).find((e) => e.textContent?.trim() === label);
+  if (!el) throw new Error(`no button "${label}"`);
+  act(() => {
+    try {
+      el.click();
+    } catch {
+      // e.g. FlatList.scrollToIndex without layout in jsdom: the state change still applies.
+    }
+  });
+}
+
+function page({ lang, scheme, screen, docs, width = 412, press = [] }: Shot) {
+  mockState.recent = docs ? DOCS[lang] : [];
+  setWidth(width);
+  const Content = { home: HomeScreen, onboarding: OnboardingScreen, documents: DocumentsScreen }[screen];
   const App = () => (
-    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 412, height: 915 }, insets: { top: 24, left: 0, right: 0, bottom: 0 } }}>
+    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width, height: 915 }, insets: { top: 24, left: 0, right: 0, bottom: 0 } }}>
       <ThemeProvider scheme={scheme} language={lang}>
         <TToastProvider>
-          <HomeScreen />
+          <Content />
         </TToastProvider>
       </ThemeProvider>
     </SafeAreaProvider>
@@ -69,6 +107,7 @@ function page(lang: string, scheme: 'light' | 'dark', withDocs: boolean) {
   document.body.innerHTML = '<div id="root"></div>';
   const root = createRoot(document.getElementById('root')!);
   act(() => root.render(<App />));
+  for (const label of press) pressByText(label);
   // Android has no <button>; on the web a row button containing an icon button would be
   // split by the HTML parser when the saved file is opened, so save buttons as divs.
   const html = document.getElementById('root')!.innerHTML.replace(/<button\b/g, '<div').replace(/<\/button>/g, '</div>');
@@ -77,7 +116,7 @@ function page(lang: string, scheme: 'light' | 'dark', withDocs: boolean) {
   const css = `<style id="${sheet.id}">${sheet.textContent}</style>`;
   act(() => root.unmount());
   const bg = scheme === 'dark' ? '#181818' : '#ffffff';
-  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=412">
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=${width}">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=block">
 ${css}<style>html,body{margin:0;background:${bg}} #root{display:flex;min-height:100vh}
 *{font-family:Roboto,"Noto Sans Thai",sans-serif!important}</style></head><body><div id="root">${html}</div></body></html>`;
@@ -88,15 +127,28 @@ beforeAll(() => {
   fs.mkdirSync(OUT, { recursive: true });
 });
 
-it.each([
-  ['1-th-light-docs', 'th', 'light', true],
-  ['2-en-light-docs', 'en', 'light', true],
-  ['3-th-dark-docs', 'th', 'dark', true],
-  ['4-th-light-empty', 'th', 'light', false],
-  ['5-en-light-empty', 'en', 'light', false],
-  ['6-th-dark-empty', 'th', 'dark', false],
-  ['7-th-light-docs-360', 'th', 'light', true],
-] as const)('%s', async (name, lang, scheme, withDocs) => {
-  await i18n.changeLanguage(lang);
-  fs.writeFileSync(path.join(OUT, `${name}.html`), page(lang, scheme, withDocs));
+type Key = Parameters<typeof i18n.t>[0];
+const th = (k: Key) => i18n.getFixedT('th')(k as never) as string;
+const en = (k: Key) => i18n.getFixedT('en')(k as never) as string;
+
+const shots: Record<string, () => Shot> = {
+  '1-th-light-docs': () => ({ lang: 'th', scheme: 'light', screen: 'home', docs: true }),
+  '2-en-light-docs': () => ({ lang: 'en', scheme: 'light', screen: 'home', docs: true }),
+  '3-th-dark-docs': () => ({ lang: 'th', scheme: 'dark', screen: 'home', docs: true }),
+  '4-th-light-empty': () => ({ lang: 'th', scheme: 'light', screen: 'home' }),
+  '5-en-light-empty': () => ({ lang: 'en', scheme: 'light', screen: 'home' }),
+  '6-th-dark-empty': () => ({ lang: 'th', scheme: 'dark', screen: 'home' }),
+  '7-th-light-docs-360': () => ({ lang: 'th', scheme: 'light', screen: 'home', docs: true, width: 360 }),
+  'onboarding-1-th-light': () => ({ lang: 'th', scheme: 'light', screen: 'onboarding' }),
+  'onboarding-2-th-light': () => ({ lang: 'th', scheme: 'light', screen: 'onboarding', press: [th('onboarding.next')] }),
+  'onboarding-1-en-dark': () => ({ lang: 'en', scheme: 'dark', screen: 'onboarding' }),
+  'onboarding-2-en-dark': () => ({ lang: 'en', scheme: 'dark', screen: 'onboarding', press: [en('onboarding.next')] }),
+  'folders-empty-th-light': () => ({ lang: 'th', scheme: 'light', screen: 'documents', press: [th('documents.tab_folders')] }),
+  'folders-empty-en-dark': () => ({ lang: 'en', scheme: 'dark', screen: 'documents', press: [en('documents.tab_folders')] }),
+};
+
+it.each(Object.keys(shots))('%s', async (name) => {
+  const shot = shots[name]();
+  await i18n.changeLanguage(shot.lang);
+  fs.writeFileSync(path.join(OUT, `${name}.html`), page(shot));
 });
