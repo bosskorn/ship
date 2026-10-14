@@ -95,11 +95,17 @@ describe('account and devices', () => {
     expect(res.status).toBe(200);
     expect(body).toEqual(me);
     expect(calls[0].url).toBe(`${SUPABASE}/rest/v1/rpc/me`);
-    expect(calls[0].body).toMatchObject({ p_sub: SUB });
+    expect(calls[0].body).toMatchObject({ p_sub: SUB, p_session: SESSION });
     const h = calls[0].init.headers as Record<string, string>;
     expect(h['content-profile']).toBe('app');
     expect(h.authorization).toBe(`Bearer ${SERVICE_KEY}`);
     expect(JSON.stringify(body)).not.toContain(SERVICE_KEY);
+  });
+
+  it('a session ended elsewhere is 401 at once', async () => {
+    const { res, body } = await call('GET', '/v1/me', { result: { session_revoked: true } });
+    expect(res.status).toBe(401);
+    expect(body).toEqual({ error: 'unauthorized' });
   });
 
   it('registers this installation with the session from the token (not from the body)', async () => {

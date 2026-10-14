@@ -211,12 +211,19 @@ create trigger onescan_session_insert after insert on auth.sessions for each row
 
 -- ---------------------------------------------------------------- API functions (service role)
 
-create or replace function app.me(p_sub uuid, p_email text default null, p_confirmed_at timestamptz default null)
+-- p_session: the caller's provider session. A session ended elsewhere (device revoked, sign
+-- out of all devices, password reset, policy expiry) is reported at once, without waiting for
+-- the 15-minute access token to run out.
+drop function if exists app.me(uuid, text, timestamptz);
+create or replace function app.me(p_sub uuid, p_email text default null, p_confirmed_at timestamptz default null, p_session uuid default null)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   uid uuid := app.user_for(p_sub);
   r jsonb;
 begin
+  if p_session is not null and not exists (select 1 from auth.sessions where id = p_session and user_id = p_sub) then
+    return jsonb_build_object('session_revoked', true);
+  end if;
   if uid is null and p_email is not null then
     uid := app.ensure_user(p_sub, p_email, p_confirmed_at);
   end if;
@@ -435,7 +442,7 @@ $$;
 
 revoke all on all functions in schema app from public;
 grant execute on function
-  app.me(uuid, text, timestamptz),
+  app.me(uuid, text, timestamptz, uuid),
   app.register_device(uuid, uuid, uuid, text, text, text),
   app.heartbeat(uuid, uuid, text),
   app.list_devices(uuid, uuid),

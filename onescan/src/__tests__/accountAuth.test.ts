@@ -394,6 +394,15 @@ describe('logout', () => {
     expect(stored()).not.toBeNull();
   });
 
+  it('a session revoked from another device is noticed on the next account refresh', async () => {
+    await signedIn();
+    server.routes['GET api.test/v1/me'] = { status: 401, body: { error: 'unauthorized' } };
+    await expect(useAccount.getState().refreshAccount()).rejects.toMatchObject({ code: 'session_expired' });
+    expect(useAccount.getState().status).toBe('SESSION_EXPIRED');
+    expect(stored()).toBeNull();
+    expect(useAccount.getState().account?.email).toBe('alice@example.com');
+  });
+
   it('devices list and revoke', async () => {
     await signedIn();
     const list = await useAccount.getState().devices();

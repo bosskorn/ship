@@ -68,6 +68,13 @@ begin
   assert exists (select 1 from auth.sessions where id = '00000000-0000-0000-0000-0000000000b1'), 'bob session intact';
 end $$;
 
+-- A revoked session is reported by app.me at once.
+do $$ begin
+  assert app.me('00000000-0000-0000-0000-00000000000a', null, null, '00000000-0000-0000-0000-0000000000a1')->>'email' = 'alice@example.com', 'live session';
+  assert (app.me('00000000-0000-0000-0000-00000000000a', null, null, '00000000-0000-0000-0000-0000000000ff')->>'session_revoked')::boolean, 'unknown session reported';
+  assert (app.me('00000000-0000-0000-0000-00000000000a', null, null, '00000000-0000-0000-0000-0000000000b1')->>'session_revoked')::boolean, 'another user''s session is not accepted';
+end $$;
+
 -- Revoke the tablet: its session goes, the phone stays.
 do $$
 declare tab uuid;
@@ -150,7 +157,7 @@ end $$;
 do $$ begin
   assert not has_schema_privilege('anon', 'app', 'usage'), 'anon has no access';
   assert not has_schema_privilege('authenticated', 'app', 'usage'), 'authenticated has no access';
-  assert has_function_privilege('service_role', 'app.me(uuid, text, timestamptz)', 'execute');
+  assert has_function_privilege('service_role', 'app.me(uuid, text, timestamptz, uuid)', 'execute');
   assert not has_function_privilege('authenticated', 'app.revoke_all(uuid)', 'execute');
   assert not has_function_privilege('service_role', 'app.process_deletions()', 'execute'), 'deletion job is not an API call';
 end $$;

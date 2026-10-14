@@ -29,7 +29,9 @@ const routes: { method: string; path: RegExp; sensitive?: boolean; run: Handler 
     method: 'GET',
     path: /^\/v1\/me$/,
     run: async (_req, env, c, d) => {
-      const me = await rpc<Record<string, unknown> | null>(env, 'me', { p_sub: c.sub, p_email: c.email, p_confirmed_at: null }, d.fetcher);
+      const me = await rpc<Record<string, unknown> | null>(env, 'me', { p_sub: c.sub, p_email: c.email, p_confirmed_at: null, p_session: c.sessionId }, d.fetcher);
+      // Session ended elsewhere (device revoked, sign out everywhere, password reset).
+      if (me?.session_revoked) return fail('unauthorized', 401);
       return me ? json(me) : fail('not_found', 404);
     },
   },

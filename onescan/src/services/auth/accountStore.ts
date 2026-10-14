@@ -263,7 +263,14 @@ export const useAccount = create<AccountState>((set, get) => {
 
     async refreshAccount() {
       const token = await get().accessToken();
-      const info = await accountApi.me(token, deps.fetcher);
+      let info: AccountInfo;
+      try {
+        info = await accountApi.me(token, deps.fetcher);
+      } catch (e) {
+        // Signed out from another device / everywhere / by a password reset.
+        if (isAuthError(e, 'session_expired')) await forgetSession('SESSION_EXPIRED', true);
+        throw e;
+      }
       const account: CachedAccount = { userId: info.userId, email: info.email, verified: info.verified, status: info.status, plan: info.plan, deletionScheduledFor: info.deletionScheduledFor };
       await writeCache(account);
       set({ account, status: 'AUTHENTICATED' });
