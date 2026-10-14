@@ -1,8 +1,9 @@
-import { color } from '@ship/mobile-ui';
+import { color, DemoBanner } from '@ship/mobile-ui';
+import { api } from '../lib/api';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DraftProvider } from '../lib/draft';
 import { SessionProvider, useSession } from '../lib/session';
 
@@ -43,6 +44,18 @@ function Gate() {
   );
 }
 
+/** Small floating badge while the app runs on simulated data (no layout impact). */
+function DemoGate() {
+  const { session } = useSession();
+  const insets = useSafeAreaInsets();
+  if (!session?.demo || !api.isDemo) return null;
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', zIndex: 1000, top: insets.top + 2, right: 8 }}>
+      <DemoBanner visible />
+    </View>
+  );
+}
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
@@ -50,6 +63,7 @@ export default function RootLayout() {
         <DraftProvider>
           <StatusBar style="dark" />
           <Gate />
+          <DemoGate />
         </DraftProvider>
       </SessionProvider>
     </SafeAreaProvider>

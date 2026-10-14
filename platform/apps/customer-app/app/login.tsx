@@ -29,6 +29,15 @@ export default function Login() {
     }
   };
 
+  const tryDemo = async () => {
+    setBusy(true);
+    try {
+      await api.startDemo('CUSTOMER');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const verify = async () => {
     setError(null);
     setBusy(true);
@@ -68,6 +77,10 @@ export default function Login() {
               <Button title="เปลี่ยนเบอร์ / ขอรหัสใหม่" variant="text" onPress={() => setStep('phone')} />
             </>
           )}
+        </View>
+        <View style={{ paddingHorizontal: space.lg, gap: space.xs }}>
+          <Button title="ทดลองใช้งาน (โหมดสาธิต)" variant="outline" onPress={tryDemo} disabled={busy} />
+          <Text style={[font.caption, { color: color.text3, textAlign: 'center' }]}>เข้าดูทุกหน้าด้วยข้อมูลจำลอง ไม่ต้องใช้เบอร์โทรหรือเซิร์ฟเวอร์</Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

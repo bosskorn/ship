@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { ApiError, Button, Cell, color, font, Money, Section, space } from '@ship/mobile-ui';
+import { ApiError, Button, Cell, color, font, Section, space } from '@ship/mobile-ui';
 import type { EarningsSummary } from '@ship/shared';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -87,17 +87,19 @@ export default function Home() {
 
         <Section title="วันนี้">
           <View style={{ flexDirection: 'row', padding: space.lg }}>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1.4 }}>
               <Text style={[font.caption, { color: color.text3 }]}>รายได้สุทธิ</Text>
-              <Money satang={today?.netEarnings ?? 0} size="number" />
+              <Text style={[font.h2, { fontVariant: ['tabular-nums'] }]} numberOfLines={1} adjustsFontSizeToFit>
+                ฿{((today?.netEarnings ?? 0) / 100).toLocaleString('th-TH', { maximumFractionDigits: 2 })}
+              </Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[font.caption, { color: color.text3 }]}>งาน</Text>
-              <Text style={font.number}>{today?.trips ?? 0}</Text>
+              <Text style={font.h2}>{today?.trips ?? 0}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[font.caption, { color: color.text3 }]}>ออนไลน์</Text>
-              <Text style={font.number}>{Math.floor((today?.onlineSeconds ?? 0) / 3600)}:{String(Math.floor(((today?.onlineSeconds ?? 0) % 3600) / 60)).padStart(2, '0')}</Text>
+              <Text style={font.h2}>{Math.floor((today?.onlineSeconds ?? 0) / 3600)}:{String(Math.floor(((today?.onlineSeconds ?? 0) % 3600) / 60)).padStart(2, '0')}</Text>
             </View>
           </View>
           <Cell title="ดูรายละเอียดรายได้" onPress={() => router.push('/(tabs)/earnings')} arrow last />

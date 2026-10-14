@@ -1,6 +1,7 @@
 import * as NativeSecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { io, Socket } from 'socket.io-client';
+import { DemoBackend, DemoError } from './demo';
 
 /**
  * API client shared by both apps. Tokens live in the OS keychain/keystore (expo-secure-store),
@@ -11,6 +12,8 @@ export interface Session {
   refreshToken: string;
   deviceId: string;
   user: { id: string; role: 'CUSTOMER' | 'DRIVER'; phone: string | null; displayName: string | null };
+  /** Demo mode: no server; requests are answered by an in-app simulation with sample data. */
+  demo?: boolean;
 }
 
 export class ApiError extends Error {
@@ -31,9 +34,9 @@ const SecureStore =
   Platform.OS === 'web'
     ? {
         AFTER_FIRST_UNLOCK: NativeSecureStore.AFTER_FIRST_UNLOCK,
-        getItemAsync: async (k: string) => globalThis.localStorage?.getItem(k) ?? null,
-        setItemAsync: async (k: string, v: string, _o?: unknown) => globalThis.localStorage?.setItem(k, v),
-        deleteItemAsync: async (k: string) => globalThis.localStorage?.removeItem(k),
+        getItemAsync: async (k: string) => (globalThis as any).localStorage?.getItem(k) ?? null,
+        setItemAsync: async (k: string, v: string, _o?: unknown) => (globalThis as any).localStorage?.setItem(k, v),
+        deleteItemAsync: async (k: string) => (globalThis as any).localStorage?.removeItem(k),
       }
     : NativeSecureStore;
 
@@ -42,6 +45,7 @@ export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
   const listeners = new Set<Listener>();
   let refreshing: Promise<boolean> | null = null;
   let socket: Socket | null = null;
+  let demo: DemoBackend | null = null;
 
   async function persist(s: Session | null) {
     session = s;
@@ -53,11 +57,13 @@ export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
       socket.disconnect();
       socket = null;
     }
+    if (!s) demo = null;
   }
 
   async function restore(): Promise<Session | null> {
     const raw = await SecureStore.getItemAsync(opts.storageKey);
     session = raw ? (JSON.parse(raw) as Session) : null;
+    if (session?.demo) demo = new DemoBackend(session.user.role);
     return session;
   }
 
@@ -72,7 +78,7 @@ export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
   }
 
   async function refresh(): Promise<boolean> {
-    if (!session) return false;
+    if (!session || demo) return false;
     refreshing ??= (async () => {
       try {
         const res = await fetch(`${opts.baseUrl}/auth/refresh`, {
@@ -97,6 +103,14 @@ export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
   }
 
   async function request<T = any>(method: string, path: string, body?: unknown, retry = true): Promise<T> {
+    if (demo) {
+      try {
+        return (await demo.handle(method, path, body)) as T;
+      } catch (e) {
+        if (e instanceof DemoError) throw new ApiError(e.status, e.code, e.message);
+        throw e;
+      }
+    }
     let res: Response;
     try {
       res = await fetch(`${opts.baseUrl}${path}`, {
@@ -125,6 +139,12 @@ export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
     return pair;
   }
 
+  /** Enter demo mode (explore every screen with simulated data, no server needed). */
+  async function startDemo(role: 'CUSTOMER' | 'DRIVER') {
+    demo = new DemoBackend(role);
+    await persist({ accessToken: 'demo', refreshToken: 'demo', deviceId: await deviceId(), user: demo.user(), demo: true });
+  }
+
   async function logout() {
     await request('POST', '/auth/logout').catch(() => undefined);
     await persist(null);
@@ -132,6 +152,7 @@ export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
 
   /** Authenticated Socket.IO connection (reconnects with the latest access token). */
   function realtime(): Socket {
+    if (demo) return demo.socket as unknown as Socket;
     if (socket) return socket;
     socket = io(opts.baseUrl, {
       transports: ['websocket'],
@@ -144,6 +165,7 @@ export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
 
   /** PUT a local file (camera/gallery URI) to a signed upload URL; returns the storage key. */
   async function uploadFile(localUri: string, purpose: 'KYC' | 'PARCEL' | 'POD' | 'SIGNATURE', contentType = 'image/jpeg'): Promise<string> {
+    if (demo) return `demo/${purpose.toLowerCase()}/${Date.now()}.jpg`;
     const signed = await request('POST', '/uploads/sign', { purpose, contentType });
     const blob = await (await fetch(localUri)).blob();
     const res = await fetch(signed.uploadUrl, { method: 'PUT', headers: signed.headers, body: blob });
@@ -153,6 +175,7 @@ export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
 
   /** Upload in-memory content (e.g. a signature SVG) to a signed URL. */
   async function uploadContent(body: string, purpose: 'SIGNATURE' | 'POD', contentType: string): Promise<string> {
+    if (demo) return `demo/${purpose.toLowerCase()}/${Date.now()}.svg`;
     const signed = await request('POST', '/uploads/sign', { purpose, contentType });
     const res = await fetch(signed.uploadUrl, { method: 'PUT', headers: signed.headers, body });
     if (!res.ok) throw new ApiError(res.status, 'UPLOAD_FAILED', 'อัปโหลดไม่สำเร็จ');
@@ -164,6 +187,10 @@ export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
     get session() {
       return session;
     },
+    get isDemo() {
+      return !!demo;
+    },
+    startDemo,
     restore,
     onSession(l: Listener) {
       listeners.add(l);

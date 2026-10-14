@@ -220,3 +220,13 @@ export const styles = StyleSheet.create({
   segment: { flex: 1, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm, borderWidth: StyleSheet.hairlineWidth, borderColor: 'transparent' },
   bottomBar: { backgroundColor: color.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.border, padding: space.md, paddingBottom: space.lg, gap: space.sm },
 });
+
+/** Badge shown while running on simulated data. */
+export function DemoBanner({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+  return (
+    <View style={{ backgroundColor: color.warningLight, borderColor: color.warning, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm }}>
+      <Text style={[font.caption, { color: color.warning }]}>โหมดสาธิต</Text>
+    </View>
+  );
+}

@@ -2,7 +2,7 @@
 import { forwardRef, ReactNode, useEffect, useImperativeHandle } from 'react';
 import { Text, View } from 'react-native';
 
-type Props = { style?: any; children?: ReactNode; initialRegion?: Region; onRegionChangeComplete?: (r: Region) => void; [k: string]: unknown };
+type Props = { style?: any; children?: ReactNode; initialRegion?: Region; onRegionChangeComplete?: (r: Region) => void; [k: string]: any };
 
 const MapView = forwardRef<unknown, Props>(function MapView({ style, children, initialRegion, onRegionChangeComplete }, ref) {
   useImperativeHandle(ref, () => ({ animateToRegion() {}, fitToCoordinates() {} }));
