@@ -4,6 +4,13 @@
  * the native module (encryption keys) and the document repository prove the account never
  * touches local documents or their encryption.
  */
+import * as SecureStore from 'expo-secure-store';
+import { OneScanVision } from '@/native/OneScanVision';
+import { setAccountDeps, SESSION_ABSOLUTE_MS, SESSION_INACTIVITY_MS, useAccount } from '@/services/auth/accountStore';
+import { AuthError, mapAuthError } from '@/services/auth/errors';
+import { goTrue } from '@/services/auth/goTrue';
+
+// jest.mock calls below are hoisted above these imports by babel-jest.
 
 const mockSecure = new Map<string, string>();
 jest.mock('expo-secure-store', () => ({
@@ -37,12 +44,6 @@ jest.mock('@/core/database/repositories/documentRepository', () => ({
   folderRepository: new Proxy({}, { get: (_t, k) => (globalThis as { __docRepoSpy?: jest.Mock }).__docRepoSpy!.bind(null, k) }),
 }));
 
-import * as SecureStore from 'expo-secure-store';
-import { OneScanVision } from '@/native/OneScanVision';
-import { setAccountDeps, SESSION_ABSOLUTE_MS, SESSION_INACTIVITY_MS, useAccount } from '@/services/auth/accountStore';
-import { AuthError } from '@/services/auth/errors';
-import { goTrue } from '@/services/auth/goTrue';
-import { mapAuthError } from '@/services/auth/errors';
 
 const docRepoSpy = jest.fn();
 (globalThis as { __docRepoSpy?: jest.Mock }).__docRepoSpy = docRepoSpy;
