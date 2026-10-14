@@ -8,7 +8,7 @@ import { DocumentListItemProps, DocumentThumb, SelectionMark, useDocumentMeta } 
 export const DocumentGridItem = memo(function DocumentGridItem({ doc, onPress, onMore, onLongPress, selected, selecting }: DocumentListItemProps) {
   const { t } = useTranslation();
   const { colors, spacing, radius } = useTheme();
-  const meta = useDocumentMeta(doc, false);
+  const meta = useDocumentMeta(doc);
   return (
     <Pressable
       testID={`doc-${doc.id}`}

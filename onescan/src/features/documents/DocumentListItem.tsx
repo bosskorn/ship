@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { TIcon, TIconButton, TText, useTheme } from '@/design-system';
 import type { DocumentRecord } from '@/core/document-engine/model';
-import { formatBytes, formatDate } from '@/core/i18n/format';
+import { formatRelativeDay } from '@/core/i18n/format';
 import { SecureImage } from '@/features/shared/SecureImage';
 
 export interface DocumentListItemProps {
@@ -17,16 +17,11 @@ export interface DocumentListItemProps {
   selecting?: boolean;
 }
 
-/** Date · pages · size, in the user's locale. */
-export function useDocumentMeta(doc: DocumentRecord, withSize = true) {
+/** "6 pages · Today" (pages optional), in the user's locale. */
+export function useDocumentMeta(doc: DocumentRecord, opts: { pages?: boolean } = {}) {
   const { t, i18n } = useTranslation();
-  return [
-    formatDate(doc.updatedAt, i18n.language),
-    doc.pageCount ? t('common.pages', { count: doc.pageCount }) : null,
-    withSize ? formatBytes(doc.sizeBytes, i18n.language) : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const day = formatRelativeDay(doc.updatedAt, i18n.language, { today: t('common.today'), yesterday: t('common.yesterday') });
+  return [opts.pages !== false && doc.pageCount ? t('common.pages', { count: doc.pageCount }) : null, day].filter(Boolean).join(' · ');
 }
 
 /** Thumbnail of the first page (decrypted on demand), or a document glyph. */
@@ -51,6 +46,38 @@ export function DocumentThumb({ doc, width, height }: { doc: DocumentRecord; wid
       ) : (
         <TIcon name="documents" size="md" color={colors.textPlaceholder} />
       )}
+    </View>
+  );
+}
+
+/**
+ * The first page as a physical sheet: soft shadow, a second sheet behind when the document
+ * has more pages, and the page count on the page.
+ */
+export function DocumentPaper({ doc, width, height }: { doc: DocumentRecord; width: number | `${number}%`; height: number }) {
+  const { colors } = useTheme();
+  const multi = doc.pageCount > 1;
+  return (
+    <View style={{ width, height, paddingRight: multi ? 4 : 0, paddingBottom: multi ? 4 : 0 }}>
+      {multi ? (
+        <View style={{ position: 'absolute', left: 4, top: 4, right: 0, bottom: 0, borderRadius: 6, backgroundColor: colors.bgContainer, borderWidth: 1, borderColor: colors.border }} />
+      ) : null}
+      <View style={{ flex: 1, borderRadius: 6, backgroundColor: colors.bgContainer, elevation: 3, shadowColor: '#0F1521', shadowOpacity: 0.16, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } }}>
+        <View style={{ flex: 1, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: colors.divider, backgroundColor: colors.bgSecondary, alignItems: 'center', justifyContent: 'center' }}>
+          {doc.thumbnailUri ? (
+            <SecureImage uri={doc.thumbnailUri} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+          ) : (
+            <TIcon name="documents" size="lg" color={colors.textPlaceholder} />
+          )}
+        </View>
+        {multi ? (
+          <View style={{ position: 'absolute', left: 8, bottom: 8, backgroundColor: 'rgba(15,21,33,0.72)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 1 }}>
+            <TText variant="caption" weight="600" style={{ color: '#FFFFFF', fontSize: 11, lineHeight: 16 }}>
+              {doc.pageCount}
+            </TText>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }

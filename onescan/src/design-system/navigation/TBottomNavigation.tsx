@@ -23,7 +23,8 @@ export interface TBottomNavigationProps {
 }
 
 const BAR = 64;
-const ACTION = 56;
+/** Scan button: 56 dp of brand colour plus a 5 dp ring in the bar colour. */
+const ACTION = 66;
 
 /**
  * Android navigation bar: icon + label per destination, a pill indicator behind the active
@@ -45,8 +46,9 @@ export function TBottomNavigation({ items, activeKey, onPress, onLongPress, bott
       {items.map((item) => {
         const active = item.key === activeKey;
         if (item.primary) {
+          // Scan is an action, not a destination: a round button set into the bar's top edge.
           return (
-            <View key={item.key} style={{ flex: 1, height: BAR, alignItems: 'center' }}>
+            <View key={item.key} style={{ flex: 1, height: BAR, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 8 }}>
               <Pressable
                 testID={`tab-${item.key}`}
                 accessibilityRole="button"
@@ -55,30 +57,24 @@ export function TBottomNavigation({ items, activeKey, onPress, onLongPress, bott
                   haptics.tap();
                   onPress(item.key);
                 }}
-                onLongPress={onLongPress ? () => {
-                  haptics.long();
-                  onLongPress(item.key);
-                } : undefined}
+                onLongPress={onLongPress ? () => onLongPress(item.key) : undefined}
                 style={({ pressed }) => ({
+                  position: 'absolute',
+                  top: -ACTION / 2 + 4,
                   width: ACTION,
                   height: ACTION,
-                  marginTop: -ACTION / 3,
                   borderRadius: ACTION / 2,
                   backgroundColor: pressed ? colors.brandActive : colors.brand,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  borderWidth: 4,
+                  borderWidth: 5,
                   borderColor: colors.bgContainer,
-                  elevation: 4,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.18,
-                  shadowRadius: 6,
-                  shadowOffset: { width: 0, height: 2 },
+                  transform: [{ scale: pressed ? 0.94 : 1 }],
                 })}
               >
                 <TIcon name={item.icon} size="lg" color={colors.textAnti} strokeWidth={2} />
               </Pressable>
-              <TText variant="bodySmall" weight="600" style={{ color: colors.brand, marginTop: 0, lineHeight: 16 }}>
+              <TText variant="bodySmall" weight="600" style={{ lineHeight: 16 }}>
                 {item.label}
               </TText>
             </View>

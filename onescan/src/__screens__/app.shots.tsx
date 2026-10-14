@@ -17,7 +17,7 @@ import { HomeScreen } from '@/features/home/HomeScreen';
 import { DocumentsScreen } from '@/features/documents/DocumentsScreen';
 import { ToolsScreen } from '@/features/tools/ToolsScreen';
 import { ProfileScreen } from '@/features/profile/ProfileScreen';
-import { AppTabBar, ScanSheet } from '@/navigation/AppTabBar';
+import { AppTabBar } from '@/navigation/AppTabBar';
 import { useSettings } from '@/core/config/settingsStore';
 import type { DocumentRecord, FolderRecord } from '@/core/document-engine/model';
 
@@ -146,7 +146,6 @@ async function render(shot: Shot) {
             <View style={{ flex: 1 }}>{SCREENS[shot.tab]()}</View>
             <AppTabBar {...tabProps} />
           </View>
-          <ScanSheet visible={!!shot.sheet} onClose={() => undefined} onImportPhotos={() => undefined} onImportPdf={() => undefined} />
         </TToastProvider>
       </ThemeProvider>
     </SafeAreaProvider>
@@ -181,7 +180,6 @@ const shots: Record<string, Shot> = {
   'app-05-folders-th': { lang: 'th', scheme: 'light', tab: 'documents', docs: true, folders: true, press: ['chip-folders'] },
   'app-06-tools-th': { lang: 'th', scheme: 'light', tab: 'tools' },
   'app-07-me-th': { lang: 'th', scheme: 'light', tab: 'profile' },
-  'app-08-scan-sheet-th': { lang: 'th', scheme: 'light', tab: 'index', docs: true, sheet: true },
   'app-09-home-docs-dark-th': { lang: 'th', scheme: 'dark', tab: 'index', docs: true },
   'app-09b-documents-grid-dark-en': { lang: 'en', scheme: 'dark', tab: 'documents', docs: true, view: 'grid' },
   'app-09c-home-fresh-dark-th': { lang: 'th', scheme: 'dark', tab: 'index' },

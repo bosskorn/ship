@@ -35,3 +35,16 @@ export function formatBytes(bytes: number, language = 'en'): string {
   }
   return `${formatNumber(v < 10 ? Math.round(v * 10) / 10 : Math.round(v), language, 1)} ${units[i]}`;
 }
+
+/** "Today", "Yesterday", else a short date (year only when it is not this year). */
+export function formatRelativeDay(ts: number, language: string, labels: { today: string; yesterday: string }, now = Date.now()): string {
+  const day = (v: number) => {
+    const d = new Date(v);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  };
+  const diff = Math.round((day(now) - day(ts)) / 86_400_000);
+  if (diff === 0) return labels.today;
+  if (diff === 1) return labels.yesterday;
+  const sameYear = new Date(ts).getFullYear() === new Date(now).getFullYear();
+  return new Intl.DateTimeFormat(intlLocale(language), { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) }).format(ts);
+}
