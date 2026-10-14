@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { TButton, TLoading, TNavigationBar, TScreen, TText, useTheme, useToast } from '@/design-system';
 import { SessionLink, useAccount } from '@/services/auth/accountStore';
 import { isAuthError } from '@/services/auth/errors';
-import { takeAuthLink } from '@/services/auth/linkInbox';
+import { isCustomSchemeAuthLink, productionAppLinks, takeAuthLink } from '@/services/auth/linkInbox';
 import {
   Checkbox, EmailField, ErrorBanner, normalizeEmail, Notice, openLegal, PasswordField, TextLink, useAuthErrorText, validEmail, validPassword,
 } from './ui';
@@ -421,7 +421,9 @@ export function AuthCallbackScreen() {
     if (started.current) return;
     started.current = true;
     void (async () => {
-      const url = takeAuthLink() ?? (await Linking.getInitialURL().catch(() => null));
+      const initial = takeAuthLink() ?? (await Linking.getInitialURL().catch(() => null));
+      // Production (verified App Links): a custom-scheme email link is never trusted.
+      const url = productionAppLinks() && initial && isCustomSchemeAuthLink(initial) ? null : initial;
       const link = parseLink(url, params);
       const session = link ? null : parseSessionLink(url);
       if (!link && (!session || session === 'error')) {

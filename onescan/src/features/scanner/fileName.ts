@@ -15,3 +15,21 @@ export function scanFileName(prefix: string, at: number = Date.now()): string {
   const time = `${p(d.getHours())}-${p(d.getMinutes())}`;
   return `${cleanFilePrefix(prefix) || DEFAULT_FILE_PREFIX}_${date}_${time}`;
 }
+
+/**
+ * `base` if unused, else `base_2`, `base_3`, … Several scans in the same minute get distinct
+ * names. (Files never collide either way: they are stored and shared per document id.)
+ */
+export function uniqueTitle(base: string, taken: Iterable<string>): string {
+  const used = new Set(taken);
+  if (!used.has(base)) return base;
+  for (let n = 2; ; n++) {
+    const candidate = `${base}_${n}`;
+    if (!used.has(candidate)) return candidate;
+  }
+}
+
+export async function nextScanTitle(prefix: string, titlesLike: (base: string) => Promise<string[]>, at: number = Date.now()): Promise<string> {
+  const base = scanFileName(prefix, at);
+  return uniqueTitle(base, await titlesLike(base).catch(() => []));
+}

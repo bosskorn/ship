@@ -213,12 +213,12 @@ describe('failure handling and hygiene', () => {
     expect(out).not.toContain(SUB);
   });
 
-  it('email-link bridge keeps the token out of the server request', async () => {
+  it('email-link landing page: no custom-scheme hand-off, token dropped from the address bar', async () => {
     const { res } = await call('GET', '/auth/link', { tok: null });
     const page = await res.text();
     expect(res.headers.get('content-security-policy')).toContain("default-src 'none'");
-    expect(page).toContain('location.hash');
-    expect(page).toContain('package=app.onescan.mobile');
+    expect(page).not.toMatch(/onescan:|intent:/);
+    expect(page).toContain('history.replaceState');
   });
 
   it('serves asset links and legal pages', async () => {

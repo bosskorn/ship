@@ -27,8 +27,12 @@ export interface GoTrueDeps {
 }
 
 const configured = () => !!env.supabaseUrl && !!env.supabaseAnonKey;
-/** Where verification and reset emails send the user: the OneScan API bridge page. */
-export const emailRedirectUrl = () => `${env.accountApiUrl}/auth/link`;
+/**
+ * Where verification and reset emails send the user. Production: the verified App Link
+ * `https://<appLinkHost>/auth/link` (Android opens OneScan directly; never a custom scheme).
+ * QA builds without a host: the OneScan API's `/auth/link`.
+ */
+export const emailRedirectUrl = () => (env.appLinkHost ? `https://${env.appLinkHost}/auth/link` : `${env.accountApiUrl}/auth/link`);
 
 function headers(accessToken?: string): Record<string, string> {
   return { apikey: env.supabaseAnonKey, authorization: `Bearer ${accessToken ?? env.supabaseAnonKey}`, 'content-type': 'application/json' };

@@ -193,6 +193,14 @@ export const documentRepository = {
     });
   },
 
+  /** Titles in use (including documents in the trash) that equal `base` or start with `base_`. */
+  async titlesLike(base: string): Promise<string[]> {
+    const db = await getDatabase();
+    const esc = base.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const rows = await db.getAllAsync<{ title: string }>(`SELECT title FROM documents WHERE title = ? OR title LIKE ? ESCAPE '\\'`, base, `${esc}\\_%`);
+    return rows.map((r) => r.title);
+  },
+
   async rename(id: string, title: string) {
     const db = await getDatabase();
     await db.withTransactionAsync(async () => {

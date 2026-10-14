@@ -2,10 +2,11 @@ import { html, json } from './http';
 import type { Env } from './env';
 
 /**
- * Email-link bridge (`/auth/link`). Verification and reset emails link here with the one-time
- * token in the URL *fragment*, which browsers never send to the server — so the token is never
- * in a request line or a log. With Android App Links verified, Android opens OneScan directly
- * and this page is never shown; otherwise the page hands the fragment to the app.
+ * Email-link landing page (`/auth/link`) on the verified App Links host. On a phone with OneScan,
+ * Android opens the app directly (App Links) and this page is never shown. It appears only when
+ * the link is opened elsewhere (a computer, a browser without the app): it says where to open it
+ * and never hands the token to a custom scheme (M1). The token stays in the URL fragment, which
+ * browsers do not send to this server.
  */
 export function linkPage(): Response {
   return html(`<!doctype html><html lang="th"><head><meta charset="utf-8">
@@ -17,27 +18,13 @@ export function linkPage(): Response {
 body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,Roboto,"Noto Sans Thai",sans-serif;
 padding:48px max(20px,env(safe-area-inset-left)) 32px max(20px,env(safe-area-inset-right));text-align:center}
 .w{font-size:26px;font-weight:700}.w b{color:var(--brand)}p{color:var(--mute);max-width:420px;margin:12px auto}
-a.btn{display:inline-block;margin-top:20px;background:var(--brand);color:#fff;padding:12px 28px;border-radius:24px;text-decoration:none;font-weight:600}
 </style></head><body>
 <div class="w">One<b>Scan</b></div>
-<p id="m">กำลังเปิด OneScan…<br>Opening OneScan…</p>
-<a class="btn" id="open" href="#">เปิดใน OneScan / Open in OneScan</a>
-<p style="font-size:13px">ถ้าแอปไม่เปิด ให้เปิดลิงก์นี้บนโทรศัพท์ที่ติดตั้ง OneScan<br>If nothing happens, open this link on the phone where OneScan is installed.</p>
-<script>
-(function(){
-  var p = new URLSearchParams(location.hash.slice(1));
-  var t = p.get('token_hash') || '', k = p.get('type') || '';
-  var ok = /^[A-Za-z0-9_-]{8,256}$/.test(t) && (k === 'email' || k === 'recovery');
-  if (!ok) { document.getElementById('m').textContent = 'ลิงก์ไม่ถูกต้องหรือหมดอายุ / This link is invalid or has expired.'; document.getElementById('open').style.display='none'; return; }
-  var q = 'token_hash=' + encodeURIComponent(t) + '&type=' + k;
-  var app = /Android/i.test(navigator.userAgent)
-    ? 'intent://auth/callback?' + q + '#Intent;scheme=onescan;package=app.onescan.mobile;end'
-    : 'onescan://auth/callback?' + q;
-  history.replaceState(null, '', location.pathname);
-  document.getElementById('open').href = app;
-  location.replace(app);
-})();
-</script></body></html>`);
+<p>เปิดลิงก์นี้บนโทรศัพท์ Android ที่ติดตั้ง OneScan แล้ว ระบบจะเปิดแอปให้โดยอัตโนมัติ</p>
+<p>Open this link on the Android phone where OneScan is installed. It opens in the app automatically.</p>
+<p style="font-size:13px">ลิงก์ใช้ได้ครั้งเดียวและหมดอายุภายใน 1 ชั่วโมง · Links work once and expire within 1 hour.</p>
+<script>history.replaceState(null, '', location.pathname);</script>
+</body></html>`);
 }
 
 /**

@@ -10,7 +10,7 @@ import {
 import { DocumentEngine, SaveStage } from '@/core/document-engine/DocumentEngine';
 import { cssFilterFor, pageFilters } from '@/core/document-engine/image/filters';
 import type { DraftPage, PageFilter, Quad, Rotation } from '@/core/document-engine/model';
-import { scanFileName } from '@/features/scanner/fileName';
+import { nextScanTitle } from '@/features/scanner/fileName';
 import { useScanSession } from '@/features/scanner/scanSession';
 import { noteCropAccepted, noteCropCorrected } from '@/features/scanner/cropStats';
 import { isDiskFull, lowDisk, MIN_FREE_BYTES_SAVE } from '@/core/document-engine/storage/diskSpace';
@@ -124,7 +124,7 @@ export function EditorScreen() {
       const doc = existing
         ? await DocumentEngine.saveEdits(existing, pages, onStage, quality)
         : await DocumentEngine.save(pages, {
-            title: scanFileName(useSettings.getState().fileNamePrefix),
+            title: await nextScanTitle(useSettings.getState().fileNamePrefix, (b) => documentRepository.titlesLike(b)),
             docType,
             quality,
             onStage,
