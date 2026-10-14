@@ -1,4 +1,5 @@
 import React from 'react';
+import { I18nManager } from 'react-native';
 import {
   ArrowLeftRight, Bell, BookOpen, Camera, Check, ChevronLeft, ChevronRight, CircleQuestionMark,
   Clock, Cloud, Coins, Contact, Copy, CopyPlus, CreditCard, Crop, Download, Ellipsis, Eraser,
@@ -90,6 +91,9 @@ const registry = {
 
 export type IconName = keyof typeof registry;
 
+/** Icons that point along the reading direction: mirrored in right-to-left layouts. */
+const directional: ReadonlySet<IconName> = new Set<IconName>(['back', 'chevronRight', 'logout']);
+
 export const iconSizes = { sm: 16, md: 20, lg: 24, xl: 28 } as const;
 
 export interface TIconProps {
@@ -104,5 +108,6 @@ export function TIcon({ name, size = 'lg', color, strokeWidth = 1.75 }: TIconPro
   const { colors } = useTheme();
   const Cmp = registry[name];
   const px = typeof size === 'number' ? size : iconSizes[size];
-  return <Cmp size={px} color={color ?? colors.textPrimary} strokeWidth={strokeWidth} />;
+  const mirror = I18nManager.isRTL && directional.has(name);
+  return <Cmp size={px} color={color ?? colors.textPrimary} strokeWidth={strokeWidth} style={mirror ? { transform: [{ scaleX: -1 }] } : undefined} />;
 }

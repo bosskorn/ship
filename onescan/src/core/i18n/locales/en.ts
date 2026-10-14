@@ -153,6 +153,9 @@ const en = {
     footer: 'Applies to documents you save from now on. The original scan is always kept, and filters can be changed later without losing quality.',
   },
   scan_diagnostics: {
+    crop_counts: 'Auto crop: {{auto}} · suggested: {{review}} (accepted {{accepted}}) · not cropped: {{manual}}',
+    crop_corrected: 'Corrected by hand: auto {{auto}}, suggested {{review}}',
+    crop_rate: 'Manual correction rate: {{rate}}',
     crop_title: 'Automatic crop',
     crop_footer: 'Counts on this device only. Manual correction rate = crops the app applied or suggested that were then adjusted by hand.',
     copy: 'Copy report',
@@ -448,6 +451,14 @@ const en = {
   language: {
     title: 'Language',
     system: 'System default',
+    restart_note: 'Restart OneScan to switch the layout direction for this language.',
+  },
+  ocr_language: {
+    title: 'Text recognition language',
+    auto: 'Automatic (Thai + English)',
+    th_en: 'Thai + English',
+    latin: 'English and Latin-script languages',
+    note: 'The language of the text in your documents. It does not change the app language. Text is read on this device.',
   },
   appearance: {
     title: 'Appearance',

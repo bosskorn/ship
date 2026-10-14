@@ -238,7 +238,7 @@ export function PrivacyNote({ onDismiss }: { onDismiss: () => void }) {
     <View style={styles.privacy}>
       <Lock size={13} color="#DCE6FF" strokeWidth={2.2} />
       <Text style={[styles.privacyText, { fontFamily }]}>{`${t('scanner.privacy_title')} · ${t('scanner.privacy_body')}`}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={t('scanner.privacy_dismiss')} onPress={onDismiss} hitSlop={10} style={{ paddingLeft: 4 }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('scanner.privacy_dismiss')} onPress={onDismiss} hitSlop={10} style={{ paddingStart: 4 }}>
         <X size={14} color="#DCE6FF" />
       </Pressable>
     </View>
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   qualityChip: { height: 30, minWidth: 50, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   qualityText: { color: scan.text, fontSize: 13, fontWeight: '600', letterSpacing: 0.5 },
-  autoChip: { height: 30, paddingLeft: 8, paddingRight: 10, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  autoChip: { height: 30, paddingStart: 8, paddingEnd: 10, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 4 },
   autoText: { color: scan.text, fontSize: 13, fontWeight: '500' },
   modes: { flexDirection: 'row', justifyContent: 'center', gap: 28, paddingTop: 10 },
   mode: { alignItems: 'center', gap: 2, paddingVertical: 4, paddingHorizontal: 2 },
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   sideText: { fontSize: 12, lineHeight: 18 },
   stackBack: { position: 'absolute', left: 12, top: 2, width: 34, height: 44, borderRadius: 4 },
   stackFront: { position: 'absolute', left: 6, top: 6, width: 34, height: 44, borderRadius: 4, overflow: 'hidden', backgroundColor: '#FBFBF9', borderWidth: 2, borderColor: scan.brandLight },
-  badge: { position: 'absolute', right: -2, top: -4, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 4, backgroundColor: scan.brand, alignItems: 'center', justifyContent: 'center' },
+  badge: { position: 'absolute', end: -2, top: -4, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 4, backgroundColor: scan.brand, alignItems: 'center', justifyContent: 'center' },
   badgeText: { color: scan.text, fontSize: 12, fontWeight: '600' },
   beam: { position: 'absolute', left: 0, right: 0, top: 0, height: 2, backgroundColor: scan.brandText, shadowColor: scan.brandLight, shadowOpacity: 0.8, shadowRadius: 6, elevation: 2 },
   privacy: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999, backgroundColor: 'rgba(10,12,16,0.75)' },

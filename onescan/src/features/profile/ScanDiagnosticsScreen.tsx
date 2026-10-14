@@ -39,9 +39,9 @@ export function ScanDiagnosticsScreen() {
   const resetCropStats = useSettings((s) => s.resetCropStats);
   const rate = manualCorrectionRate(cropStats);
   const cropSummary = [
-    `Auto crop: ${cropStats.auto} · suggested: ${cropStats.review} (accepted ${cropStats.reviewAccepted}) · not cropped: ${cropStats.manual}`,
-    `Corrected by hand: auto ${cropStats.autoCorrected}, suggested ${cropStats.reviewCorrected}`,
-    `Manual correction rate: ${rate === null ? '–' : `${Math.round(rate * 1000) / 10}%`}`,
+    t('scan_diagnostics.crop_counts', { auto: cropStats.auto, review: cropStats.review, accepted: cropStats.reviewAccepted, manual: cropStats.manual }),
+    t('scan_diagnostics.crop_corrected', { auto: cropStats.autoCorrected, review: cropStats.reviewCorrected }),
+    t('scan_diagnostics.crop_rate', { rate: rate === null ? '–' : `${Math.round(rate * 1000) / 10}%` }),
   ];
   const copy = async () => {
     await Clipboard.setStringAsync(`${diagnosticsReport(pages, deviceLine())}\n\n${cropSummary.join('\n')}`);

@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeProvider';
 import { TText } from '../typography/TText';
 import { TIconButton } from '../buttons/TIconButton';
@@ -16,8 +17,9 @@ export interface TNavigationBarProps {
   divider?: boolean;
 }
 
-export function TNavigationBar({ title, onBack, backLabel = 'Back', large, right, left, transparent, divider }: TNavigationBarProps) {
+export function TNavigationBar({ title, onBack, backLabel, large, right, left, transparent, divider }: TNavigationBarProps) {
   const { colors, spacing, layout } = useTheme();
+  const { t } = useTranslation();
   const bg = transparent ? 'transparent' : colors.bgContainer;
 
   if (large) {
@@ -28,8 +30,8 @@ export function TNavigationBar({ title, onBack, backLabel = 'Back', large, right
           minHeight: 56,
           flexDirection: 'row',
           alignItems: 'center',
-          paddingLeft: spacing.md,
-          paddingRight: spacing.xs,
+          paddingStart: spacing.md,
+          paddingEnd: spacing.xs,
         }}
       >
         <TText variant="titleLarge" style={{ flex: 1 }} accessibilityRole="header" numberOfLines={1}>
@@ -53,7 +55,7 @@ export function TNavigationBar({ title, onBack, backLabel = 'Back', large, right
       }}
     >
       <View style={[styles.side, { justifyContent: 'flex-start' }]}>
-        {left ?? (onBack ? <TIconButton icon="back" accessibilityLabel={backLabel} onPress={onBack} /> : null)}
+        {left ?? (onBack ? <TIconButton icon="back" accessibilityLabel={backLabel ?? t('common.back')} onPress={onBack} /> : null)}
       </View>
       <TText variant="title" align="center" style={{ flex: 1 }} numberOfLines={1} accessibilityRole="header">
         {title}

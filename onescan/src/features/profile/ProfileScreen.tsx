@@ -3,14 +3,18 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TCell, TCellGroup, TNavigationBar, TScreen } from '@/design-system';
 import { useSettings } from '@/core/config/settingsStore';
-import { supportedLanguages } from '@/core/i18n/languages';
+import { usableLanguage, languageInfo } from '@/core/i18n/languages';
+import { availableOcrLanguages } from '@/core/document-engine/ocr/ocrLanguages';
 
 export function ProfileScreen() {
   const { t } = useTranslation();
   const language = useSettings((s) => s.language);
   const appearance = useSettings((s) => s.appearance);
   const scanQuality = useSettings((s) => s.scanner.quality);
-  const langLabel = language ? supportedLanguages.find((l) => l.code === language)?.nativeName : t('language.system');
+  const usable = usableLanguage(language);
+  const langLabel = usable ? languageInfo(usable).nativeName : t('language.system');
+  const ocrLanguage = useSettings((s) => s.ocrLanguage);
+  const ocr = availableOcrLanguages().find((l) => l.id === ocrLanguage) ?? availableOcrLanguages()[0];
   const go = (path: Parameters<typeof router.push>[0]) => () => router.push(path);
 
   return (
@@ -27,6 +31,7 @@ export function ProfileScreen() {
 
       <TCellGroup>
         <TCell icon="translate" title={t('profile.language')} note={langLabel} arrow onPress={go('/language')} />
+        <TCell icon="ocr" title={t('ocr_language.title')} note={t(ocr.labelKey)} arrow onPress={go('/ocr-language')} />
         <TCell icon="appearance" title={t('profile.appearance')} note={t(`appearance.${appearance}`)} arrow onPress={go('/appearance')} />
         <TCell icon="camera" title={t('scan_quality.title')} note={t(`scan_quality.${scanQuality}`)} arrow onPress={go('/scan-quality')} />
       </TCellGroup>

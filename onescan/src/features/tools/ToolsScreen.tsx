@@ -176,7 +176,7 @@ export function ToolsScreen() {
                           style={{
                             position: "absolute",
                             top: -4,
-                            right: -10,
+                            end: -10,
                             backgroundColor: colors.warning,
                             borderRadius: radius.sm,
                             paddingHorizontal: 4,

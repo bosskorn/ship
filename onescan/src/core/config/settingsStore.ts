@@ -3,6 +3,7 @@ import { defaultScanQuality, ScanQuality } from '@/core/document-engine/image/qu
 import { persist } from 'zustand/middleware';
 import { persistentJSONStorage } from '../storage/kvStorage';
 import type { LanguageCode } from '../i18n/languages';
+import { defaultOcrLanguage, type OcrLanguageId } from '../document-engine/ocr/ocrLanguages';
 
 export type AppearancePreference = 'system' | 'light' | 'dark';
 export type AutoLockDelay = 'immediately' | '1m' | '5m';
@@ -87,6 +88,8 @@ interface SettingsState {
   onboardingCompleted: boolean;
   /** `null` = follow system language. */
   language: LanguageCode | null;
+  /** OCR language (document text), independent of the app language. See ocrLanguages.ts. */
+  ocrLanguage: OcrLanguageId;
   appearance: AppearancePreference;
   privacy: PrivacySettings;
   security: SecuritySettings;
@@ -101,6 +104,7 @@ interface SettingsState {
   setScannerHealth: (patch: Partial<ScannerHealth>) => void;
   completeOnboarding: () => void;
   setLanguage: (l: LanguageCode | null) => void;
+  setOcrLanguage: (id: OcrLanguageId) => void;
   setAppearance: (a: AppearancePreference) => void;
   setPrivacy: (patch: Partial<Omit<PrivacySettings, 'processOnDevice'>>) => void;
   setSecurity: (patch: Partial<SecuritySettings>) => void;
@@ -113,6 +117,7 @@ export const useSettings = create<SettingsState>()(
       hydrated: false,
       onboardingCompleted: false,
       language: null,
+      ocrLanguage: defaultOcrLanguage,
       appearance: 'system',
       privacy: defaultPrivacy,
       security: { appLock: false, biometric: false, autoLock: 'immediately', screenshotProtection: false },
@@ -126,6 +131,7 @@ export const useSettings = create<SettingsState>()(
       setScannerHealth: (patch) => set((s) => ({ scannerHealth: { ...s.scannerHealth, ...patch } })),
       completeOnboarding: () => set({ onboardingCompleted: true }),
       setLanguage: (language) => set({ language }),
+      setOcrLanguage: (ocrLanguage) => set({ ocrLanguage }),
       setAppearance: (appearance) => set({ appearance }),
       setPrivacy: (patch) =>
         set((s) => ({

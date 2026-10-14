@@ -202,7 +202,7 @@ export function EditorScreen() {
         />
         {current?.crop && current.crop.decision !== 'auto' && !current.crop.confirmed && nativeVision ? (
           <View style={styles.cropHint} pointerEvents="box-none">
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.mediaOverlay, borderRadius: 999, paddingLeft: spacing.sm, paddingRight: 4, paddingVertical: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.mediaOverlay, borderRadius: 999, paddingStart: spacing.sm, paddingEnd: 4, paddingVertical: 4 }}>
               <TText variant="bodySmall" color="mediaText">
                 {current.crop.presence === 'none' ? t('editor.no_document') : current.crop.decision === 'review' ? t('editor.check_edges') : t('editor.no_auto_crop')}
               </TText>

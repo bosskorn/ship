@@ -38,6 +38,7 @@ function RootStack() {
         <Stack.Screen name="about" />
         <Stack.Screen name="appearance" />
         <Stack.Screen name="language" />
+        <Stack.Screen name="ocr-language" />
         <Stack.Screen name="privacy" />
         <Stack.Screen name="security" />
         <Stack.Screen name="scan-quality" />

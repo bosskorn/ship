@@ -37,7 +37,7 @@ export function SearchScreen() {
     <TScreen
       surface="container"
       header={
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xxs, paddingRight: spacing.md, paddingVertical: spacing.xs }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xxs, paddingEnd: spacing.md, paddingVertical: spacing.xs }}>
           <TIconButton icon="back" accessibilityLabel={t('common.back')} onPress={() => router.back()} />
           <View style={{ flex: 1 }}>
             <TSearch testID="search-input" placeholder={t('search.placeholder')} value={query} onChangeText={setQuery} autoFocus />

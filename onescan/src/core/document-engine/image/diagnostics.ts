@@ -5,6 +5,9 @@ import type { ImageInfo } from '@/native/OneScanVision';
  * Scan quality diagnostics (v1.0.5): pixel size / file size of each image tier for the
  * most recent pages. Numbers only — no image content, file names or text — and kept in
  * memory for the Scan diagnostics screen; never persisted or sent anywhere.
+ *
+ * The copied report (diagnosticsReport) is an English engineering log for developer
+ * builds, deliberately not translated so reports from any locale read the same.
  */
 export type DiagnosticStage = 'source' | 'preview' | 'master' | 'thumbnail' | 'pdf';
 

@@ -19,17 +19,20 @@ export interface TCellProps {
   onPress?: () => void;
   onLongPress?: () => void;
   disabled?: boolean;
+  /** Selected option in a single-choice list (announced by screen readers). */
+  selected?: boolean;
   testID?: string;
 }
 
 export function TCell({
-  title, description, note, icon, iconColor, left, right, arrow, danger, onPress, onLongPress, disabled, testID,
+  title, description, note, icon, iconColor, left, right, arrow, danger, onPress, onLongPress, disabled, selected, testID,
 }: TCellProps) {
   const { colors, spacing, layout } = useTheme();
   return (
     <Pressable
       testID={testID}
       accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityState={selected !== undefined ? { selected } : undefined}
       disabled={disabled || (!onPress && !onLongPress)}
       onPress={onPress}
       onLongPress={onLongPress}
@@ -47,7 +50,7 @@ export function TCell({
     >
       {left ?? (icon ? <TIcon name={icon} size="md" color={danger ? colors.error : iconColor ?? colors.textPrimary} /> : null)}
       <View style={styles.body}>
-        <TText variant="bodyLarge" numberOfLines={1} style={danger ? { color: colors.error } : undefined}>
+        <TText variant="bodyLarge" numberOfLines={2} style={danger ? { color: colors.error } : undefined}>
           {title}
         </TText>
         {description ? (
@@ -57,7 +60,7 @@ export function TCell({
         ) : null}
       </View>
       {note ? (
-        <TText variant="body" color="textPlaceholder" numberOfLines={1}>
+        <TText variant="body" color="textPlaceholder" numberOfLines={1} style={styles.note}>
           {note}
         </TText>
       ) : null}
@@ -70,4 +73,6 @@ export function TCell({
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   body: { flex: 1, minWidth: 0 },
+  // Long translations: the title keeps at least ~55% of the row, the note ellipsizes.
+  note: { flexShrink: 1, maxWidth: '45%', textAlign: 'right' },
 });

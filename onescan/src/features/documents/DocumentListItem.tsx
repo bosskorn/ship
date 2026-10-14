@@ -18,7 +18,7 @@ export const DocumentListItem = memo(function DocumentListItem({ doc, onPress, o
   const meta = [
     t('documents.pdf'),
     doc.pageCount ? t('common.pages', { count: doc.pageCount }) : null,
-    formatBytes(doc.sizeBytes),
+    formatBytes(doc.sizeBytes, i18n.language),
     formatDate(doc.updatedAt, i18n.language),
   ]
     .filter(Boolean)
@@ -34,8 +34,8 @@ export const DocumentListItem = memo(function DocumentListItem({ doc, onPress, o
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.sm,
-        paddingLeft: spacing.md,
-        paddingRight: spacing.xxs,
+        paddingStart: spacing.md,
+        paddingEnd: spacing.xxs,
         paddingVertical: spacing.sm,
         backgroundColor: pressed ? colors.bgPressed : colors.bgContainer,
       })}

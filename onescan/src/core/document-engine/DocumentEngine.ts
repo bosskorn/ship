@@ -3,6 +3,7 @@ import { CaptureEngine, CropDebug } from './capture/CaptureEngine';
 import type { DocPrior } from './capture/crop/documentCrop';
 import { ImageEngine } from './image/ImageEngine';
 import { OCREngine } from './ocr/OCREngine';
+import { currentOcrLanguages } from './ocr/ocrLanguages';
 import { PDFEngine } from './pdf/PDFEngine';
 import { RedactionEngine } from './redaction/RedactionEngine';
 import { ExportEngine } from './export/ExportEngine';
@@ -20,8 +21,6 @@ type StageCallback = (s: SaveStage, progress: number) => void;
 /** PDF import raster width: A4 at 300 dpi. */
 const PDF_RENDER_WIDTH = 2480;
 
-/** OCR languages: Thailand-first with English, per the regional pack (spec §51). */
-const OCR_LANGUAGES = ['th', 'en'];
 
 const folderForType: Partial<Record<DocumentType, SystemFolderKey>> = {
   receipt: 'receipts',
@@ -209,7 +208,7 @@ export const DocumentEngine = {
 
     onStage?.('ocr', 0);
     // OCR decodes its own working copy natively; coordinates are normalised to the master.
-    const ocr = await OCREngine.recognize(pages.map((p) => p.uri), OCR_LANGUAGES, (d, t) => onStage?.('ocr', d / t));
+    const ocr = await OCREngine.recognize(pages.map((p) => p.uri), currentOcrLanguages(), (d, t) => onStage?.('ocr', d / t));
     return {
       pdfUri: pdfFile.uri,
       thumbUri: thumbFile.uri,
@@ -349,7 +348,7 @@ export const DocumentEngine = {
     }
     const thumbUri = pages.length ? (await DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri!), docId, 'thumbnail/thumb.jpg')).uri : null;
     onStage?.('ocr', 0);
-    const ocr = await OCREngine.recognize(pages.map((p) => p.uri), OCR_LANGUAGES, (d, t) => onStage?.('ocr', d / t));
+    const ocr = await OCREngine.recognize(pages.map((p) => p.uri), currentOcrLanguages(), (d, t) => onStage?.('ocr', d / t));
     return documentRepository.create({
       title,
       docType: 'document',
@@ -413,7 +412,7 @@ export const DocumentEngine = {
     const texts: string[] = [];
     for (let i = 0; i < source.length; i++) {
       onStage?.('pages', i / source.length);
-      const blocks = await OneScanVision.recognizeTextAsync(source[i].imageUri, OCR_LANGUAGES);
+      const blocks = await OneScanVision.recognizeTextAsync(source[i].imageUri, currentOcrLanguages());
       const text = blocks.map((b) => b.text).join('\n');
       const matches = RedactionEngine.detect(text);
       const boxes = RedactionEngine.blocksToRedact(blocks, matches);

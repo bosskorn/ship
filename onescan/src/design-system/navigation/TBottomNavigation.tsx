@@ -81,5 +81,5 @@ export function TBottomNavigation({ items, activeKey, onPress, bottomInset }: TB
 }
 
 const styles = StyleSheet.create({
-  dot: { position: 'absolute', top: -1, right: -3, width: 8, height: 8, borderRadius: 4, borderWidth: 1 },
+  dot: { position: 'absolute', top: -1, end: -3, width: 8, height: 8, borderRadius: 4, borderWidth: 1 },
 });

@@ -46,7 +46,7 @@ export function QualityCoach({ tone, message, sub, chip }: { tone: CoachTone; me
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center', gap: 6 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: 340, paddingVertical: 8, paddingLeft: 12, paddingRight: 16, borderRadius: 22, backgroundColor: scan.pill },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: 340, paddingVertical: 8, paddingStart: 12, paddingEnd: 16, borderRadius: 22, backgroundColor: scan.pill },
   icon: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: scan.text },
   bang: { color: '#0B0D11', fontSize: 14, fontWeight: '700', lineHeight: 16 },
