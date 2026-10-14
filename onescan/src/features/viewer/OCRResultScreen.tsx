@@ -66,7 +66,7 @@ export function OCRResultScreen() {
       ) : (
         <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.sm }}>
           <TSearch placeholder={t('ocr.search')} value={query} onChangeText={setQuery} />
-          {query.trim() ? <TText variant="bodySmall" color="textSecondary">{String(hits)}</TText> : null}
+          {query.trim() ? <TText variant="bodySmall" color="textSecondary">{t('ocr.matches', { count: hits })}</TText> : null}
           <TText variant="bodyLarge" selectable>
             {text}
           </TText>

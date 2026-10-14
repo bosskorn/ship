@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { TCell, TCellGroup, TIcon, TNavigationBar, TScreen, useTheme } from '@/design-system';
 import { ScannerEngineSetting, useSettings } from '@/core/config/settingsStore';
 import type { ScanQuality } from '@/core/document-engine/image/quality';
+import { useFeature } from '@/core/config/remoteConfig';
 import { MAX_ONESCAN_FAILURES } from '@/features/scanner/engine';
 
 const options: ScanQuality[] = ['standard', 'high', 'maximum'];
@@ -17,6 +18,7 @@ export function ScanQualityScreen() {
   const setScanner = useSettings((s) => s.setScanner);
   const engine = useSettings((s) => s.scanner.engine);
   const devMode = useSettings((s) => s.devMode);
+  const devTools = useFeature('devTools');
   const setHealth = useSettings((s) => s.setScannerHealth);
   const health = useSettings((s) => s.scannerHealth);
   const fellBack = engine === 'auto' && health.failures + (health.opening ? 1 : 0) >= MAX_ONESCAN_FAILURES;
@@ -50,7 +52,7 @@ export function ScanQualityScreen() {
         {fellBack ? <TCell icon="rescan" title={t('scanner_engine.retry')} arrow onPress={() => setHealth({ opening: false, failures: 0 })} /> : null}
       </TCellGroup>
       <TCellGroup>
-        {devMode || __DEV__ ? <TCell icon="info" title={t('scan_diagnostics.title')} arrow onPress={() => router.push('/scan-diagnostics')} /> : null}
+        {devTools && (devMode || __DEV__) ? <TCell icon="info" title={t('scan_diagnostics.title')} arrow onPress={() => router.push('/scan-diagnostics')} /> : null}
       </TCellGroup>
     </TScreen>
   );

@@ -1,6 +1,8 @@
 /** Source-of-truth locale. Every other locale must satisfy `LocaleResource`. */
 const en = {
   common: {
+    not_found: 'Page not found',
+    go_home: 'Go to Home',
     cancel: 'Cancel',
     confirm: 'Confirm',
     continue: 'Continue',
@@ -186,7 +188,7 @@ const en = {
     markup: 'Markup',
     redact: 'Redact',
     crop_full: 'Full page',
-    clean_applied: 'Shadows and background cleaned',
+    clean_applied: 'Document filter applied',
     filter_original: 'Original',
     filter_auto: 'Scan',
     filter_card: 'Card',
@@ -228,6 +230,9 @@ const en = {
     delete: 'Delete',
     delete_title: 'Move to Trash?',
     delete_body: 'Items in Trash are removed after {{days}} days.',
+    delete_forever_title: 'Delete this document?',
+    delete_forever_body: 'The document will be permanently removed from this phone. This cannot be undone.',
+    deleted_forever: 'Document deleted',
     delete_permanent: 'Delete Permanently',
     deleted: 'Moved to Trash',
     renamed: 'Renamed',
@@ -269,6 +274,7 @@ const en = {
     recent: 'Recent searches',
   },
   ocr: {
+    matches: '{{count}} matches',
     title: 'Recognized text',
     tab_text: 'Text',
     tab_layout: 'Layout',
@@ -287,7 +293,7 @@ const en = {
     found_other: '{{count}} items found',
     none: 'No sensitive information found',
     mask: 'Mask Sensitive Data',
-    review: 'Review',
+    review: 'Sensitive data',
     national_id: 'ID Number',
     passport: 'Passport',
     phone: 'Phone',
@@ -409,7 +415,7 @@ const en = {
     title: 'Privacy & Data',
     section_processing: 'Document processing',
     on_device: 'Process documents on device',
-    on_device_desc: 'Scan, enhance, OCR and redaction always run on this device.',
+    on_device_desc: 'Scanning, image clean-up and text recognition (OCR) run on this phone.',
     section_ai: 'AI',
     allow_ai: 'Allow AI processing',
     allow_ai_desc: 'Even when on, AI reads a document only after you confirm each request.',
@@ -421,7 +427,7 @@ const en = {
     analytics_desc: 'Anonymous feature usage. Never includes document content.',
     crash: 'Crash reports',
     crash_desc: 'Technical crash details. Never includes document content.',
-    principle: 'Our servers may know about a document — never what is in it.',
+    principle: 'This version of OneScan has no servers. Your documents are not sent anywhere unless you share them.',
   },
   security: {
     encrypted_docs_footer: 'Your scans, PDFs, OCR text and search index are encrypted on this phone (AES-256, key kept in the Android Keystore). They are not included in Android backups and never leave the device unless you share them.',

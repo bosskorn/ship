@@ -549,7 +549,8 @@ export function ScannerScreen() {
         cancelLabel={t('common.cancel')}
         items={[
           { key: 'grid', label: t('scanner.grid'), icon: 'grid' },
-          ...(hasSystemScanner() && single ? [{ key: 'system', label: t('scanner.open_system_scanner'), icon: 'scan' as const }] : []),
+          // Only when it can act: switching engines is not possible with pages already in this scan.
+          ...(hasSystemScanner() && single && !pages.length ? [{ key: 'system', label: t('scanner.open_system_scanner'), icon: 'scan' as const }] : []),
           { key: 'settings', label: t('scanner.scanner_settings'), icon: 'settings' },
         ]}
         onClose={() => setMenu(false)}

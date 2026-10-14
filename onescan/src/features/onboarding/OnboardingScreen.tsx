@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { IconName, TButton, TIcon, TText, useTheme } from '@/design-system';
 import { useSettings } from '@/core/config/settingsStore';
+import { useFeature } from '@/core/config/remoteConfig';
 import { track } from '@/services/analytics/analytics';
 
 /** Three short pages, then straight to scanning. No login (spec §47–48). */
@@ -16,11 +17,13 @@ export function OnboardingScreen() {
   const list = useRef<FlatList>(null);
   const [index, setIndex] = useState(0);
   const [pageHeight, setPageHeight] = useState(0);
+  const aiEnabled = useFeature('ai');
 
   const pages: { icon: IconName; title: string; body: string }[] = [
     { icon: 'scan', title: t('onboarding.scan_title'), body: t('onboarding.scan_body') },
     { icon: 'shield', title: t('onboarding.private_title'), body: t('onboarding.private_body') },
-    { icon: 'ai', title: t('onboarding.ai_title'), body: t('onboarding.ai_body') },
+    // AI page only when AI ships (off in 1.2.0).
+    ...(aiEnabled ? [{ icon: 'ai' as IconName, title: t('onboarding.ai_title'), body: t('onboarding.ai_body') }] : []),
   ];
   const last = index === pages.length - 1;
 

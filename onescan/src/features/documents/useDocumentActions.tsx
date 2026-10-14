@@ -4,7 +4,7 @@ import { TActionSheet, TDialog, TInput, useToast } from '@/design-system';
 import type { DocumentRecord } from '@/core/document-engine/model';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { documentRepository } from '@/core/database/repositories/documentRepository';
-import { useRemoteConfig } from '@/core/config/remoteConfig';
+import { useFeature, useRemoteConfig } from '@/core/config/remoteConfig';
 import { track } from '@/services/analytics/analytics';
 import { useDocuments } from './documentsStore';
 
@@ -20,6 +20,7 @@ export function useDocumentActions() {
   const folders = useDocuments((s) => s.folders);
   const refresh = useDocuments((s) => s.refresh);
   const retention = useRemoteConfig((s) => s.config.trashRetentionDays);
+  const trashEnabled = useFeature('trash');
   const [pending, setPending] = useState<Pending>(null);
   const [name, setName] = useState('');
 
@@ -117,20 +118,25 @@ export function useDocumentActions() {
       </TDialog>
       <TDialog
         visible={pending?.kind === 'delete'}
-        title={t('documents.delete_title')}
-        content={t('documents.delete_body', { days: retention })}
+        title={t(trashEnabled ? 'documents.delete_title' : 'documents.delete_forever_title')}
+        content={trashEnabled ? t('documents.delete_body', { days: retention }) : t('documents.delete_forever_body')}
         onRequestClose={close}
         actions={[
-          {
-            label: t('documents.delete'),
-            tone: 'danger',
-            onPress: async () => {
-              if (pending) await DocumentEngine.moveToTrash(pending.doc.id);
-              close();
-              await refresh();
-              toast(t('documents.deleted'));
-            },
-          },
+          // No Trash screen in 1.2.0: deleting is permanent, and the dialog says so.
+          ...(trashEnabled
+            ? [
+                {
+                  label: t('documents.delete'),
+                  tone: 'danger' as const,
+                  onPress: async () => {
+                    if (pending) await DocumentEngine.moveToTrash(pending.doc.id);
+                    close();
+                    await refresh();
+                    toast(t('documents.deleted'));
+                  },
+                },
+              ]
+            : []),
           {
             label: t('documents.delete_permanent'),
             tone: 'danger',
@@ -138,6 +144,7 @@ export function useDocumentActions() {
               if (pending) await DocumentEngine.deletePermanently(pending.doc);
               close();
               await refresh();
+              if (!trashEnabled) toast(t('documents.deleted_forever'));
             },
           },
           { label: t('common.cancel'), onPress: close },

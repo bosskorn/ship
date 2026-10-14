@@ -25,6 +25,8 @@ export function DocumentViewerScreen() {
   const toast = useToast();
   const { width } = useWindowDimensions();
   const { doc, pages } = useDocument(id);
+  // Pages rendered from an imported PDF keep the render itself as their source.
+  const importedPdf = pages.length > 0 && pages.every((p) => p.sourceUri === p.imageUri && p.filter === 'original');
   const actions = useDocumentActions();
   const [current, setCurrent] = useState(0);
   const [more, setMore] = useState(false);
@@ -81,7 +83,8 @@ export function DocumentViewerScreen() {
         right={
           <>
             <TIconButton icon="search" accessibilityLabel={t('viewer.search')} onPress={() => router.push({ pathname: '/ocr/[id]', params: { id: doc.id } })} />
-            {pages.length ? (
+            {/* Imported PDFs: editing would replace the original PDF with page images, so not offered. */}
+            {pages.length && !importedPdf ? (
               <TIconButton
                 icon="edit"
                 accessibilityLabel={t('viewer.edit')}

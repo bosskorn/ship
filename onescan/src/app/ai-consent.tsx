@@ -1,1 +1,4 @@
-export { AIConsentScreen as default } from '@/features/ai/AIConsentScreen';
+import { featureRoute } from '@/features/shared/FeatureRoute';
+import { AIConsentScreen } from '@/features/ai/AIConsentScreen';
+
+export default featureRoute('ai', AIConsentScreen);

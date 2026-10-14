@@ -1,1 +1,1 @@
-export { UnavailableScreen as default } from '@/features/shared/UnavailableScreen';
+export { NotFoundScreen as default } from '@/features/shared/NotFoundScreen';

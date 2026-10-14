@@ -12,7 +12,7 @@ import {
   useTheme,
   useToast,
 } from "@/design-system";
-import { FeatureFlag, useRemoteConfig } from "@/core/config/remoteConfig";
+import { FeatureFlag, flagOn, useRemoteConfig } from "@/core/config/remoteConfig";
 import type { CaptureMode, DocumentType } from "@/core/document-engine/model";
 import { openScanner } from "@/features/home/HomeScreen";
 import { useImport } from "@/features/shared/useImport";
@@ -122,7 +122,7 @@ export function ToolsScreen() {
         .map((s) => ({
           ...s,
           tools: s.tools.filter(
-            (tool) => tool.run && (!tool.flag || flags[tool.flag] === true),
+            (tool) => tool.run && (!tool.flag || flagOn(flags, tool.flag)),
           ),
         }))
         .filter((s) => s.tools.length > 0)
@@ -138,7 +138,7 @@ export function ToolsScreen() {
               }}
             >
               {s.tools.map((tool) => {
-                const available = !tool.flag || flags[tool.flag] === true;
+                const available = !tool.flag || flagOn(flags, tool.flag);
                 return (
                   <Pressable
                     key={tool.key}

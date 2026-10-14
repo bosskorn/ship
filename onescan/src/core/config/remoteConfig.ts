@@ -21,7 +21,11 @@ export type FeatureFlag =
   | 'quality_coach_enabled'
   | 'glare_detection_enabled'
   | 'shadow_detection_enabled'
-  | 'restore_enabled';
+  | 'restore_enabled'
+  // Production audit (1.2.0): UI that exists but is not shipped yet.
+  | 'trash'
+  | 'devTools'
+  | 'telemetrySettings';
 
 export type AiTask =
   | 'ocr_advanced'
@@ -78,6 +82,8 @@ export const fallbackConfig: RemoteConfig = {
     glare_detection_enabled: false,
     shadow_detection_enabled: false,
     restore_enabled: false,
+    // Dev builds only (production gate below): developer tools.
+    devTools: __DEV__,
   },
   trashRetentionDays: 30,
 };
@@ -111,10 +117,40 @@ export const useRemoteConfig = create<RemoteConfigState>((set) => ({
   },
 }));
 
+/**
+ * Production gate (OneScan 1.2.0 feature audit): features that exist in the code but are not
+ * ready — need a backend, are UI-only, untested on devices, or are developer tools — are off
+ * in release builds whatever the remote/cached config says. To ship one in a later version,
+ * remove it from this list (and test it). Development builds (`__DEV__`) follow the config.
+ */
+export const PRODUCTION_OFF: ReadonlySet<FeatureFlag> = new Set<FeatureFlag>([
+  'ai', // no AI backend; consent screen discards results
+  'aiCredits',
+  'cloudBackup', // no cloud
+  'externalCloud',
+  'pro', // no plans / payments
+  'advancedPdf', // merge/split/compress/protect/sign: not built
+  'convert', // PDF → image/Word/Excel: not built
+  'appLock', // lock is never enforced; PIN screen is a placeholder
+  'redaction', // masking not verified on devices: a missed field would leak when shared
+  'auto_capture_enabled', // pending device QA
+  'glare_detection_enabled',
+  'shadow_detection_enabled',
+  'restore_enabled',
+  'trash', // no Trash screen / restore yet: deleting is permanent
+  'devTools', // developer mode, scan diagnostics
+  'telemetrySettings', // analytics / crash-report switches: nothing is collected in 1.2.0
+]);
+
+export function flagOn(flags: RemoteConfig['flags'], flag: FeatureFlag): boolean {
+  if (!__DEV__ && PRODUCTION_OFF.has(flag)) return false;
+  return flags[flag] === true;
+}
+
 export function isFeatureEnabled(flag: FeatureFlag, config: RemoteConfig = useRemoteConfig.getState().config) {
-  return config.flags[flag] === true;
+  return flagOn(config.flags, flag);
 }
 
 export function useFeature(flag: FeatureFlag) {
-  return useRemoteConfig((s) => s.config.flags[flag] === true);
+  return useRemoteConfig((s) => flagOn(s.config.flags, flag));
 }

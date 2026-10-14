@@ -1,1 +1,4 @@
-export { UnavailableScreen as default } from '@/features/shared/UnavailableScreen';
+import { featureRoute } from '@/features/shared/FeatureRoute';
+import { UnavailableScreen } from '@/features/shared/UnavailableScreen';
+
+export default featureRoute('devTools', UnavailableScreen);

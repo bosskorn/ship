@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TCell, TCellGroup, TIcon, TNavigationBar, TScreen, TText, useTheme, useToast } from '@/design-system';
 import { env } from '@/core/config/env';
+import { useFeature } from '@/core/config/remoteConfig';
 import { useSettings } from '@/core/config/settingsStore';
 
 export function AboutScreen() {
@@ -11,6 +12,7 @@ export function AboutScreen() {
   const { colors, spacing } = useTheme();
   const toast = useToast();
   const taps = useRef(0);
+  const devTools = useFeature('devTools');
   return (
     <TScreen scroll header={<TNavigationBar title={t('about.title')} onBack={() => router.back()} />}>
       <View style={{ alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.xxl }}>
@@ -24,14 +26,19 @@ export function AboutScreen() {
         <TCell
           title={t('about.version')}
           note={env.appVersion}
-          onPress={() => {
-            taps.current += 1;
-            if (taps.current < 7) return;
-            taps.current = 0;
-            const on = !useSettings.getState().devMode;
-            useSettings.getState().setDevMode(on);
-            toast(t(on ? 'about.dev_on' : 'about.dev_off'));
-          }}
+          // Developer mode (scan diagnostics): development builds only; plain text in production.
+          onPress={
+            devTools
+              ? () => {
+                  taps.current += 1;
+                  if (taps.current < 7) return;
+                  taps.current = 0;
+                  const on = !useSettings.getState().devMode;
+                  useSettings.getState().setDevMode(on);
+                  toast(t(on ? 'about.dev_on' : 'about.dev_off'));
+                }
+              : undefined
+          }
         />
       </TCellGroup>
     </TScreen>

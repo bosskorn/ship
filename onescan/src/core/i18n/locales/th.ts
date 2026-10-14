@@ -3,6 +3,8 @@ import type { LocaleResource } from './en';
 /** Thai has no plural inflection; i18next resolves `_other` for every count. */
 const th: LocaleResource = {
   common: {
+    not_found: 'ไม่พบหน้านี้',
+    go_home: 'กลับหน้าแรก',
     cancel: 'ยกเลิก',
     confirm: 'ยืนยัน',
     continue: 'ดำเนินการต่อ',
@@ -188,7 +190,7 @@ const th: LocaleResource = {
     markup: 'ขีดเขียน',
     redact: 'ปกปิด',
     crop_full: 'ทั้งหน้า',
-    clean_applied: 'ลบเงาและพื้นหลังแล้ว',
+    clean_applied: 'ใช้ฟิลเตอร์เอกสารแล้ว',
     filter_original: 'ต้นฉบับ',
     filter_auto: 'สแกน',
     filter_card: 'บัตร',
@@ -230,6 +232,9 @@ const th: LocaleResource = {
     delete: 'ลบ',
     delete_title: 'ย้ายไปถังขยะ?',
     delete_body: 'รายการในถังขยะจะถูกลบหลัง {{days}} วัน',
+    delete_forever_title: 'ลบเอกสารนี้?',
+    delete_forever_body: 'เอกสารจะถูกลบออกจากเครื่องถาวร และกู้คืนไม่ได้',
+    deleted_forever: 'ลบเอกสารแล้ว',
     delete_permanent: 'ลบถาวร',
     deleted: 'ย้ายไปถังขยะแล้ว',
     renamed: 'เปลี่ยนชื่อแล้ว',
@@ -271,6 +276,7 @@ const th: LocaleResource = {
     recent: 'ค้นหาล่าสุด',
   },
   ocr: {
+    matches: 'พบ {{count}} รายการ',
     title: 'ข้อความที่อ่านได้',
     tab_text: 'ข้อความ',
     tab_layout: 'เค้าโครง',
@@ -289,7 +295,7 @@ const th: LocaleResource = {
     found_other: 'พบ {{count}} รายการ',
     none: 'ไม่พบข้อมูลสำคัญ',
     mask: 'ปกปิดข้อมูลสำคัญ',
-    review: 'ตรวจสอบ',
+    review: 'ข้อมูลสำคัญ',
     national_id: 'เลขประจำตัวประชาชน',
     passport: 'หนังสือเดินทาง',
     phone: 'เบอร์โทรศัพท์',
@@ -411,7 +417,7 @@ const th: LocaleResource = {
     title: 'ความเป็นส่วนตัวและข้อมูล',
     section_processing: 'การประมวลผลเอกสาร',
     on_device: 'ประมวลผลเอกสารบนเครื่อง',
-    on_device_desc: 'การสแกน ปรับภาพ OCR และการปกปิดข้อมูล ทำบนเครื่องนี้เสมอ',
+    on_device_desc: 'การสแกน ปรับภาพ และอ่านข้อความ (OCR) ทำบนเครื่องนี้',
     section_ai: 'AI',
     allow_ai: 'อนุญาตการประมวลผลด้วย AI',
     allow_ai_desc: 'แม้เปิดไว้ AI จะอ่านเอกสารหลังจากคุณยืนยันในแต่ละครั้งเท่านั้น',
@@ -423,7 +429,7 @@ const th: LocaleResource = {
     analytics_desc: 'ข้อมูลการใช้ฟีเจอร์แบบไม่ระบุตัวตน ไม่รวมเนื้อหาเอกสาร',
     crash: 'รายงานข้อขัดข้อง',
     crash_desc: 'รายละเอียดทางเทคนิคเมื่อแอปขัดข้อง ไม่รวมเนื้อหาเอกสาร',
-    principle: 'เซิร์ฟเวอร์อาจรู้ว่ามีเอกสาร แต่ไม่รู้ว่าเอกสารเขียนอะไร',
+    principle: 'OneScan เวอร์ชันนี้ไม่มีเซิร์ฟเวอร์ เอกสารของคุณไม่ถูกส่งออกจากเครื่อง เว้นแต่คุณแชร์เอง',
   },
   security: {
     encrypted_docs_footer: 'ภาพสแกน PDF ข้อความ OCR และดัชนีค้นหา ถูกเข้ารหัสในเครื่องนี้ (AES-256 กุญแจเก็บใน Android Keystore) ไม่รวมอยู่ในการสำรองข้อมูลของ Android และไม่ออกจากเครื่อง เว้นแต่คุณแชร์เอง',
