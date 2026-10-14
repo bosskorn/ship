@@ -27,14 +27,16 @@ try {
 (async () => {
   const browser = await playwright.chromium.launch();
   const page = await browser.newPage({ viewport: { width: 412, height: 915 }, deviceScaleFactor: 2.625 });
-  for (const f of fs.readdirSync(out).filter((n) => n.endsWith('.html')).sort()) {
+  const only = process.env.ONLY ? new RegExp(process.env.ONLY) : null;
+  for (const f of fs.readdirSync(out).filter((n) => n.endsWith('.html') && (!only || only.test(n))).sort()) {
     // A "-360" suffix captures a small phone (360 dp wide); others are 412 dp.
     await page.setViewportSize({ width: /-360\.html$/.test(f) ? 360 : 412, height: 915 });
     await page.goto(`file://${path.join(out, f)}`);
     await page.evaluate(() => document.fonts.ready);
     // Full page: the scroll view is unrolled so the whole Home is visible.
     // RN <Image> only paints after a load event that jsdom never fires: draw the logo here.
-    const logo = `file://${path.join(root, 'assets/splash-icon.png')}`;
+    // LOGO=path.png previews another app mark in the real screens (brand reviews).
+    const logo = `file://${path.resolve(process.env.LOGO ?? path.join(root, 'assets/splash-icon.png'))}`;
     await page.addStyleTag({ content: `[data-testid="home-logo"]{background:url("${logo}") center/contain no-repeat}` });
     await page.addStyleTag({ content: `[data-testid="onboarding-logo"]{background:url("${logo}") center/contain no-repeat}` });
     const pageNo = /^onboarding-(\d)/.exec(f);
