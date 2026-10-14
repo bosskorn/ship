@@ -1,4 +1,11 @@
-import { getDatabase } from '@/core/database/db';
+import type { Database } from '@/core/database/db';
+
+/** Loaded on first use, so screens that only show account UI don't pull in the database. */
+async function getDatabase(): Promise<Database> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getDatabase: open } = require('@/core/database/db') as typeof import('@/core/database/db');
+  return open();
+}
 
 /** Small key-value table in the encrypted database (schema v3). Not documents. */
 export const appMeta = {
