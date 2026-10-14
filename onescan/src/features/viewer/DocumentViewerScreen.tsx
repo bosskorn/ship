@@ -11,6 +11,7 @@ import type { PageRecord } from '@/core/document-engine/model';
 import { track } from '@/services/analytics/analytics';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { useDocumentActions } from '@/features/documents/useDocumentActions';
+import { openPageManager, openSplit, openToImages } from '@/features/pages/openPageTools';
 import { useDocument } from './useDocument';
 import { PageZoomView } from './PageZoomView';
 import { useScanSession } from '@/features/scanner/scanSession';
@@ -189,9 +190,15 @@ export function DocumentViewerScreen() {
         onSelect={(key) => {
           setMore(false);
           if (key === 'sensitive') router.push({ pathname: '/sensitive/[id]', params: { id: doc.id } });
+          else if (key === 'pages') void openPageManager(doc).catch(() => toast(t('pages.failed'), 'error'));
+          else if (key === 'split') openSplit(doc);
+          else if (key === 'to_images') openToImages(doc);
           else if (key === 'manage') actions.open(doc);
         }}
         items={[
+          ...(pages.length ? [{ key: 'pages', label: t('pages.title_document'), icon: 'layers' as IconName }] : []),
+          ...(pages.length > 1 ? [{ key: 'split', label: t('split.title'), icon: 'split' as IconName }] : []),
+          ...(pages.length ? [{ key: 'to_images', label: t('to_images.title'), icon: 'toImage' as IconName }] : []),
           { key: 'sensitive', label: t('sensitive.review'), icon: 'shield' },
           { key: 'manage', label: t('common.more'), icon: 'more' },
         ]}

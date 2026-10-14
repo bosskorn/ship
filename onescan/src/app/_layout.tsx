@@ -48,6 +48,10 @@ function RootStack() {
         <Stack.Screen name="scan-quality" />
         <Stack.Screen name="file-name" />
         <Stack.Screen name="tags" />
+        <Stack.Screen name="pages" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="tools/merge" />
+        <Stack.Screen name="tools/split" />
+        <Stack.Screen name="tools/to-images" />
         <Stack.Screen name="scan-diagnostics" />
         <Stack.Screen name="cloud" />
         <Stack.Screen name="pricing" />

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { IconName, TIcon, TScreen, TSearch, TText, TTopAppBar, useTheme } from '@/design-system';
+import { IconName, TIcon, TProgress, TScreen, TSearch, TText, TTopAppBar, useTheme, useToast } from '@/design-system';
 import { openScanner } from '@/features/home/HomeScreen';
 import { useImport } from '@/features/shared/useImport';
+import { DocumentPickSheet } from '@/features/pages/DocumentPickSheet';
+import { openImagesToPdf, openMerge, openPageManager, openSplit, openToImages } from '@/features/pages/openPageTools';
 
 type Tint = 'brand' | 'success' | 'warning' | 'info';
 
@@ -33,6 +35,16 @@ export function ToolsScreen() {
   const { t } = useTranslation();
   const { colors, spacing, radius } = useTheme();
   const { importPdf, importPhotos, overlay: importOverlay } = useImport();
+  const toast = useToast();
+  const [pickForPages, setPickForPages] = useState(false);
+  const [preparing, setPreparing] = useState<number | null>(null);
+  const imagesToPdf = async () => {
+    try {
+      await openImagesToPdf(setPreparing);
+    } catch {
+      toast(t('pages.failed'), 'error');
+    }
+  };
   const [query, setQuery] = useState('');
 
   const categories: Category[] = [
@@ -47,11 +59,23 @@ export function ToolsScreen() {
       ],
     },
     {
+      key: 'pdf',
+      title: t('tools.section_pdf'),
+      tint: 'info',
+      tools: [
+        { key: 'image_to_pdf', label: t('tools.image_to_pdf'), icon: 'importPhoto', run: () => void imagesToPdf() },
+        { key: 'merge', label: t('tools.merge'), icon: 'merge', run: openMerge },
+        { key: 'split', label: t('tools.split'), icon: 'split', run: () => openSplit() },
+        { key: 'pdf_to_image', label: t('tools.pdf_to_image'), icon: 'toImage', run: () => openToImages() },
+        { key: 'pages', label: t('tools.pages'), icon: 'layers', run: () => setPickForPages(true) },
+      ],
+    },
+    {
       key: 'import',
       title: t('tools.section_import'),
       tint: 'success',
       tools: [
-        { key: 'image_to_pdf', label: t('tools.image_to_pdf'), icon: 'importPhoto', run: () => void importPhotos() },
+        { key: 'import_photos', label: t('tools.import_photos'), icon: 'gallery', run: () => void importPhotos() },
         { key: 'import_pdf', label: t('tools.import_pdf'), icon: 'importPdf', run: importPdf },
       ],
     },
@@ -139,6 +163,24 @@ export function ToolsScreen() {
           </View>
         );
       })}
+      <DocumentPickSheet
+        visible={pickForPages}
+        onClose={() => setPickForPages(false)}
+        onPick={(doc) => {
+          setPickForPages(false);
+          void openPageManager(doc).catch(() => toast(t('pages.failed'), 'error'));
+        }}
+      />
+      {preparing !== null ? (
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: colors.bgMask, alignItems: 'center', justifyContent: 'center', padding: spacing.xxl }}>
+          <View style={{ width: '100%', backgroundColor: colors.bgContainer, borderRadius: 16, padding: spacing.lg, gap: spacing.sm }}>
+            <TText variant="title" align="center">
+              {t('pages.loading')}
+            </TText>
+            <TProgress value={preparing} />
+          </View>
+        </View>
+      ) : null}
     </TScreen>
   );
 }

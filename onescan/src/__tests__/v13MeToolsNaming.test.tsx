@@ -28,6 +28,8 @@ jest.mock('expo-camera', () => ({
   },
 }));
 jest.mock('@/features/home/HomeScreen', () => ({ openScanner: jest.fn() }));
+jest.mock('@/features/pages/openPageTools', () => ({ openImagesToPdf: jest.fn(), openMerge: jest.fn(), openPageManager: jest.fn(), openSplit: jest.fn(), openToImages: jest.fn() }));
+jest.mock('@/features/pages/DocumentPickSheet', () => ({ DocumentPickSheet: () => null }));
 jest.mock('@/features/shared/useImport', () => ({ useImport: () => ({ importPdf: jest.fn(), importPhotos: jest.fn(), overlay: null }) }));
 jest.mock('@/features/shared/SecureImage', () => ({ SecureImage: () => null }));
 jest.mock('@/core/document-engine/ocr/ocrLanguages', () => ({
@@ -116,9 +118,8 @@ describe('permissions screen', () => {
 describe('tools', () => {
   it('featured scan plus categorised tools', async () => {
     const r = await render(<ToolsScreen />);
-    for (const id of ['tool-featured-scan', 'tools-scan', 'tools-import', 'tool-document', 'tool-id', 'tool-receipt', 'tool-image_to_pdf', 'tool-import_pdf']) {
-      expect(has(r, id)).toBe(true);
-    }
+    const missing = ['tool-featured-scan', 'tools-scan', 'tools-pdf', 'tools-import', 'tool-document', 'tool-id', 'tool-receipt', 'tool-image_to_pdf', 'tool-merge', 'tool-split', 'tool-pdf_to_image', 'tool-pages', 'tool-import_photos', 'tool-import_pdf'].filter((id) => !has(r, id));
+    expect(missing).toEqual([]);
   });
 });
 

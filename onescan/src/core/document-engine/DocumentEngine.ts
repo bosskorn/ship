@@ -16,10 +16,11 @@ import type { ProcessedImage } from './image/ImageEngine';
 import type { DocumentRecord, DocumentType, DraftPage, PageFilter, PageRecord, Quad, Rotation, SystemFolderKey } from './model';
 
 export type SaveStage = 'pages' | 'pdf' | 'ocr' | 'index';
-type StageCallback = (s: SaveStage, progress: number) => void;
+export type StageCallback = (s: SaveStage, progress: number) => void;
 
 /** PDF import raster width: A4 at 300 dpi. */
-const PDF_RENDER_WIDTH = 2480;
+/** 2480 px wide ≈ A4 at 300 dpi. */
+export const PDF_RENDER_WIDTH = 2480;
 
 
 const folderForType: Partial<Record<DocumentType, SystemFolderKey>> = {

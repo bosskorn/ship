@@ -1,7 +1,7 @@
 import React from 'react';
 import { I18nManager } from 'react-native';
 import {
-  ArrowLeftRight, Bell, BookOpen, Camera, Check, ChevronLeft, ChevronRight, CircleQuestionMark,
+  ArrowLeftRight, Bell, BookOpen, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleQuestionMark,
   Clock, Cloud, Coins, Contact, Copy, CopyPlus, CreditCard, Crop, Download, Ellipsis, Eraser,
   EyeOff, FileImage, FileLock, FileSpreadsheet, FileText, FileUp, FingerprintPattern, Folder,
   FolderPlus, Grid3x3, GripVertical, HardDrive, House, IdCard, Image, Images, Info, Languages,
@@ -42,6 +42,8 @@ const registry = {
   close: X,
   back: ChevronLeft,
   chevronRight: ChevronRight,
+  chevronUp: ChevronUp,
+  chevronDown: ChevronDown,
   flashOn: Zap,
   flashOff: ZapOff,
   grid: Grid3x3,

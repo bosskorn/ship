@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CaptureMode, DocumentType, DraftPage } from '@/core/document-engine/model';
 import { newId } from '@/core/document-engine/ids';
+import { duplicateAt, movePage, removeAt } from '@/core/document-engine/pages/pageOps';
 
 /** Pages per document: the tested maximum (multi-page QA covers 20). */
 export const MAX_SCAN_PAGES = 20;
@@ -76,22 +77,16 @@ export const useScanSession = create<ScanSessionState>((set) => ({
   addPage: (p) => set((s) => (s.pages.length >= MAX_SCAN_PAGES ? s : { pages: [...s.pages, p] })),
   replacePage: (index, p) => set((s) => ({ pages: s.pages.map((x, i) => (i === index ? p : x)) })),
   updatePage: (id, patch) => set((s) => ({ pages: s.pages.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
-  removePage: (index) => set((s) => ({ pages: s.pages.filter((_, i) => i !== index) })),
+  removePage: (index) => set((s) => ({ pages: removeAt(s.pages, [index]) })),
   duplicatePage: (index) =>
     set((s) => {
       if (s.pages.length >= MAX_SCAN_PAGES) return s;
-      const copy = { ...s.pages[index], id: newId() };
-      const pages = [...s.pages];
-      pages.splice(index + 1, 0, copy);
-      return { pages };
+      return { pages: duplicateAt(s.pages, index, (p) => ({ ...p, id: newId() })) };
     }),
   movePage: (from, to) =>
     set((s) => {
       if (to < 0 || to >= s.pages.length) return s;
-      const pages = [...s.pages];
-      const [p] = pages.splice(from, 1);
-      pages.splice(to, 0, p);
-      return { pages };
+      return { pages: movePage(s.pages, from, to) };
     }),
   setRescan: (rescanIndex) => set({ rescanIndex }),
   clear: () => set({ pages: [], multi: false, rescanIndex: null, fromEditor: false, editingDocumentId: null, sessionId: newId() }),
