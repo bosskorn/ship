@@ -2,6 +2,7 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
+| `OneScan-v1.3.0-V3-DevicePreview.apk` | branch `claude/account-1.3` @ 3a55731 | **1.3.0 V3 Device Preview** (versionName 1.3.0-preview, versionCode 13), arm64-v8a, release (R8), **Play upload key**. Owner UX/regression preview only — **not QA1, not Production**; no account servers configured (account off). See `DEVICE-PREVIEW-1.3-V3.md`. |
 | `OneScan-v1.2.0-Production.aab` | branch `claude/release-1.2.0` @ 78c0121 (= RC4 b2a175b + versionCode 13) | **1.2.0 Production** (versionCode 13) Android App Bundle for Google Play, signed with the **Play upload key**, R8 (mapping: `OneScan-v1.2.0-Production-mapping.txt.gz`). Not uploaded yet — awaiting Owner approval. See `RELEASE-1.2.0.md`. |
 | `OneScan-v1.2.0-RC4-arm64.apk` | branch `claude/onescan-mobile-v1` @ b2a175b | **1.2.0 Final RC (RC4)** (versionCode 12), arm64-v8a, release build (R8) signed with the **Play upload key** — current build for real-device QA (see `QA-CHECKLIST-RC4.md`). Supersedes RC3. Fresh install, or update over RC1–RC3 (same key). Cannot update debug-key builds. |
 | `OneScan-v1.2.0-RC3-arm64.apk` | branch `claude/onescan-mobile-v1` @ eae3db8 | **1.2.0 RC3** (versionCode 12), arm64-v8a, release build signed with the **Play upload key** — current build for Visual/Real-device QA (see `QA-CHECKLIST-RC3.md`). Supersedes RC2. Fresh install, or update over RC1/RC2 (same key). Cannot update debug-key builds. |
