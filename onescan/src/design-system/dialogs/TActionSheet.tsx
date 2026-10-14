@@ -3,7 +3,6 @@ import { Modal, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 import { TText } from '../typography/TText';
-import { TDivider } from '../layout/TDivider';
 import { IconName, TIcon } from '../icons/TIcon';
 
 export interface TActionSheetItem {
@@ -29,58 +28,49 @@ export function TActionSheet({
   onSelect: (key: string) => void;
   onClose: () => void;
 }) {
-  const { colors, radius, spacing } = useTheme();
+  const { colors, spacing } = useTheme();
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={{ flex: 1, backgroundColor: colors.bgMask }} onPress={onClose} accessibilityLabel={cancelLabel} />
+      {/* Android bottom sheet: drag handle, start-aligned title, no cancel row (scrim / back closes). */}
       <View
         style={{
           backgroundColor: colors.bgContainer,
-          borderTopLeftRadius: radius.lg,
-          borderTopRightRadius: radius.lg,
-          paddingBottom: insets.bottom,
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          paddingBottom: insets.bottom + spacing.xs,
           overflow: 'hidden',
         }}
       >
+        <View style={{ alignItems: 'center', paddingTop: spacing.xs, paddingBottom: spacing.xxs }}>
+          <View style={{ width: 32, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
+        </View>
         {title ? (
-          <>
-            <TText variant="bodySmall" color="textSecondary" align="center" style={{ padding: spacing.sm }} numberOfLines={1}>
-              {title}
-            </TText>
-            <TDivider />
-          </>
+          <TText variant="title" numberOfLines={1} style={{ paddingHorizontal: spacing.xl, paddingTop: spacing.xs, paddingBottom: spacing.xs }}>
+            {title}
+          </TText>
         ) : null}
-        {items.map((it, i) => (
-          <React.Fragment key={it.key}>
-            {i > 0 ? <TDivider /> : null}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => onSelect(it.key)}
-              style={({ pressed }) => ({
-                height: 52,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: spacing.sm,
-                paddingHorizontal: spacing.xl,
-                backgroundColor: pressed ? colors.bgPressed : 'transparent',
-              })}
-            >
-              {it.icon ? <TIcon name={it.icon} size="md" color={it.danger ? colors.error : colors.textPrimary} /> : null}
-              <TText variant="bodyLarge" color={it.danger ? 'error' : 'textPrimary'}>
-                {it.label}
-              </TText>
-            </Pressable>
-          </React.Fragment>
+        {items.map((it) => (
+          <Pressable
+            key={it.key}
+            accessibilityRole="button"
+            onPress={() => onSelect(it.key)}
+            style={({ pressed }) => ({
+              minHeight: 56,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              paddingHorizontal: spacing.xl,
+              backgroundColor: pressed ? colors.bgPressed : 'transparent',
+            })}
+          >
+            {it.icon ? <TIcon name={it.icon} size="lg" color={it.danger ? colors.error : colors.textSecondary} /> : null}
+            <TText variant="bodyLarge" color={it.danger ? 'error' : 'textPrimary'} style={{ flexShrink: 1 }}>
+              {it.label}
+            </TText>
+          </Pressable>
         ))}
-        <View style={{ height: spacing.xs, backgroundColor: colors.bgPage }} />
-        <Pressable
-          accessibilityRole="button"
-          onPress={onClose}
-          style={({ pressed }) => ({ height: 52, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? colors.bgPressed : 'transparent' })}
-        >
-          <TText variant="bodyLarge">{cancelLabel}</TText>
-        </Pressable>
       </View>
     </Modal>
   );

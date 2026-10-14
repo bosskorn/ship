@@ -8,6 +8,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" />
       <Tabs.Screen name="documents" />
       <Tabs.Screen name="scan" />
+      <Tabs.Screen name="tools" />
       <Tabs.Screen name="ai" />
       <Tabs.Screen name="profile" />
     </Tabs>

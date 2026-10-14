@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, View, ViewStyle } from 'react-native';
+import { RefreshControl, ScrollView, View, ViewStyle } from 'react-native';
 import { Edge, SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeProvider';
 
@@ -12,9 +12,12 @@ export interface TScreenProps {
   header?: React.ReactNode;
   footer?: React.ReactNode;
   contentStyle?: ViewStyle;
+  /** Pull to refresh (scroll screens). */
+  refreshing?: boolean;
+  onRefresh?: () => void;
 }
 
-export function TScreen({ children, scroll, surface = 'page', edges = ['top'], header, footer, contentStyle }: TScreenProps) {
+export function TScreen({ children, scroll, surface = 'page', edges = ['top'], header, footer, contentStyle, refreshing, onRefresh }: TScreenProps) {
   const { colors, spacing } = useTheme();
   const bg = surface === 'page' ? colors.bgPage : colors.bgContainer;
   return (
@@ -25,6 +28,7 @@ export function TScreen({ children, scroll, surface = 'page', edges = ['top'], h
           style={{ flex: 1 }}
           contentContainerStyle={[{ paddingBottom: spacing.xxl }, contentStyle]}
           keyboardShouldPersistTaps="handled"
+          refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} colors={[colors.brand]} tintColor={colors.brand} /> : undefined}
         >
           {children}
         </ScrollView>

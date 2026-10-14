@@ -37,6 +37,15 @@ try {
     const logo = `file://${path.join(root, 'assets/splash-icon.png')}`;
     await page.addStyleTag({ content: `[data-testid="home-logo"]{background:url("${logo}") center/contain no-repeat}` });
     await page.addStyleTag({ content: `[data-testid="onboarding-logo"]{background:url("${logo}") center/contain no-repeat}` });
+    if (f.startsWith('app-')) {
+      // Whole-app frames: exactly one phone screen, as rendered.
+      const w = /-360\.html$/.test(f) ? 360 : 412;
+      await page.setViewportSize({ width: w, height: 915 });
+      await page.waitForTimeout(700); // let sheet / modal entry animations finish
+      await page.screenshot({ path: path.join(out, f.replace('.html', '.png')) });
+      console.log(f.replace('.html', '.png'));
+      continue;
+    }
     const pageNo = /^onboarding-(\d)/.exec(f);
     if (pageNo) {
       // Pager screens keep their viewport; show page N of the horizontal list.

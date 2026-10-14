@@ -15,7 +15,7 @@ export interface TIconButtonProps {
 
 /** 40×40 hit target with a 24px glyph; no background unless pressed. */
 export function TIconButton({ icon, accessibilityLabel, onPress, color, size = 40, disabled, testID }: TIconButtonProps) {
-  const { colors, radius } = useTheme();
+  const { colors } = useTheme();
   return (
     <Pressable
       testID={testID}
@@ -29,7 +29,8 @@ export function TIconButton({ icon, accessibilityLabel, onPress, color, size = 4
         height: size,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: radius.md,
+        // Round touch feedback, as Android icon buttons.
+        borderRadius: size / 2,
         backgroundColor: pressed ? colors.bgPressed : 'transparent',
         opacity: disabled ? 0.4 : 1,
       })}

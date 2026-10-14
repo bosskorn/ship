@@ -34,7 +34,6 @@ function RootStack() {
         <Stack.Screen name="ocr/[id]" />
         <Stack.Screen name="sensitive/[id]" />
         <Stack.Screen name="search" />
-        <Stack.Screen name="tools" />
         <Stack.Screen name="about" />
         <Stack.Screen name="appearance" />
         <Stack.Screen name="language" />

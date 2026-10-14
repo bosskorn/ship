@@ -90,6 +90,9 @@ interface SettingsState {
   language: LanguageCode | null;
   /** OCR language (document text), independent of the app language. See ocrLanguages.ts. */
   ocrLanguage: OcrLanguageId;
+  /** Documents screen layout. */
+  documentsView: 'list' | 'grid';
+  setDocumentsView: (v: 'list' | 'grid') => void;
   appearance: AppearancePreference;
   privacy: PrivacySettings;
   security: SecuritySettings;
@@ -118,6 +121,8 @@ export const useSettings = create<SettingsState>()(
       onboardingCompleted: false,
       language: null,
       ocrLanguage: defaultOcrLanguage,
+      documentsView: 'list',
+      setDocumentsView: (documentsView) => set({ documentsView }),
       appearance: 'system',
       privacy: defaultPrivacy,
       security: { appLock: false, biometric: false, autoLock: 'immediately', screenshotProtection: false },

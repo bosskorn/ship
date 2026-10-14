@@ -15,9 +15,10 @@ export function TCellGroup({ title, footer, children }: { title?: string; footer
     <View style={{ marginTop: spacing.md }}>
       {title ? (
         <TText
-          variant="bodySmall"
-          color="textSecondary"
-          style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.xs }}
+          variant="body"
+          weight="600"
+          color="brand"
+          style={{ paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: spacing.xxs }}
         >
           {title}
         </TText>

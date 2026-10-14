@@ -1,212 +1,96 @@
-import React from "react";
-import { Pressable, View } from "react-native";
-import { router } from "expo-router";
-import { useTranslation } from "react-i18next";
-import {
-  IconName,
-  TIcon,
-  TNavigationBar,
-  TScreen,
-  TSectionHeader,
-  TText,
-  useTheme,
-  useToast,
-} from "@/design-system";
-import { FeatureFlag, flagOn, useRemoteConfig } from "@/core/config/remoteConfig";
-import type { CaptureMode, DocumentType } from "@/core/document-engine/model";
-import { openScanner } from "@/features/home/HomeScreen";
-import { useImport } from "@/features/shared/useImport";
+import React from 'react';
+import { Pressable, View } from 'react-native';
+import { router } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { IconName, TIcon, TScreen, TText, TTopAppBar, useTheme } from '@/design-system';
+import { FeatureFlag, flagOn, useRemoteConfig } from '@/core/config/remoteConfig';
+import type { CaptureMode, DocumentType } from '@/core/document-engine/model';
+import { openScanner } from '@/features/home/HomeScreen';
+import { useImport } from '@/features/shared/useImport';
 
 interface Tool {
   key: string;
+  label: string;
   icon: IconName;
+  /** Shown only when this feature is on in the build (never as "coming soon"). */
   flag?: FeatureFlag;
-  pro?: boolean;
-  run?: () => void;
+  run: () => void;
 }
 
-/** Tool Center (spec §25): everything not on Home lives here. */
+/** Tools tab: a utility grid. Every tile does something now; nothing is advertised. */
 export function ToolsScreen() {
   const { t } = useTranslation();
-  const { colors, spacing, radius } = useTheme();
-  const toast = useToast();
+  const { colors, spacing } = useTheme();
   const flags = useRemoteConfig((s) => s.config.flags);
-  const { importPhotos, overlay: importOverlay } = useImport();
-  const scan = (mode: CaptureMode, docType: DocumentType) => () =>
-    openScanner({ mode, docType, source: "tools" });
+  const { importPdf, importPhotos, overlay: importOverlay } = useImport();
+  const scan = (mode: CaptureMode, docType: DocumentType) => () => openScanner({ mode, docType, source: 'tools' });
 
-  const sections: { title: string; tools: Tool[] }[] = [
+  const all: { title: string; tools: Tool[] }[] = [
     {
-      title: t("tools.section_scan"),
+      title: t('tools.section_scan'),
       tools: [
-        { key: "document", icon: "scan", run: scan("document", "document") },
-        { key: "id", icon: "idCard", run: scan("id", "id_card") },
-        { key: "receipt", icon: "receipt", run: scan("receipt", "receipt") },
-        { key: "book", icon: "book", run: scan("document", "book") },
-        {
-          key: "whiteboard",
-          icon: "whiteboard",
-          run: scan("document", "whiteboard"),
-        },
-        {
-          key: "business_card",
-          icon: "businessCard",
-          run: scan("id", "business_card"),
-        },
+        { key: 'document', label: t('tools.document'), icon: 'scan', run: scan('document', 'document') },
+        { key: 'id', label: t('tools.id'), icon: 'idCard', run: scan('id', 'id_card') },
+        { key: 'receipt', label: t('tools.receipt'), icon: 'receipt', run: scan('receipt', 'receipt') },
+        { key: 'book', label: t('tools.book'), icon: 'book', run: scan('document', 'book') },
+        { key: 'whiteboard', label: t('tools.whiteboard'), icon: 'whiteboard', run: scan('document', 'whiteboard') },
+        { key: 'business_card', label: t('tools.business_card'), icon: 'businessCard', run: scan('id', 'business_card') },
       ],
     },
     {
-      title: t("tools.section_pdf"),
+      title: t('tools.section_import'),
       tools: [
-        { key: "merge", icon: "merge", flag: "advancedPdf", pro: true },
-        { key: "split", icon: "split", flag: "advancedPdf", pro: true },
-        { key: "compress", icon: "compress", flag: "advancedPdf", pro: true },
-        { key: "protect", icon: "protect", flag: "advancedPdf", pro: true },
-        { key: "sign", icon: "sign", flag: "advancedPdf", pro: true },
+        { key: 'import_pdf', label: t('tools.import_pdf'), icon: 'importPdf', run: importPdf },
+        { key: 'image_to_pdf', label: t('tools.image_to_pdf'), icon: 'importPhoto', run: () => void importPhotos() },
       ],
     },
     {
-      title: t("tools.section_convert"),
+      title: t('tools.section_ai'),
       tools: [
-        {
-          key: "image_to_pdf",
-          icon: "importPhoto",
-          run: () => void importPhotos(),
-        },
-        { key: "pdf_to_image", icon: "toImage", flag: "convert", pro: true },
-        { key: "pdf_to_word", icon: "documents", flag: "convert", pro: true },
-        { key: "pdf_to_excel", icon: "toExcel", flag: "convert", pro: true },
-      ],
-    },
-    {
-      title: t("tools.section_ai"),
-      tools: [
-        {
-          key: "summarize",
-          icon: "ai",
-          flag: "ai",
-          run: () => router.push("/ai"),
-        },
-        {
-          key: "translate",
-          icon: "translate",
-          flag: "ai",
-          run: () => router.push("/ai"),
-        },
-        {
-          key: "ask_pdf",
-          icon: "chat",
-          flag: "ai",
-          run: () => router.push("/ai"),
-        },
-        {
-          key: "extract",
-          icon: "extract",
-          flag: "ai",
-          run: () => router.push("/ai"),
-        },
+        { key: 'summarize', label: t('tools.summarize'), icon: 'ai', flag: 'ai', run: () => router.push('/ai') },
+        { key: 'ask_pdf', label: t('tools.ask_pdf'), icon: 'chat', flag: 'ai', run: () => router.push('/ai') },
       ],
     },
   ];
+  const sections = all
+    .map((s) => ({ ...s, tools: s.tools.filter((tool) => !tool.flag || flagOn(flags, tool.flag)) }))
+    .filter((s) => s.tools.length > 0);
 
   return (
-    <TScreen
-      scroll
-      footer={importOverlay}
-      header={
-        <TNavigationBar title={t("tools.title")} onBack={() => router.back()} />
-      }
-    >
-      {/* Only tools that work in this build: no "coming soon" tiles. */}
-      {sections
-        .map((s) => ({
-          ...s,
-          tools: s.tools.filter(
-            (tool) => tool.run && (!tool.flag || flagOn(flags, tool.flag)),
-          ),
-        }))
-        .filter((s) => s.tools.length > 0)
-        .map((s) => (
-          <View key={s.title}>
-            <TSectionHeader title={s.title} />
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                backgroundColor: colors.bgContainer,
-                paddingVertical: spacing.xs,
-              }}
-            >
-              {s.tools.map((tool) => {
-                const available = !tool.flag || flagOn(flags, tool.flag);
-                return (
-                  <Pressable
-                    key={tool.key}
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: !available }}
-                    onPress={() =>
-                      available && tool.run
-                        ? tool.run()
-                        : toast(t("common.comingSoon"))
-                    }
-                    style={({ pressed }) => ({
-                      width: "25%",
-                      alignItems: "center",
-                      paddingVertical: spacing.sm,
-                      gap: spacing.xs,
-                      opacity: pressed ? 0.6 : 1,
-                    })}
-                  >
-                    <View
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: radius.md,
-                        backgroundColor: colors.bgSecondary,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <TIcon
-                        name={tool.icon}
-                        color={available ? colors.brand : colors.textDisabled}
-                      />
-                      {tool.pro ? (
-                        <View
-                          style={{
-                            position: "absolute",
-                            top: -4,
-                            end: -10,
-                            backgroundColor: colors.warning,
-                            borderRadius: radius.sm,
-                            paddingHorizontal: 4,
-                          }}
-                        >
-                          <TText
-                            variant="caption"
-                            color="textAnti"
-                            weight="600"
-                          >
-                            {t("tools.pro")}
-                          </TText>
-                        </View>
-                      ) : null}
-                    </View>
-                    <TText
-                      variant="bodySmall"
-                      align="center"
-                      color={available ? "textPrimary" : "textPlaceholder"}
-                      numberOfLines={2}
-                      style={{ paddingHorizontal: 4 }}
-                    >
-                      {t(`tools.${tool.key}` as "tools.document")}
-                    </TText>
-                  </Pressable>
-                );
-              })}
-            </View>
+    <TScreen scroll surface="container" footer={importOverlay} header={<TTopAppBar title={t('tools.title')} />}>
+      {sections.map((s) => (
+        <View key={s.title} style={{ marginBottom: spacing.sm }}>
+          <TText variant="body" weight="600" color="textSecondary" style={{ paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.xs }}>
+            {s.title}
+          </TText>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.xs }}>
+            {s.tools.map((tool) => (
+              <Pressable
+                key={tool.key}
+                testID={`tool-${tool.key}`}
+                accessibilityRole="button"
+                accessibilityLabel={tool.label}
+                onPress={tool.run}
+                style={({ pressed }) => ({
+                  width: '33.33%',
+                  alignItems: 'center',
+                  paddingVertical: spacing.sm,
+                  gap: spacing.xs,
+                  borderRadius: 16,
+                  backgroundColor: pressed ? colors.bgPressed : 'transparent',
+                })}
+              >
+                <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' }}>
+                  <TIcon name={tool.icon} color={colors.brand} />
+                </View>
+                <TText variant="body" align="center" numberOfLines={2} style={{ paddingHorizontal: spacing.xxs }}>
+                  {tool.label}
+                </TText>
+              </Pressable>
+            ))}
           </View>
-        ))}
+        </View>
+      ))}
     </TScreen>
   );
 }

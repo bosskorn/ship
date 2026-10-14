@@ -12,18 +12,20 @@ export interface TSearchProps {
   /** Render as a tappable entry point (e.g. on Home) instead of an input. */
   onPressEntry?: () => void;
   autoFocus?: boolean;
+  /** Full-round search bar (Android top-level screens). */
+  pill?: boolean;
   testID?: string;
 }
 
-export function TSearch({ placeholder, value, onChangeText, onSubmit, onPressEntry, autoFocus, testID }: TSearchProps) {
+export function TSearch({ placeholder, value, onChangeText, onSubmit, onPressEntry, autoFocus, pill, testID }: TSearchProps) {
   const { colors, radius, spacing, typeScale, fontFamily } = useTheme();
   const container = {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    height: 40,
+    height: pill ? 48 : 40,
     gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.md,
+    paddingHorizontal: pill ? spacing.md : spacing.sm,
+    borderRadius: pill ? 24 : radius.md,
     backgroundColor: colors.bgSecondary,
   };
 

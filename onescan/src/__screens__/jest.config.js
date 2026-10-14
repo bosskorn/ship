@@ -19,5 +19,6 @@ module.exports = {
   rootDir: root,
   roots: ['<rootDir>/src/__screens__'],
   testMatch: ['**/*.shots.tsx'],
+  setupFiles: ['<rootDir>/src/__screens__/setup.js'],
   moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
 };
