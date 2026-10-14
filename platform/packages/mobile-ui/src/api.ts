@@ -1,4 +1,5 @@
-import * as SecureStore from 'expo-secure-store';
+import * as NativeSecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { io, Socket } from 'socket.io-client';
 
 /**
@@ -24,6 +25,17 @@ export class ApiError extends Error {
 }
 
 type Listener = (s: Session | null) => void;
+
+/** Keychain/Keystore on devices; the browser preview (web) has no secure store, so it uses localStorage. */
+const SecureStore =
+  Platform.OS === 'web'
+    ? {
+        AFTER_FIRST_UNLOCK: NativeSecureStore.AFTER_FIRST_UNLOCK,
+        getItemAsync: async (k: string) => globalThis.localStorage?.getItem(k) ?? null,
+        setItemAsync: async (k: string, v: string, _o?: unknown) => globalThis.localStorage?.setItem(k, v),
+        deleteItemAsync: async (k: string) => globalThis.localStorage?.removeItem(k),
+      }
+    : NativeSecureStore;
 
 export function createApiClient(opts: { baseUrl: string; storageKey: string }) {
   let session: Session | null = null;

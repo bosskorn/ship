@@ -8,7 +8,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
-    "doctor": "expo-doctor"
+    "doctor": "expo-doctor",
+    "web": "expo start --web"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -42,8 +43,11 @@
     "socket.io-client": "4.8.1"
   },
   "devDependencies": {
+    "@expo/metro-runtime": "~57.0.16",
     "@react-native/metro-config": "0.86.3",
     "@types/react": "~19.2.2",
+    "react-dom": "19.2.3",
+    "react-native-web": "~0.21.0",
     "typescript": "~6.0.3"
   }
 }
