@@ -117,6 +117,8 @@ interface Shot {
   sheet?: boolean;
   /** Type into the search field. */
   type?: string;
+  /** Press these test IDs after the long-presses (selection mode). */
+  after?: string[];
   /** Review: number of pages in the draft; the second one still processing when set. */
   draft?: number;
   processing?: boolean;
@@ -206,6 +208,7 @@ async function render(shot: Shot) {
     });
   }
   for (const id of shot.hold ?? []) await holdByTestId(id);
+  for (const id of shot.after ?? []) pressByTestId(id);
   // Android has no <button>; nested buttons would be split by the HTML parser.
   const html = document.body.innerHTML.replace(/<button\b/g, '<div').replace(/<\/button>/g, '</div>');
   const sheet = (StyleSheet as unknown as { getSheet: () => { id: string; textContent: string } }).getSheet();
@@ -238,7 +241,10 @@ const shots: Record<string, Shot> = {
   'app-12-folder-empty-chip-th': { lang: 'th', scheme: 'light', tab: 'documents', docs: true, press: ['chip-folders'] },
   'app-13-review-3-th': { lang: 'th', scheme: 'light', tab: 'review', draft: 3 },
   'app-13b-review-processing-th': { lang: 'th', scheme: 'light', tab: 'review', draft: 1, processing: true },
-  'app-13c-review-filter-en-dark': { lang: 'en', scheme: 'dark', tab: 'review', draft: 2, press: ['tool-filter'] },
+  'app-13c-review-filter-en-dark': { lang: 'en', scheme: 'dark', tab: 'review', draft: 2, press: ['editor-edit-tools', 'tool-filter'] },
+  'app-13d-review-th': { lang: 'th', scheme: 'light', tab: 'review', draft: 3 },
+  'app-03d-select-two-th': { lang: 'th', scheme: 'light', tab: 'documents', docs: true, view: 'list', hold: ['doc-2'], after: ['doc-4'] },
+  'app-03e-move-no-folders-th': { lang: 'th', scheme: 'light', tab: 'documents', docs: true, view: 'list', hold: ['doc-2'], after: ['selection-move'] },
   'app-14-viewer-th': { lang: 'th', scheme: 'light', tab: 'viewer', docs: true },
   'app-14b-viewer-en-dark': { lang: 'en', scheme: 'dark', tab: 'viewer', docs: true },
   'app-10-home-docs-360-th': { lang: 'th', scheme: 'light', tab: 'index', docs: true, width: 360 },
