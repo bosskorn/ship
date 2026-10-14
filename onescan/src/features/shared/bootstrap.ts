@@ -7,27 +7,33 @@ import { cleanCache, encryptExistingFiles, sweepOrphanFolders } from '@/core/doc
 let started = false;
 
 /**
- * One-time local setup: trash retention, initial list load. No folders are created: the
- * user starts with none and makes their own (auto-category folders from earlier versions
- * stay in the database and reappear once they hold documents).
+ * Local setup (local-first): document list loads immediately on frame 1.
+ * Maintenance (cache sweep, trash expiration, encryption) runs asynchronously
+ * in the background so it never blocks the launch frame or navigation.
  */
 export async function bootstrapLocalData() {
   if (started) return;
   started = true;
-  await cleanCache();
-  try {
-    await DocumentEngine.emptyExpiredTrash(useRemoteConfig.getState().config.trashRetentionDays);
-  } catch {
-    // Storage unavailable (e.g. web preview) — screens show empty states.
-  }
-  await useDocuments.getState().refresh();
-  // Background upkeep after the list is on screen: never blocks the user.
+
+  // 1. First priority: load local documents into memory immediately.
+  const loadDocs = useDocuments.getState().refresh();
+
+  // 2. Background upkeep: never blocks the user from seeing the UI.
   void (async () => {
+    try {
+      await cleanCache();
+    } catch {
+      // cache cleanup unavailable
+    }
+    try {
+      await DocumentEngine.emptyExpiredTrash(useRemoteConfig.getState().config.trashRetentionDays);
+    } catch {
+      // Storage unavailable
+    }
     try {
       await sweepOrphanFolders();
       const r = await encryptExistingFiles();
       if (r.encrypted > 0) {
-        // Paths resolved to themselves while still plaintext now point at ciphertext.
         clearReadableUris();
         await useDocuments.getState().refresh();
       }
@@ -35,4 +41,6 @@ export async function bootstrapLocalData() {
       // retried on the next start
     }
   })();
+
+  await loadDocs;
 }

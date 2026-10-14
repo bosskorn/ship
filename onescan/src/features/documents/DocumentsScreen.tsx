@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { BackHandler, FlatList, RefreshControl, View } from 'react-native';
+import { BackHandler, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,6 +19,32 @@ import { useDocumentActions } from './useDocumentActions';
 
 type Filter = 'all' | 'folders' | 'recent';
 
+function DocumentsSkeleton({ view }: { view: 'list' | 'grid' }) {
+  const { colors, spacing } = useTheme();
+  if (view === 'grid') {
+    return (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.xs, gap: spacing.xxs, paddingTop: spacing.xs }}>
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <View key={i} style={{ width: '48.5%', height: 210, borderRadius: 8, backgroundColor: colors.bgSecondary, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.divider }} />
+        ))}
+      </View>
+    );
+  }
+  return (
+    <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.xs }}>
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <View key={i} style={{ height: 68, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View style={{ width: 44, height: 56, borderRadius: 4, backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.divider }} />
+          <View style={{ flex: 1, gap: 6 }}>
+            <View style={{ width: '60%', height: 14, borderRadius: 4, backgroundColor: colors.bgSecondary }} />
+            <View style={{ width: '35%', height: 10, borderRadius: 4, backgroundColor: colors.bgSecondary }} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 /**
  * Document manager: filter chips, list or grid, long press to select several documents
  * (move / delete), the per-document menu as a bottom sheet, pull to refresh.
@@ -35,7 +61,7 @@ export function DocumentsScreen() {
   const view = useSettings((s) => s.documentsView);
   const setView = useSettings((s) => s.setDocumentsView);
   const trashEnabled = useFeature('trash');
-  const { documents, folders, refresh } = useDocuments();
+  const { documents, folders, refresh, loaded } = useDocuments();
   const actions = useDocumentActions();
   const selecting = selected.size > 0;
 
@@ -89,6 +115,85 @@ export function DocumentsScreen() {
   const selectedDocs = () => documents.filter((d) => selected.has(d.id));
 
   const docs = filter === 'recent' ? recent : documents;
+  const [selectionMenu, setSelectionMenu] = useState(false);
+
+  const onBulkShare = async () => {
+    const chosen = selectedDocs();
+    if (!chosen.length) return;
+    try {
+      if (!(await DocumentEngine.export.isShareAvailable())) return toast(t('errors.share_unavailable'), 'error');
+      for (const d of chosen) {
+        await DocumentEngine.share(d);
+        break;
+      }
+    } catch {
+      toast(t('errors.generic'), 'error');
+    }
+  };
+
+  const selectionBar = selecting ? (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        height: 60,
+        backgroundColor: colors.bgContainer,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: colors.divider,
+      }}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('documents.share')}
+        onPress={onBulkShare}
+        disabled={selected.size === 0}
+        style={({ pressed }) => ({ alignItems: 'center', opacity: pressed ? 0.6 : 1, minWidth: 64, gap: 2 })}
+      >
+        <TIcon name="share" size="md" color={colors.textPrimary} />
+        <TText variant="caption" color="textSecondary">
+          {t('documents.share')}
+        </TText>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('documents.move')}
+        onPress={() => setBulk('move')}
+        disabled={selected.size === 0}
+        style={({ pressed }) => ({ alignItems: 'center', opacity: pressed ? 0.6 : 1, minWidth: 64, gap: 2 })}
+      >
+        <TIcon name="folder" size="md" color={colors.textPrimary} />
+        <TText variant="caption" color="textSecondary">
+          {t('documents.move')}
+        </TText>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('documents.delete')}
+        onPress={() => setBulk('delete')}
+        disabled={selected.size === 0}
+        style={({ pressed }) => ({ alignItems: 'center', opacity: pressed ? 0.6 : 1, minWidth: 64, gap: 2 })}
+      >
+        <TIcon name="delete" size="md" color={colors.error} />
+        <TText variant="caption" color="error">
+          {t('documents.delete')}
+        </TText>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('common.more')}
+        onPress={() => setSelectionMenu(true)}
+        disabled={selected.size === 0}
+        style={({ pressed }) => ({ alignItems: 'center', opacity: pressed ? 0.6 : 1, minWidth: 64, gap: 2 })}
+      >
+        <TIcon name="more" size="md" color={colors.textPrimary} />
+        <TText variant="caption" color="textSecondary">
+          {t('common.more')}
+        </TText>
+      </Pressable>
+    </View>
+  ) : null;
+
   const header = selecting ? (
     <TTopAppBar
       leading={
@@ -101,8 +206,6 @@ export function DocumentsScreen() {
       }
       actions={[
         { icon: 'selectAll', label: t('documents.select_all'), onPress: () => setSelected(new Set(docs.map((d) => d.id))) },
-        ...(folders.length ? [{ icon: 'folder' as const, label: t('documents.move'), onPress: () => setBulk('move') }] : []),
-        { icon: 'delete', label: t('documents.delete'), onPress: () => setBulk('delete') },
       ]}
     />
   ) : (
@@ -121,7 +224,7 @@ export function DocumentsScreen() {
   const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.brand]} tintColor={colors.brand} />;
 
   return (
-    <TScreen surface="container" header={header}>
+    <TScreen surface="container" header={header} footer={selectionBar}>
       {!selecting ? (
         <TChipRow>
           <TChip testID="chip-all" label={t('documents.tab_all')} selected={filter === 'all'} onPress={() => setFilter('all')} />
@@ -147,13 +250,24 @@ export function DocumentsScreen() {
             />
           )}
           ListEmptyComponent={
-            <View testID="folders-empty" style={{ alignItems: 'center', paddingTop: 96, paddingHorizontal: spacing.xxl, gap: spacing.sm }}>
-              <TIcon name="folder" size={48} color={colors.textPlaceholder} strokeWidth={1.5} />
-              <TText variant="bodyLarge" color="textSecondary" align="center">
-                {t('documents.folders_empty')}
-              </TText>
-              <TButton label={t('documents.create_folder')} icon="plus" variant="secondary" size="medium" onPress={() => setNewFolder('')} style={{ marginTop: spacing.xs, borderRadius: 20 }} />
-            </View>
+            loaded ? (
+              <View testID="folders-empty" style={{ alignItems: 'center', paddingTop: 96, paddingHorizontal: spacing.xxl, gap: spacing.sm }}>
+                <TIcon name="folder" size={48} color={colors.textPlaceholder} strokeWidth={1.5} />
+                <TText variant="bodyLarge" color="textSecondary" align="center">
+                  {t('documents.folders_empty')}
+                </TText>
+                <TButton label={t('documents.create_folder')} icon="plus" variant="secondary" size="medium" onPress={() => setNewFolder('')} style={{ marginTop: spacing.xs }} />
+              </View>
+            ) : (
+              <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm }}>
+                {[1, 2, 3, 4].map((i) => (
+                  <View key={i} style={{ height: 56, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                    <View style={{ width: 28, height: 28, borderRadius: 4, backgroundColor: colors.bgSecondary }} />
+                    <View style={{ width: 140, height: 16, borderRadius: 4, backgroundColor: colors.bgSecondary }} />
+                  </View>
+                ))}
+              </View>
+            )
           }
           contentContainerStyle={{ flexGrow: 1 }}
         />
@@ -177,7 +291,11 @@ export function DocumentsScreen() {
             );
           }}
           ListEmptyComponent={
-            <TEmpty icon="documents" title={t('documents.empty')} description={t('documents.empty_hint')} actionLabel={t('home.scan_document')} onAction={() => openScanner({ source: 'documents_empty' })} />
+            loaded ? (
+              <TEmpty icon="documents" title={t('documents.empty')} description={t('documents.empty_hint')} actionLabel={t('home.scan_document')} onAction={() => openScanner({ source: 'documents_empty' })} />
+            ) : (
+              <DocumentsSkeleton view={view} />
+            )
           }
           contentContainerStyle={{ flexGrow: 1, paddingBottom: spacing.lg }}
         />
@@ -220,6 +338,30 @@ export function DocumentsScreen() {
           },
           { label: t('common.cancel'), onPress: () => setBulk(null) },
         ]}
+      />
+      <TActionSheet
+        visible={selectionMenu}
+        title={t('common.more')}
+        cancelLabel={t('common.cancel')}
+        onClose={() => setSelectionMenu(false)}
+        items={[
+          { key: 'selectAll', label: t('documents.select_all'), icon: 'selectAll' },
+          ...(selected.size === 1 ? [{ key: 'rename', label: t('common.rename'), icon: 'edit' as const }] : []),
+          { key: 'duplicate', label: t('documents.duplicate'), icon: 'duplicate' },
+        ]}
+        onSelect={async (key) => {
+          setSelectionMenu(false);
+          if (key === 'selectAll') {
+            setSelected(new Set(docs.map((d) => d.id)));
+          } else if (key === 'duplicate') {
+            for (const d of selectedDocs()) await DocumentEngine.duplicate(d, t('documents.copy_name', { name: d.title }));
+            setSelected(new Set());
+            await refresh();
+          } else if (key === 'rename') {
+            const first = selectedDocs()[0];
+            if (first) actions.open(first);
+          }
+        }}
       />
       <TDialog
         visible={newFolder !== null}

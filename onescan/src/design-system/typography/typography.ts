@@ -33,9 +33,24 @@ export const typeScale: Record<TypographyVariant, TextStyle> = {
 export type ScriptFamily = 'latin' | 'thai' | 'cjk';
 
 export const fontFamilies: Record<ScriptFamily, string | undefined> = {
-  latin: Platform.select({ web: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' }),
-  thai: Platform.select({ web: '"Noto Sans Thai", system-ui, sans-serif' }),
-  cjk: Platform.select({ web: '"Noto Sans CJK SC", "PingFang SC", system-ui, sans-serif' }),
+  latin: Platform.select({
+    ios: 'System',
+    android: 'sans-serif',
+    web: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "SamsungOne", "MiSans", "OPPOSans", sans-serif',
+    default: 'sans-serif',
+  }),
+  thai: Platform.select({
+    ios: 'Sukhumvit Set, Thonburi, System',
+    android: 'sans-serif',
+    web: '"Noto Sans Thai", "Sukhumvit Set", "Thonburi", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "SamsungOne", "MiSans", "OPPOSans", sans-serif',
+    default: 'sans-serif',
+  }),
+  cjk: Platform.select({
+    ios: 'PingFang SC, Hiragino Sans GB, System',
+    android: 'sans-serif',
+    web: '"Noto Sans CJK SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif',
+    default: 'sans-serif',
+  }),
 };
 
 export function scriptForLanguage(lang: string): ScriptFamily {

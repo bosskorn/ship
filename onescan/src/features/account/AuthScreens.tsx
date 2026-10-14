@@ -63,6 +63,14 @@ export function LoginScreen() {
 
   return (
     <AccountForm title={t('account.login_title')} testID="account-login">
+      <View style={{ gap: spacing.xxs, marginBottom: spacing.xs }}>
+        <TText variant="headline" weight="700">
+          {t('account.login_title')}
+        </TText>
+        <TText variant="body" color="textSecondary">
+          {t('account.login_subtitle')}
+        </TText>
+      </View>
       {params.notice === 'reset' ? <Notice message={t('account.reset_done')} /> : null}
       <ErrorBanner
         message={error ? errorText(error) : null}
@@ -73,7 +81,7 @@ export function LoginScreen() {
       <View style={{ alignItems: 'flex-end' }}>
         <TextLink testID="login-forgot" label={t('account.forgot_link')} onPress={() => router.push({ pathname: '/account/forgot', params: { email } })} />
       </View>
-      <TButton testID="login-submit" label={t('account.sign_in')} block loading={busy} disabled={busy} onPress={submit} style={{ borderRadius: 24 }} />
+      <TButton testID="login-submit" label={t('account.sign_in')} block loading={busy} disabled={busy} onPress={submit} />
       <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: spacing.xxs, marginTop: spacing.xs }}>
         <TText variant="body" color="textSecondary">
           {t('account.no_account')}
@@ -122,9 +130,14 @@ export function RegisterScreen() {
 
   return (
     <AccountForm title={t('account.register_title')} testID="account-register">
-      <TText variant="body" color="textSecondary">
-        {t('account.register_note')}
-      </TText>
+      <View style={{ gap: spacing.xxs, marginBottom: spacing.xs }}>
+        <TText variant="headline" weight="700">
+          {t('account.register_title')}
+        </TText>
+        <TText variant="body" color="textSecondary">
+          {t('account.register_subtitle')}
+        </TText>
+      </View>
       <ErrorBanner
         message={error ? errorText(error) : null}
         action={isAuthError(error, 'email_exists') ? { label: t('account.sign_in'), onPress: () => router.replace({ pathname: '/account/login', params: { email } }) } : undefined}
@@ -144,7 +157,7 @@ export function RegisterScreen() {
           </TText>
         ) : null}
       </Checkbox>
-      <TButton testID="register-submit" label={t('account.create')} block loading={busy} disabled={busy} onPress={submit} style={{ borderRadius: 24 }} />
+      <TButton testID="register-submit" label={t('account.create')} block loading={busy} disabled={busy} onPress={submit} />
       <View style={{ flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: spacing.xxs }}>
         <TText variant="body" color="textSecondary">
           {t('account.have_account')}
@@ -226,7 +239,7 @@ export function VerifyEmailScreen() {
         </TText>
       </View>
       <ErrorBanner message={error ? errorText(error) : null} />
-      <TButton testID="verify-open-mail" label={t('account.open_mail')} icon="mail" block onPress={openMailApp} style={{ borderRadius: 24 }} />
+      <TButton testID="verify-open-mail" label={t('account.open_mail')} icon="mail" block onPress={openMailApp} />
       <TButton
         testID="verify-resend"
         label={wait > 0 ? t('account.resend_wait', { seconds: wait }) : t('account.resend')}
@@ -235,7 +248,6 @@ export function VerifyEmailScreen() {
         loading={busy}
         disabled={busy || wait > 0 || !pendingEmail}
         onPress={doResend}
-        style={{ borderRadius: 24 }}
       />
       <TButton
         label={t('account.change_email')}
@@ -287,7 +299,7 @@ export function ForgotPasswordScreen() {
       {sent ? <Notice message={t('account.reset_sent')} icon="mail" /> : null}
       <ErrorBanner message={error ? errorText(error) : null} />
       <EmailField testID="forgot-email" value={email} onChangeText={setEmail} error={fieldErr} />
-      <TButton testID="forgot-submit" label={t('account.send_reset')} block loading={busy} disabled={busy} onPress={submit} style={{ borderRadius: 24 }} />
+      <TButton testID="forgot-submit" label={t('account.send_reset')} block loading={busy} disabled={busy} onPress={submit} />
       <TButton label={t('account.back_to_login')} variant="text" block onPress={() => router.replace({ pathname: '/account/login', params: { email } })} />
     </AccountForm>
   );
@@ -334,7 +346,7 @@ export function ResetPasswordScreen() {
       />
       <PasswordField testID="reset-password" label={t('account.new_password')} value={password} onChangeText={setPassword} error={fieldErr.password} newPassword hint={t('account.password_hint')} />
       <PasswordField testID="reset-confirm" label={t('account.confirm_new_password')} value={confirm} onChangeText={setConfirm} error={fieldErr.confirm} newPassword />
-      <TButton testID="reset-submit" label={t('account.reset_save')} block loading={busy} disabled={busy || !hasRecovery} onPress={submit} style={{ borderRadius: 24 }} />
+      <TButton testID="reset-submit" label={t('account.reset_save')} block loading={busy} disabled={busy || !hasRecovery} onPress={submit} />
     </AccountForm>
   );
 }
@@ -417,12 +429,12 @@ export function AuthCallbackScreen() {
           <TText variant="body" color="textSecondary" align="center">
             {t('account.verified_body')}
           </TText>
-          <TButton label={t('account.go_account')} block onPress={() => router.dismissTo('/profile')} style={{ borderRadius: 24, marginTop: spacing.md }} />
+          <TButton label={t('account.go_account')} block onPress={() => router.dismissTo('/profile')} style={{ marginTop: spacing.md }} />
         </View>
       ) : (
         <View testID="callback-error" style={{ gap: spacing.md }}>
           <ErrorBanner message={isAuthError(error) ? errorText(error) : t('account.err_expired_link')} />
-          <TButton label={t('account.back_to_login')} block onPress={() => router.replace('/account/login')} style={{ borderRadius: 24 }} />
+          <TButton label={t('account.back_to_login')} block onPress={() => router.replace('/account/login')} />
         </View>
       )}
     </TScreen>

@@ -64,76 +64,77 @@ export function AccountSection() {
 
   if (!initialized) return null;
 
-  const card = { margin: spacing.md, marginBottom: spacing.xs, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.bgSecondary, gap: spacing.sm };
-
   if (!signedIn) {
     const expired = status === 'SESSION_EXPIRED';
     return (
-      <View testID="account-entry" style={card}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandLight, alignItems: 'center', justifyContent: 'center' }}>
-            <TIcon name="profile" color={colors.brand} />
+      <TCellGroup title={t('account.title')}>
+        <View testID="account-entry" style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs }}>
+          <TText variant="body" color="textSecondary">
+            {expired ? t('account.expired_body') : t('account.not_signed_in')}
+          </TText>
+          {pendingEmail && !expired ? (
+            <TText variant="bodySmall" color="brand" onPress={() => router.push('/account/verify')} accessibilityRole="link">
+              {t('account.pending_verify', { email: pendingEmail })}
+            </TText>
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xxs }}>
+            <TButton
+              testID="account-sign-in"
+              label={t('account.sign_in')}
+              size="medium"
+              onPress={() => router.push({ pathname: '/account/login', params: expired && account?.email ? { email: account.email } : {} })}
+              style={{ flex: 1 }}
+            />
+            {expired ? null : (
+              <TButton
+                testID="account-create"
+                label={t('account.create')}
+                variant="outline"
+                size="medium"
+                onPress={() => router.push('/account/register')}
+                style={{ flex: 1 }}
+              />
+            )}
           </View>
-          <TText variant="titleLarge" weight="600" style={{ flex: 1 }} accessibilityRole="header">
-            {expired ? t('account.expired_title') : t('account.title')}
-          </TText>
         </View>
-        <TText variant="body" color="textSecondary">
-          {expired ? t('account.expired_body') : t('account.entry_body')}
-        </TText>
-        {pendingEmail && !expired ? (
-          <TText variant="bodySmall" color="brand" onPress={() => router.push('/account/verify')} accessibilityRole="link">
-            {t('account.pending_verify', { email: pendingEmail })}
-          </TText>
-        ) : null}
-        <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
-          <TButton
-            testID="account-sign-in"
-            label={t('account.sign_in')}
-            onPress={() => router.push({ pathname: '/account/login', params: expired && account?.email ? { email: account.email } : {} })}
-            style={{ flexGrow: 1, borderRadius: 24 }}
-          />
-          {expired ? null : (
-            <TButton testID="account-create" label={t('account.create')} variant="outline" onPress={() => router.push('/account/register')} style={{ flexGrow: 1, borderRadius: 24 }} />
-          )}
-        </View>
-      </View>
+      </TCellGroup>
     );
   }
 
   const pendingDelete = account?.status === 'pending_deletion' && account.deletionScheduledFor;
   return (
     <View testID="account-signed-in">
-      <View style={card}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
-            <TText variant="titleLarge" weight="600" style={{ color: colors.textAnti }}>
+      <TCellGroup title={t('account.section')}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }}>
+            <TText variant="bodyLarge" weight="600" style={{ color: colors.textAnti }}>
               {(account?.email?.[0] ?? '?').toUpperCase()}
             </TText>
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <TText variant="caption" color="textSecondary">
-              {t('account.title')}
-            </TText>
             <TText testID="account-email" variant="bodyLarge" weight="600" numberOfLines={1}>
               {account?.email ?? ''}
             </TText>
+            <TText variant="caption" color={account?.verified === false ? 'warning' : 'success'}>
+              {account?.verified === false ? t('account.not_verified') : t('account.verified')}
+            </TText>
           </View>
         </View>
-        <View style={{ flexDirection: 'row' }}>
-          <TTag label={account?.verified === false ? t('account.not_verified') : t('account.verified')} theme={account?.verified === false ? 'warning' : 'success'} icon="check" />
-        </View>
         {status === 'OFFLINE_AUTHENTICATED' ? (
-          <TText variant="bodySmall" color="textSecondary">
-            {t('account.offline')}
-          </TText>
+          <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.xxs }}>
+            <TText variant="bodySmall" color="textSecondary">
+              {t('account.offline')}
+            </TText>
+          </View>
         ) : unavailable ? (
-          <TText variant="bodySmall" color="textSecondary">
-            {t('account.unavailable')}
-          </TText>
+          <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.xxs }}>
+            <TText variant="bodySmall" color="textSecondary">
+              {t('account.unavailable')}
+            </TText>
+          </View>
         ) : null}
         {pendingDelete ? (
-          <View style={{ gap: spacing.xs }}>
+          <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.xs, gap: spacing.xs }}>
             <TText variant="body" color="error">
               {t('account.pending_delete', { date: dateText(account?.deletionScheduledFor, i18n.language) })}
             </TText>
@@ -153,14 +154,11 @@ export function AccountSection() {
             />
           </View>
         ) : null}
-      </View>
-      <TCellGroup title={t('account.section')}>
-        <TCell icon="profile" title={t('account.my_account')} arrow onPress={() => router.push('/account')} testID="account-my" />
+        <TCell icon="profile" title={t('account.my_account')} arrow onPress={() => router.push('/account' as any)} testID="account-my" />
         <TCell icon="devices" title={t('account.devices')} arrow onPress={() => router.push('/account/devices')} testID="account-devices" />
         <TCell icon="shield" title={t('account.privacy_policy')} arrow onPress={() => openLegal('privacy', i18n.language)} />
         <TCell icon="info" title={t('account.terms')} arrow onPress={() => openLegal('terms', i18n.language)} />
         <TCell icon="logout" title={t('account.logout')} onPress={() => setConfirmLogout(true)} testID="account-logout" />
-        <TCell icon="delete" title={t('account.delete')} danger arrow onPress={() => router.push('/account/delete')} testID="account-delete" />
       </TCellGroup>
       <TDialog
         visible={confirmLogout}
@@ -181,6 +179,18 @@ export function AccountSection() {
         ]}
       />
     </View>
+  );
+}
+
+export function AccountDeleteCell() {
+  const { t } = useTranslation();
+  const status = useAccount((s) => s.status);
+  const signedIn = status === 'AUTHENTICATED' || status === 'TOKEN_REFRESHING' || status === 'OFFLINE_AUTHENTICATED';
+  if (!signedIn) return null;
+  return (
+    <TCellGroup>
+      <TCell icon="delete" title={t('account.delete')} danger arrow onPress={() => router.push('/account/delete')} testID="account-delete" />
+    </TCellGroup>
   );
 }
 

@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  IconName, TActionSheet, TEmpty, TIcon, TIconButton, TLoading, TNavigationBar, TText, useTheme, useToast,
+  IconName, TActionSheet, TEmpty, TIcon, TIconButton, TNavigationBar, TText, useTheme, useToast,
 } from '@/design-system';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import type { PageRecord } from '@/core/document-engine/model';
@@ -24,7 +24,8 @@ export function DocumentViewerScreen() {
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { width } = useWindowDimensions();
-  const { doc, pages } = useDocument(id);
+  const { doc, pages, loading } = useDocument(id);
+  const pageWidth = width - spacing.xl * 2;
   // Pages rendered from an imported PDF keep the render itself as their source.
   const importedPdf = pages.length > 0 && pages.every((p) => p.sourceUri === p.imageUri && p.filter === 'original');
   const actions = useDocumentActions();
@@ -37,7 +38,26 @@ export function DocumentViewerScreen() {
     if (typeof first === 'number') setCurrent(first);
   });
 
-  if (doc === undefined) return <View style={{ flex: 1, backgroundColor: colors.bgPage, paddingTop: insets.top }}><TLoading /></View>;
+  if (doc === undefined) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bgSecondary, paddingTop: insets.top }}>
+        <TNavigationBar onBack={() => router.back()} title="" />
+        <View style={{ flex: 1, paddingHorizontal: spacing.xl, paddingTop: 48, alignItems: 'center' }}>
+          <View
+            style={{
+              width: pageWidth,
+              height: Math.min(pageWidth * 1.414, 460),
+              backgroundColor: colors.bgContainer,
+              borderRadius: 6,
+              borderWidth: 1,
+              borderColor: colors.divider,
+              opacity: 0.6,
+            }}
+          />
+        </View>
+      </View>
+    );
+  }
   if (doc === null) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bgPage, paddingTop: insets.top }}>
@@ -85,7 +105,6 @@ export function DocumentViewerScreen() {
     { key: 'more', label: t('viewer.more'), icon: 'more', onPress: () => setMore(true) },
   ];
 
-  const pageWidth = width - spacing.xl * 2;
   const pageHeight = (p: PageRecord) => Math.round((pageWidth * p.height) / Math.max(1, p.width));
 
   return (
@@ -102,7 +121,21 @@ export function DocumentViewerScreen() {
         }
       />
 
-      {pages.length ? (
+      {loading && pages.length === 0 ? (
+        <View style={{ flex: 1, paddingHorizontal: spacing.xl, paddingTop: 48, alignItems: 'center' }}>
+          <View
+            style={{
+              width: pageWidth,
+              height: Math.min(pageWidth * 1.414, 460),
+              backgroundColor: colors.bgContainer,
+              borderRadius: 6,
+              borderWidth: 1,
+              borderColor: colors.divider,
+              opacity: 0.6,
+            }}
+          />
+        </View>
+      ) : pages.length ? (
         <FlatList
           data={pages}
           keyExtractor={(p) => p.id}

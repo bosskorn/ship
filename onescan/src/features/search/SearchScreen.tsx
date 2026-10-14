@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, Pressable, TextInput, View } from 'react-native';
+import { FlatList, Platform, Pressable, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TEmpty, TIcon, TIconButton, TScreen, TText, useTheme } from '@/design-system';
@@ -94,7 +94,10 @@ export function SearchScreen() {
             placeholder={t('search.placeholder')}
             placeholderTextColor={colors.textPlaceholder}
             returnKeyType="search"
-            style={{ flex: 1, fontSize: 16, color: colors.textPrimary, fontFamily, paddingVertical: 0 }}
+            style={[
+              { flex: 1, fontSize: 16, color: colors.textPrimary, fontFamily, paddingVertical: 0 },
+              Platform.select({ android: { includeFontPadding: false } }),
+            ]}
           />
           {query ? <TIconButton icon="close" accessibilityLabel={t('search.clear')} onPress={() => setQuery('')} size={44} /> : null}
         </View>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { TextInput, TextInputProps, View } from 'react-native';
+import { Platform, TextInput, TextInputProps, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { TText } from '../typography/TText';
 
@@ -22,6 +22,9 @@ export function TInput({ label, error, ...rest }: TInputProps) {
         {...rest}
         style={[
           typeScale.bodyLarge,
+          Platform.select({
+            android: { includeFontPadding: false },
+          }),
           {
             fontFamily,
             color: colors.textPrimary,

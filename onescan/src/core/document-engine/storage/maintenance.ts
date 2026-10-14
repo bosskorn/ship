@@ -1,4 +1,5 @@
 import { Directory, File, Paths } from 'expo-file-system';
+import { Platform } from 'react-native';
 import { getDatabase } from '@/core/database/db';
 import { OneScanVision } from '@/native/OneScanVision';
 
@@ -29,20 +30,25 @@ function ageMs(entry: File | Directory): number {
 
 /** Decrypted copies (`plain/`) always; other cached captures and renders once stale. */
 export async function cleanCache() {
+  if (Platform.OS === 'web') return;
   try {
     await OneScanVision?.clearPlainCacheAsync?.();
   } catch {
     // best effort
   }
-  const root = new Directory(Paths.cache, 'onescan');
-  if (!root.exists) return;
-  for (const e of root.list()) {
-    try {
-      if (e instanceof Directory && e.name === 'plain') continue;
-      if (ageMs(e) > CACHE_MIN_AGE_MS) e.delete();
-    } catch {
-      // in use or already gone
+  try {
+    const root = new Directory(Paths.cache, 'onescan');
+    if (!root.exists) return;
+    for (const e of root.list()) {
+      try {
+        if (e instanceof Directory && e.name === 'plain') continue;
+        if (ageMs(e) > CACHE_MIN_AGE_MS) e.delete();
+      } catch {
+        // in use or already gone
+      }
     }
+  } catch {
+    // best effort
   }
 }
 
@@ -62,20 +68,25 @@ async function referencedFolders(): Promise<Set<string>> {
 }
 
 export async function sweepOrphanFolders(): Promise<number> {
-  const root = docsRoot();
-  if (!root.exists) return 0;
-  const used = await referencedFolders();
-  let removed = 0;
-  for (const e of root.list()) {
-    if (!(e instanceof Directory) || used.has(e.name) || ageMs(e) < ORPHAN_MIN_AGE_MS) continue;
-    try {
-      e.delete();
-      removed++;
-    } catch {
-      // retry next start
+  if (Platform.OS === 'web') return 0;
+  try {
+    const root = docsRoot();
+    if (!root.exists) return 0;
+    const used = await referencedFolders();
+    let removed = 0;
+    for (const e of root.list()) {
+      if (!(e instanceof Directory) || used.has(e.name) || ageMs(e) < ORPHAN_MIN_AGE_MS) continue;
+      try {
+        e.delete();
+        removed++;
+      } catch {
+        // retry next start
+      }
     }
+    return removed;
+  } catch {
+    return 0;
   }
-  return removed;
 }
 
 function* filesUnder(dir: Directory): Generator<File> {
@@ -87,32 +98,38 @@ function* filesUnder(dir: Directory): Generator<File> {
 
 /** Encrypt documents stored before encryption existed. Returns files encrypted this run. */
 export async function encryptExistingFiles(): Promise<{ encrypted: number; failed: number }> {
-  const root = docsRoot();
-  const migrate = OneScanVision?.migrateFileAsync;
-  if (!root.exists || !migrate) return { encrypted: 0, failed: 0 };
-  let encrypted = 0;
-  let failed = 0;
-  for (const f of filesUnder(root)) {
-    // Leftovers of an interrupted write/migration: the real file is still intact.
-    if (/\.(enc|dec|mig)\.tmp$/.test(f.name)) {
-      try {
-        f.delete();
-      } catch {
-        // ignore
+  if (Platform.OS === 'web') return { encrypted: 0, failed: 0 };
+  try {
+    const root = docsRoot();
+    const migrate = OneScanVision?.migrateFileAsync;
+    if (!root.exists || !migrate) return { encrypted: 0, failed: 0 };
+    let encrypted = 0;
+    let failed = 0;
+    for (const f of filesUnder(root)) {
+      // Leftovers of an interrupted write/migration: the real file is still intact.
+      if (/\.(enc|dec|mig)\.tmp$/.test(f.name)) {
+        try {
+          f.delete();
+        } catch {
+          // ignore
+        }
+        continue;
       }
-      continue;
+      try {
+        if (await migrate(f.uri)) encrypted++;
+      } catch {
+        failed++; // left as is (still readable); retried next start
+      }
     }
-    try {
-      if (await migrate(f.uri)) encrypted++;
-    } catch {
-      failed++; // left as is (still readable); retried next start
-    }
+    return { encrypted, failed };
+  } catch {
+    return { encrypted: 0, failed: 0 };
   }
-  return { encrypted, failed };
 }
 
 /** Bytes free on the device's data partition (null when unknown). */
 export function freeDiskBytes(): number | null {
+  if (Platform.OS === 'web') return null;
   try {
     const n = Paths.availableDiskSpace;
     return Number.isFinite(n) && n > 0 ? n : null;

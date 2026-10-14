@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, TextInput, View } from 'react-native';
+import { Platform, Pressable, TextInput, View } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { TIcon } from '../icons/TIcon';
 import { TText } from '../typography/TText';
@@ -53,7 +53,13 @@ export function TSearch({ placeholder, value, onChangeText, onSubmit, onPressEnt
         placeholder={placeholder}
         placeholderTextColor={colors.textPlaceholder}
         returnKeyType="search"
-        style={[typeScale.body, { flex: 1, color: colors.textPrimary, fontFamily, paddingVertical: 0 }]}
+        style={[
+          typeScale.body,
+          Platform.select({
+            android: { includeFontPadding: false },
+          }),
+          { flex: 1, color: colors.textPrimary, fontFamily, paddingVertical: 0 },
+        ]}
       />
       {value ? (
         <Pressable accessibilityRole="button" accessibilityLabel="clear" onPress={() => onChangeText?.('')} hitSlop={8}>

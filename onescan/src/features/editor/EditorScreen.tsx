@@ -60,6 +60,7 @@ export function EditorScreen() {
   const { pages, docType, replacePage, removePage, duplicatePage, movePage, setRescan, setFromEditor, clear } = useScanSession();
   const [index, setIndex] = useState(() => Math.max(0, useScanSession.getState().pages.findIndex((p) => p.crop?.decision === 'manual' && p.crop.presence !== 'none')));
   const [tool, setTool] = useState<Tool | null>(null);
+  const [editingTools, setEditingTools] = useState(false);
   const [pageMenu, setPageMenu] = useState<number | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [saving, setSaving] = useState<{ stage: SaveStage; progress: number } | null>(null);
@@ -195,10 +196,10 @@ export function EditorScreen() {
           getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
           onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
           renderItem={({ item }) => {
-            // Before the stage is measured, estimate it from the window (app bar + controls ≈ 330 dp).
-            const fit = paperSize(item, width - 2 * spacing.xxl, (stage.height || windowHeight - 330) - 40 - spacing.md);
+            const reservedBottom = editingTools ? (tool === 'filter' ? 240 : 160) : (pages.length > 1 ? 140 : 90);
+            const fit = paperSize(item, width - 2 * spacing.md, (stage.height || windowHeight - reservedBottom) - 30);
             return (
-              <View style={{ width, flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40, paddingBottom: spacing.md }}>
+              <View style={{ width, flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 20, paddingBottom: spacing.sm }}>
                 {fit ? (
                   <View style={{ width: fit.width, height: fit.height, borderRadius: 4, backgroundColor: '#FFFFFF', elevation: 6, shadowColor: '#0F1521', shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } }}>
                     <SecureImage uri={item.processedUri} resizeMode="contain" style={[{ width: fit.width, height: fit.height, borderRadius: 4 }, previewFilter(item)]} />
@@ -254,7 +255,7 @@ export function EditorScreen() {
 
       <View style={{ backgroundColor: colors.bgContainer, paddingBottom: insets.bottom }}>
         {/* Adjust: filter strip (progressive disclosure) */}
-        {tool === 'filter' && current ? (
+        {editingTools && tool === 'filter' && current ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider }} contentContainerStyle={{ padding: spacing.sm, gap: spacing.sm }}>
             {pageFilters.map((f) => {
               const active = current.filter === f;
@@ -273,65 +274,87 @@ export function EditorScreen() {
           </ScrollView>
         ) : null}
 
-        {/* Edits */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: spacing.xs, paddingTop: spacing.xxs }}>
-          {tools.map((tl) => {
-            const active = tool === tl.key;
-            return (
-              <Pressable
-                key={tl.key}
-                testID={`tool-${tl.key}`}
-                accessibilityRole="button"
-                accessibilityState={tl.key === 'filter' ? { expanded: active } : undefined}
-                onPress={() => onTool(tl.key)}
-                style={({ pressed }) => ({ minWidth: 72, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 12, backgroundColor: pressed ? colors.bgPressed : 'transparent' })}
-              >
-                <TIcon name={tl.icon} size="md" color={active ? colors.brand : colors.textPrimary} />
-                <TText variant="caption" color={active ? 'brand' : 'textSecondary'}>
-                  {t(tl.label)}
-                </TText>
-              </Pressable>
-            );
-          })}
-        </View>
+        {/* Editing tools: Crop, Adjust, Rotate, Delete (revealed when 'แก้ไข' is active) */}
+        {editingTools ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: spacing.xs, paddingTop: spacing.xs, paddingBottom: spacing.xxs, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider }}>
+            {tools.map((tl) => {
+              const active = tool === tl.key;
+              return (
+                <Pressable
+                  key={tl.key}
+                  testID={`tool-${tl.key}`}
+                  accessibilityRole="button"
+                  accessibilityState={tl.key === 'filter' ? { expanded: active } : undefined}
+                  onPress={() => onTool(tl.key)}
+                  style={({ pressed }) => ({ minWidth: 64, minHeight: 48, alignItems: 'center', justifyContent: 'center', gap: 2, borderRadius: radius.md, backgroundColor: pressed ? colors.bgPressed : 'transparent' })}
+                >
+                  <TIcon name={tl.icon} size="md" color={active ? colors.brand : colors.textPrimary} />
+                  <TText variant="caption" color={active ? 'brand' : 'textSecondary'}>
+                    {t(tl.label)}
+                  </TText>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
 
-        {/* Pages: 1 2 3 … + */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 10, alignItems: 'center' }}>
-          {pages.map((p, i) => (
-            <Pressable
-              key={p.id}
-              accessibilityRole="button"
-              accessibilityState={{ selected: i === index }}
-              accessibilityLabel={t('editor.page_actions', { index: i + 1 })}
-              onPress={() => goTo(i)}
-              onLongPress={() => setPageMenu(i)}
-              style={{ width: 48, height: 64 }}
-            >
-              <View style={{ flex: 1, borderRadius: 6, borderWidth: i === index ? 2.5 : 1, borderColor: i === index ? colors.brand : colors.divider, overflow: 'hidden', backgroundColor: colors.bgSecondary }}>
-                <SecureImage uri={p.processedUri} resizeMode="cover" style={{ flex: 1 }} />
-              </View>
-              <View style={{ position: 'absolute', right: -3, bottom: -3, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.textPrimary, alignItems: 'center', justifyContent: 'center' }}>
-                <TText variant="caption" style={{ color: colors.bgContainer, fontSize: 11, lineHeight: 14 }}>
-                  {String(i + 1)}
-                </TText>
-              </View>
-            </Pressable>
-          ))}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('editor.add_page')}
+        {/* Pages: 1 2 3 … shown when multi-page */}
+        {pages.length > 1 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, gap: 8, alignItems: 'center' }}>
+            {pages.map((p, i) => (
+              <Pressable
+                key={p.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: i === index }}
+                accessibilityLabel={t('editor.page_actions', { index: i + 1 })}
+                onPress={() => goTo(i)}
+                onLongPress={() => setPageMenu(i)}
+                style={{ width: 40, height: 52 }}
+              >
+                <View style={{ flex: 1, borderRadius: 4, borderWidth: i === index ? 2 : 1, borderColor: i === index ? colors.brand : colors.divider, overflow: 'hidden', backgroundColor: colors.bgSecondary }}>
+                  <SecureImage uri={p.processedUri} resizeMode="cover" style={{ flex: 1 }} />
+                </View>
+                <View style={{ position: 'absolute', right: -2, bottom: -2, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3, backgroundColor: colors.textPrimary, alignItems: 'center', justifyContent: 'center' }}>
+                  <TText variant="caption" style={{ color: colors.bgContainer, fontSize: 10, lineHeight: 12 }}>
+                    {String(i + 1)}
+                  </TText>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+
+        {/* Mobile Bottom controls: เพิ่มหน้า   แก้ไข   บันทึก */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm }}>
+          <TButton
+            label={t('editor.add_page')}
+            icon="plus"
+            variant="secondary"
+            size="large"
             onPress={() => {
               setFromEditor(true);
               router.push('/scanner');
             }}
-            style={{ width: 48, height: 64, borderRadius: 6, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.textPlaceholder, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <TIcon name="plus" size="md" color={colors.textSecondary} />
-          </Pressable>
-        </ScrollView>
-
-        <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.sm }}>
-          <TButton testID="editor-save" label={t('editor.save_document')} block onPress={save} disabled={!pages.length || !!saving} style={{ borderRadius: 24 }} />
+            style={{ flex: 1 }}
+          />
+          <TButton
+            label={t('common.rename') === 'เปลี่ยนชื่อ' ? 'แก้ไข' : 'Edit'}
+            icon="crop"
+            variant={editingTools ? 'primary' : 'outline'}
+            size="large"
+            onPress={() => setEditingTools((v) => !v)}
+            style={{ flex: 1 }}
+          />
+          <TButton
+            testID="editor-save"
+            label={t('common.save')}
+            variant="primary"
+            size="large"
+            onPress={save}
+            disabled={!pages.length || !!saving}
+            loading={!!saving}
+            style={{ flex: 1.2 }}
+          />
         </View>
       </View>
 

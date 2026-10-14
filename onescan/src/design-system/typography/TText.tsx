@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, TextProps } from 'react-native';
+import { Platform, Text, TextProps } from 'react-native';
 import { ColorTokens } from '../tokens/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { TypographyVariant } from './typography';
@@ -39,6 +39,9 @@ export function TText({
       {...rest}
       style={[
         theme.typeScale[variant],
+        Platform.select({
+          android: { includeFontPadding: false },
+        }),
         { color: theme.colors[color], fontFamily: theme.fontFamily },
         weight && { fontWeight: weight },
         align && { textAlign: align },

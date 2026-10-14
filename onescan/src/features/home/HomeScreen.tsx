@@ -57,6 +57,17 @@ function FirstDocArt() {
   );
 }
 
+function RecentSkeleton() {
+  const { colors, spacing } = useTheme();
+  return (
+    <View style={{ width: 152 }}>
+      <View style={{ width: 152, height: 204, borderRadius: 6, backgroundColor: colors.bgSecondary, borderWidth: 1, borderColor: colors.divider }} />
+      <View style={{ width: 104, height: 14, borderRadius: 4, backgroundColor: colors.bgSecondary, marginTop: spacing.xs }} />
+      <View style={{ width: 64, height: 12, borderRadius: 4, backgroundColor: colors.bgSecondary, marginTop: 4 }} />
+    </View>
+  );
+}
+
 /**
  * Home is the workspace (design V2, frozen): the user's recent documents, then four quick
  * starts. Scan is the round action in the navigation bar. No hero, benefits, privacy card
@@ -66,6 +77,7 @@ export function HomeScreen() {
   const { t } = useTranslation();
   const { colors, spacing } = useTheme();
   const recent = useDocuments((s) => s.recent);
+  const loaded = useDocuments((s) => s.loaded);
   const refresh = useDocuments((s) => s.refresh);
   const { importPdf, importPhotos, overlay: importOverlay } = useImport();
   const [refreshing, setRefreshing] = useState(false);
@@ -77,12 +89,12 @@ export function HomeScreen() {
   );
 
   const quick: { key: string; label: string; icon: IconName; onPress: () => void }[] = [
+    { key: 'scan', label: t('home.quick_scan'), icon: 'camera', onPress: () => openScanner({ source: 'quick_scan' }) },
     { key: 'photo', label: t('home.quick_import'), icon: 'importPhoto', onPress: () => importPhotos() },
     { key: 'pdf', label: t('home.quick_pdf'), icon: 'importPdf', onPress: importPdf },
-    { key: 'id', label: t('home.quick_id'), icon: 'idCard', onPress: () => openScanner({ mode: 'id', docType: 'id_card', source: 'quick_id' }) },
-    { key: 'receipt', label: t('home.quick_receipt'), icon: 'receipt', onPress: () => openScanner({ docType: 'receipt', source: 'quick_receipt' }) },
+    { key: 'search', label: t('home.quick_search'), icon: 'search', onPress: () => router.push('/search') },
   ];
-  const empty = recent.length === 0;
+  const empty = loaded && recent.length === 0;
 
   return (
     <TScreen
@@ -101,12 +113,39 @@ export function HomeScreen() {
           leading={<Wordmark />}
           actions={[
             { icon: 'search', label: t('home.search_placeholder'), onPress: () => router.push('/search'), testID: 'home-search' },
-            { icon: 'profile', label: t('profile.title'), onPress: () => router.navigate('/profile') },
           ]}
         />
       }
     >
-      {empty ? (
+      {!loaded ? (
+        <>
+          <TSectionHeader title={t('home.recent')} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, paddingHorizontal: spacing.md, paddingTop: spacing.xxs, paddingBottom: spacing.sm }}>
+            <RecentSkeleton />
+            <RecentSkeleton />
+            <RecentSkeleton />
+          </ScrollView>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
+            {quick.map((q) => (
+              <Pressable
+                key={q.key}
+                testID={`quick-${q.key}`}
+                accessibilityRole="button"
+                accessibilityLabel={q.label}
+                onPress={q.onPress}
+                style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: spacing.xs, opacity: pressed ? 0.6 : 1 })}
+              >
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.bgSecondary, alignItems: 'center', justifyContent: 'center' }}>
+                  <TIcon name={q.icon} color={colors.brand} />
+                </View>
+                <TText variant="bodySmall" align="center" numberOfLines={1}>
+                  {q.label}
+                </TText>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      ) : empty ? (
         <View testID="home-empty" style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xxl, paddingVertical: spacing.xl, gap: spacing.xs }}>
           <FirstDocArt />
           <TText variant="titleLarge" weight="600" align="center" style={{ marginTop: spacing.sm }}>
@@ -115,7 +154,7 @@ export function HomeScreen() {
           <TText variant="body" color="textSecondary" align="center">
             {t('home.empty_body')}
           </TText>
-          <TButton testID="home-scan" label={t('home.scan_document')} icon="camera" onPress={() => openScanner({ source: 'home_empty' })} style={{ marginTop: spacing.md, paddingHorizontal: spacing.xl, borderRadius: 24 }} />
+          <TButton testID="home-scan" label={t('home.scan_document')} icon="camera" onPress={() => openScanner({ source: 'home_empty' })} style={{ marginTop: spacing.md, paddingHorizontal: spacing.xl }} />
           <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xxs }}>
             <TButton label={t('home.quick_import')} icon="importPhoto" variant="text" size="medium" onPress={() => importPhotos()} />
             <TButton label={t('home.quick_pdf')} icon="importPdf" variant="text" size="medium" onPress={importPdf} />
@@ -129,7 +168,7 @@ export function HomeScreen() {
               <RecentCard key={doc.id} doc={doc} />
             ))}
           </ScrollView>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: spacing.md, paddingTop: spacing.md }}>
             {quick.map((q) => (
               <Pressable
                 key={q.key}
@@ -137,12 +176,12 @@ export function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={q.label}
                 onPress={q.onPress}
-                style={({ pressed }) => ({ width: 80, alignItems: 'center', gap: spacing.xs, opacity: pressed ? 0.6 : 1 })}
+                style={({ pressed }) => ({ width: 76, alignItems: 'center', gap: spacing.xs, opacity: pressed ? 0.6 : 1 })}
               >
-                <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.bgSecondary, alignItems: 'center', justifyContent: 'center' }}>
-                  <TIcon name={q.icon} color={colors.textPrimary} />
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.bgSecondary, alignItems: 'center', justifyContent: 'center' }}>
+                  <TIcon name={q.icon} color={colors.brand} />
                 </View>
-                <TText variant="bodySmall" align="center" numberOfLines={2}>
+                <TText variant="bodySmall" align="center" numberOfLines={1}>
                   {q.label}
                 </TText>
               </Pressable>

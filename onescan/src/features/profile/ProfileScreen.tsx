@@ -5,7 +5,7 @@ import { TCell, TCellGroup, TScreen, TTopAppBar } from '@/design-system';
 import { useSettings } from '@/core/config/settingsStore';
 import { usableLanguage, languageInfo } from '@/core/i18n/languages';
 import { availableOcrLanguages } from '@/core/document-engine/ocr/ocrLanguages';
-import { AccountSection, useAccountEnabled } from '@/features/account/AccountScreens';
+import { AccountDeleteCell, AccountSection, useAccountEnabled } from '@/features/account/AccountScreens';
 
 export function ProfileScreen() {
   const { t } = useTranslation();
@@ -39,6 +39,9 @@ export function ProfileScreen() {
       <TCellGroup title={t('profile.section_about')}>
         <TCell icon="info" title={t('profile.about')} arrow onPress={go('/about')} />
       </TCellGroup>
+
+      {/* Delete account placed separately at the very end */}
+      {accountEnabled ? <AccountDeleteCell /> : null}
     </TScreen>
   );
 }
