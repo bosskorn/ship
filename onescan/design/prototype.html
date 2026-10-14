@@ -83,10 +83,17 @@ svg.i.s18 { width: 18px; height: 18px }
 
 .carousel { display: flex; gap: 12px; overflow-x: auto; padding: 0 16px 4px; scrollbar-width: none }
 .carousel::-webkit-scrollbar { display: none }
-.rc { flex: none; width: 128px; cursor: pointer }
+.rc { flex: none; width: 152px; cursor: pointer }
 .thumb { border-radius: 10px; border: 1px solid var(--line); background: var(--paper); overflow: hidden; display: block; box-shadow: var(--shadow) }
 .thumb svg { display: block; width: 100%; height: 100% }
-.rc .thumb { width: 128px; height: 170px }
+.rc .thumb { width: 152px; height: 204px; position: relative; overflow: visible; border-radius: 6px; box-shadow: 0 1px 1.5px rgba(15,21,33,.10), 0 10px 18px -10px rgba(15,21,33,.35) }
+.rc .thumb svg { border-radius: 6px }
+.rc .thumb.multi { box-shadow: 4px 4px 0 -1px var(--paper), 4px 4px 0 0 var(--line), 0 1px 1.5px rgba(15,21,33,.10), 0 10px 18px -10px rgba(15,21,33,.35) }
+.badge-pages { position: absolute; left: 8px; bottom: 8px; background: rgba(15,21,33,.72); color: #fff; font-size: 11px; font-weight: 600; border-radius: 8px; padding: 2px 7px; font-variant-numeric: tabular-nums }
+.carousel { padding-top: 4px; padding-bottom: 12px }
+.quickrow { display: flex; justify-content: space-between; padding: 8px 20px 0 }
+.qr { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 76px; font-size: 13px; text-align: center; cursor: pointer }
+.qr i { width: 52px; height: 52px; border-radius: 26px; background: var(--surface); color: var(--ink); display: flex; align-items: center; justify-content: center }
 .name { font-size: 14px; font-weight: 500; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .meta { font-size: 12px; color: var(--ink2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 
@@ -105,13 +112,14 @@ svg.i.s18 { width: 18px; height: 18px }
 .pair { display: flex; gap: 8px; margin-top: 4px }
 
 /* Bottom navigation */
-.nav { flex: none; height: 72px; display: flex; background: var(--bg); border-top: 1px solid var(--line); position: relative }
+.nav { flex: none; height: 72px; display: flex; background: var(--bg); border-top: 1px solid var(--line); position: relative; z-index: 3 }
 .tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: var(--ink2); cursor: pointer; min-width: 0 }
 .tab .pill { width: 56px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center }
 .tab.on { color: var(--ink); font-weight: 600 }
 .tab.on .pill { background: var(--tint); color: var(--tint-ink) }
-.tab.scan { color: var(--brand); font-weight: 600 }
-.tab.scan .fab { width: 52px; height: 40px; border-radius: 16px; background: var(--brand); color: var(--brand-ink); display: flex; align-items: center; justify-content: center }
+.tab.scan { color: var(--ink); font-weight: 600; justify-content: flex-end; padding-bottom: 12px; gap: 6px }
+.tab.scan .fab { width: 56px; height: 56px; border-radius: 28px; background: var(--brand); color: var(--brand-ink); display: flex; align-items: center; justify-content: center; margin-top: -24px; box-shadow: 0 0 0 5px var(--bg), 0 3px 8px rgba(15,21,33,.16) }
+.tab.scan:active .fab { transform: scale(.94) }
 
 /* Document grid / list */
 .chips { display: flex; gap: 8px; padding: 4px 16px 12px; overflow-x: auto; scrollbar-width: none; flex: none }
@@ -162,6 +170,10 @@ svg.i.s18 { width: 18px; height: 18px }
 .tool i { width: 56px; height: 56px; border-radius: 18px; background: var(--surface); color: var(--ink); display: flex; align-items: center; justify-content: center }
 .tool.primary i { background: var(--tint); color: var(--tint-ink) }
 
+.tools2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px }
+.tool2 { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px; min-height: 112px; border-radius: 18px; background: var(--surface); cursor: pointer; font-size: 15px; font-weight: 500; min-width: 0 }
+.tool2 i { width: 44px; height: 44px; border-radius: 14px; background: var(--tint); color: var(--tint-ink); display: flex; align-items: center; justify-content: center }
+
 /* Search */
 .searchbar { margin: 8px 12px; height: 52px; border-radius: 26px; background: var(--surface); display: flex; align-items: center; gap: 4px; padding: 0 4px; flex: none }
 .searchbar .q { flex: 1; font-size: 16px }
@@ -178,7 +190,7 @@ mark { background: var(--tint); color: var(--tint-ink); border-radius: 3px; padd
 .cam .ib { color: #fff }
 .cam .ib:hover { background: rgba(255,255,255,.08) }
 .viewfinder { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--desk) }
-.viewfinder svg { position: absolute; inset: 0; width: 100%; height: 100% }
+.viewfinder > svg { position: absolute; inset: 0; width: 100%; height: 100% }
 .hintpill { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); background: rgba(0,0,0,.55); color: #fff; border-radius: 18px; padding: 8px 14px; font-size: 13px; white-space: nowrap }
 .modes { display: flex; justify-content: center; gap: 22px; padding: 14px 0 8px; font-size: 14px; color: rgba(255,255,255,.62) }
 .modes .on { color: #fff; font-weight: 600 }
@@ -203,6 +215,23 @@ mark { background: var(--tint); color: var(--tint-ink); border-radius: 3px; padd
 .strip .p b { position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-radius: 9px; background: var(--ink); color: var(--bg); font-size: 11px; display: flex; align-items: center; justify-content: center }
 .strip .add { flex: none; width: 48px; height: 64px; border-radius: 6px; border: 1.5px dashed var(--ink3); display: flex; align-items: center; justify-content: center; color: var(--ink2); cursor: pointer }
 .savebar { padding: 8px 16px 12px; background: var(--bg) }
+
+.hintpill { display: inline-flex; align-items: center; gap: 6px; transition: background .2s }
+.hintpill.ready { background: #2E6BF0 }
+.shutter.armed { border-color: #7FA9FF }
+.fly { position: absolute; left: 70px; top: 54px; width: 270px; height: 360px; border-radius: 4px; overflow: hidden; transform-origin: 100% 100%; transform: translate(120px, 280px) scale(.15); opacity: .95; box-shadow: 0 4px 16px rgba(0,0,0,.4) }
+.fly svg { width: 100%; height: 100% }
+.flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none }
+.stack.bump b { transform: scale(1.15) }
+.thumb.working { position: relative }
+.thumb.working::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(91,147,255,.22) 50%, transparent 70%); background-size: 250% 100%; background-position: 100% 0 }
+@media (prefers-reduced-motion: no-preference) {
+  .hunt { animation: hunt 1.2s linear infinite } @keyframes hunt { to { stroke-dashoffset: -38 } }
+  .fly { animation: fly .55s cubic-bezier(.3,.7,.2,1) both } @keyframes fly { from { transform: none; opacity: 1 } }
+  .flash { animation: flash .28s ease-out } @keyframes flash { from { opacity: .85 } to { opacity: 0 } }
+  .stack.bump b { animation: bump .35s .45s ease-out both } @keyframes bump { from { transform: scale(1) } 50% { transform: scale(1.35) } to { transform: scale(1.15) } }
+  .thumb.working::after { animation: sweep 1s ease-in-out infinite } @keyframes sweep { from { background-position: 100% 0 } to { background-position: -50% 0 } }
+}
 
 /* Viewer */
 .viewer .pagewrap { flex: 1; min-height: 0; background: var(--surface); display: flex; align-items: center; justify-content: center; padding: 16px 36px; position: relative }
@@ -262,18 +291,19 @@ const T = {
     ob1t: 'เปลี่ยนกระดาษเป็นเอกสารที่พร้อมใช้', ob1p: 'ถ่ายเอกสาร ใบเสร็จ หรือบัตร OneScan หาขอบ ปรับภาพให้อ่านง่าย และบันทึกเป็น PDF',
     ob2t: 'ค้นหาและแชร์ได้ง่าย', ob2p: 'ค้นหาจากข้อความในเอกสารที่สแกนไว้ แล้วแชร์เป็น PDF ได้ทันที',
     ob3t: 'เอกสารของคุณ อยู่กับคุณ', ob3p: 'การสแกนและอ่านข้อความหลักทำงานบนเครื่องของคุณ OneScan ไม่อัปโหลดเอกสารโดยอัตโนมัติ',
-    ob3a: 'ทำงานบนเครื่อง', ob3b: 'ไม่อัปโหลดอัตโนมัติ', ob3c: 'ไม่มีลายน้ำ',
+    onDevice: 'อยู่บนเครื่องนี้', ob3a: 'ทำงานบนเครื่อง', ob3b: 'ไม่อัปโหลดอัตโนมัติ', ob3c: 'ไม่มีลายน้ำ',
     skip: 'ข้าม', next: 'ถัดไป', start: 'เริ่มใช้งาน',
     emptyT: 'ยังไม่มีเอกสาร', emptyP: 'สแกนเอกสารใบแรกของคุณเพื่อเริ่มต้น', scanDoc: 'สแกนเอกสาร', impPhoto: 'นำเข้ารูป', impPdf: 'นำเข้า PDF',
     recent: 'เอกสารล่าสุด', seeAll: 'ดูทั้งหมด', shortcuts: 'ทางลัด', card: 'บัตร', receipt: 'ใบเสร็จ',
     hint: 'วางเอกสารให้อยู่ในกรอบ', modes: ['เอกสาร', 'บัตร', 'ใบเสร็จ', 'หนังสือ'],
+    hunting: 'กำลังหาขอบเอกสาร…', holdStill: 'ถือนิ่ง ๆ', captured: 'เพิ่มหน้า 3 แล้ว', enhancing: 'กำลังปรับภาพ…',
     pages: (n) => `เอกสาร ${n} หน้า`, page: (i, n) => `หน้า ${i} / ${n}`,
     crop: 'ครอบตัด', filter: 'ปรับภาพ', rotate: 'หมุน', del: 'ลบหน้า', save: 'บันทึกเอกสาร',
     docs: 'เอกสาร', all: 'ทั้งหมด', folders: 'โฟลเดอร์', recentChip: 'ล่าสุด', saved: 'บันทึกเอกสารแล้ว', open: 'เปิด',
     selected: (n) => `เลือก ${n} รายการ`, selAll: 'เลือกทั้งหมด', move: 'ย้ายไปโฟลเดอร์', share: 'แชร์', delete: 'ลบ',
     rename: 'เปลี่ยนชื่อ', dup: 'ทำสำเนา', exportPdf: 'แชร์เป็น PDF',
     fEmptyT: 'ยังไม่มีโฟลเดอร์', fEmptyP: 'สร้างโฟลเดอร์เพื่อจัดเอกสารในแบบของคุณ', newFolder: 'สร้างโฟลเดอร์', items: (n) => `${n} รายการ`,
-    tools: 'เครื่องมือ', create: 'สร้าง', import: 'นำเข้า', manage: 'จัดการ', book: 'หนังสือ', board: 'ไวท์บอร์ด', bcard: 'นามบัตร',
+    tools: 'เครื่องมือ', scanLabel: 'สแกน', scanCard: 'สแกนบัตร', scanReceipt: 'สแกนใบเสร็จ', create: 'สร้าง', import: 'นำเข้า', manage: 'จัดการ', book: 'หนังสือ', board: 'ไวท์บอร์ด', bcard: 'นามบัตร',
     arrange: 'จัดหน้า', choose: 'เลือกเอกสาร',
     me: 'ฉัน', general: 'ทั่วไป', lang: 'ภาษา', langV: 'ไทย', ocrLang: 'ภาษาสำหรับอ่านข้อความ', ocrV: 'อัตโนมัติ (ไทย + อังกฤษ)',
     theme: 'ธีม', themeV: 'ตามระบบ', quality: 'คุณภาพการสแกน', qualityV: 'สูง', data: 'ข้อมูลและความเป็นส่วนตัว',
@@ -289,18 +319,19 @@ const T = {
     ob1t: 'Turn paper into documents you can use', ob1p: 'Capture documents, receipts or cards. OneScan finds the edges, makes them easy to read and saves a PDF.',
     ob2t: 'Find and share with ease', ob2p: 'Search the text inside your scans, then share them as PDF in a tap.',
     ob3t: 'Your documents stay with you', ob3p: 'Scanning and text recognition run on your phone. OneScan never uploads your documents automatically.',
-    ob3a: 'Works on your phone', ob3b: 'No automatic upload', ob3c: 'No watermark',
+    onDevice: 'Stays on device', ob3a: 'Works on your phone', ob3b: 'No automatic upload', ob3c: 'No watermark',
     skip: 'Skip', next: 'Next', start: 'Get started',
     emptyT: 'No documents yet', emptyP: 'Scan your first document to get started.', scanDoc: 'Scan document', impPhoto: 'Import photos', impPdf: 'Import PDF',
     recent: 'Recent documents', seeAll: 'See all', shortcuts: 'Shortcuts', card: 'ID card', receipt: 'Receipt',
     hint: 'Fit the document in the frame', modes: ['Document', 'ID card', 'Receipt', 'Book'],
+    hunting: 'Finding the edges…', holdStill: 'Hold still', captured: 'Page 3 added', enhancing: 'Cleaning up…',
     pages: (n) => `${n}-page document`, page: (i, n) => `Page ${i} of ${n}`,
     crop: 'Crop', filter: 'Adjust', rotate: 'Rotate', del: 'Delete', save: 'Save document',
     docs: 'Documents', all: 'All', folders: 'Folders', recentChip: 'Recent', saved: 'Document saved', open: 'Open',
     selected: (n) => `${n} selected`, selAll: 'Select all', move: 'Move to folder', share: 'Share', delete: 'Delete',
     rename: 'Rename', dup: 'Duplicate', exportPdf: 'Share as PDF',
     fEmptyT: 'No folders yet', fEmptyP: 'Create folders to organise documents your way.', newFolder: 'Create folder', items: (n) => `${n} items`,
-    tools: 'Tools', create: 'Create', import: 'Import', manage: 'Manage', book: 'Book', board: 'Whiteboard', bcard: 'Business card',
+    tools: 'Tools', scanLabel: 'Scan', scanCard: 'Scan ID card', scanReceipt: 'Scan receipt', create: 'Create', import: 'Import', manage: 'Manage', book: 'Book', board: 'Whiteboard', bcard: 'Business card',
     arrange: 'Arrange pages', choose: 'Choose a document',
     me: 'Me', general: 'General', lang: 'Language', langV: 'English', ocrLang: 'Text recognition language', ocrV: 'Automatic (Thai + English)',
     theme: 'Theme', themeV: 'System', quality: 'Scan quality', qualityV: 'High', data: 'Data and privacy',
@@ -401,7 +432,7 @@ const status = (dark) => `<div class="status ${dark ? 'on-dark' : ''}"><span>9:4
 function nav(active) {
   const x = t().tabs;
   const tab = (key, i, icon, go) => key === 'scan'
-    ? `<button class="tab scan" data-go="camera" aria-label="${x[i]}"><span class="fab">${ic('scan')}</span>${x[i]}</button>`
+    ? `<button class="tab scan" data-go="camDetect" aria-label="${x[i]}"><span class="fab">${ic('scan')}</span>${x[i]}</button>`
     : `<button class="tab ${active === key ? 'on' : ''}" data-go="${go}"><span class="pill">${ic(icon, 's20')}</span>${x[i]}</button>`;
   return `<div class="nav">${tab('home', 0, 'home', 'home')}${tab('docs', 1, 'docs', 'docs')}${tab('scan', 2)}${tab('tools', 3, 'tools', 'tools')}${tab('me', 4, 'user', 'me')}</div>`;
 }
@@ -409,31 +440,50 @@ const appbar = (title, actions = '', lead = '') => `<div class="appbar ${lead ? 
 const b = (icon, go, label) => `<button class="ib" ${go ? `data-go="${go}"` : ''} aria-label="${label || icon}">${ic(icon)}</button>`;
 
 /* ---------- onboarding visuals ---------- */
+// Shared visual language: real-looking paper, the blue corner marks of a found page, a short arrow for "becomes".
+const pg = (k) => page(k).replace(/<svg[^>]*>|<\/svg>/g, '');
+const paperShadow = '<filter id="ps" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#0F1521" flood-opacity=".18"/></filter>';
+function marks(x, y, w, h, len = 18, sw = 5) {
+  const c = [[x, y, 1, 1], [x + w, y, -1, 1], [x + w, y + h, -1, -1], [x, y + h, 1, -1]];
+  return c.map(([cx, cy, dx, dy]) => `<path d="M${cx + dx * len} ${cy}H${cx}V${cy + dy * len}" stroke="var(--brand)" stroke-width="${sw}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+}
+const arrow = (x, y, dir = 'right') => dir === 'right'
+  ? `<path d="M${x} ${y}h26m-8-8 8 8-8 8" stroke="var(--ink3)" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+  : `<path d="M${x} ${y}v22m-8-8 8 8 8-8" stroke="var(--ink3)" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
 function visScan() {
-  const pg = (k) => page(k).replace(/<svg[^>]*>|<\/svg>/g, '');
-  return `<svg viewBox="0 0 360 300" aria-hidden="true">
-    <rect x="14" y="40" width="176" height="220" rx="18" fill="var(--desk)"/>
-    <g transform="matrix(.9 -.1 .07 .96 42 70)"><rect width="120" height="160" fill="#F3F1EC"/><g>${pg('contract')}</g></g>
-    <polygon points="42,70 150,58 161,212 53,224" fill="rgba(91,147,255,.12)" stroke="#5B93FF" stroke-width="3" stroke-linejoin="round"/>
-    ${[[42, 70], [150, 58], [161, 212], [53, 224]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5.5" fill="var(--desk)" stroke="#5B93FF" stroke-width="3"/>`).join('')}
-    <path d="M200 150h22m-7-7 7 7-7 7" stroke="var(--ink3)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <g transform="translate(234 44)"><rect width="112" height="150" rx="3" fill="var(--paper)" stroke="var(--line)"/><g transform="scale(.933 .9375)">${pg('clean')}</g></g>
-    <g transform="translate(238 208)"><rect width="104" height="40" rx="20" fill="var(--tint)"/><text x="52" y="25.5" text-anchor="middle" font-size="13" font-weight="600" font-family="Roboto, Noto Sans Thai, sans-serif" fill="var(--tint-ink)">PDF · 1</text></g>
+  return `<svg viewBox="0 0 360 300" aria-hidden="true"><defs>${paperShadow}</defs>
+    <rect x="12" y="34" width="168" height="232" rx="20" fill="var(--desk)"/>
+    <g transform="matrix(.9 -.1 .07 .96 40 66)" filter="url(#ps)"><rect width="120" height="160" fill="#F3F1EC"/>${pg('contract')}</g>
+    <polygon points="40,66 148,54 159,208 51,220" fill="rgba(91,147,255,.14)" stroke="#5B93FF" stroke-width="2" stroke-linejoin="round"/>
+    ${[[40, 66, 148, 54, 51, 220], [148, 54, 40, 66, 159, 208], [159, 208, 148, 54, 51, 220], [51, 220, 40, 66, 159, 208]].map(([px, py, ax, ay, bx, by]) => `<path d="M${px + (ax - px) * .18} ${py + (ay - py) * .18}L${px} ${py}L${px + (bx - px) * .12} ${py + (by - py) * .12}" stroke="#7FA9FF" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`).join('')}
+    ${arrow(192, 150)}
+    <g filter="url(#ps)"><rect x="236" y="56" width="108" height="144" rx="3" fill="var(--paper)"/><g transform="translate(236 56) scale(.9)">${pg('clean')}</g></g>
+    ${marks(226, 46, 128, 164)}
+    <rect x="248" y="222" width="84" height="30" rx="15" fill="var(--tint)"/><text x="290" y="241.5" text-anchor="middle" font-size="13" font-weight="600" font-family="Roboto, Noto Sans Thai, sans-serif" fill="var(--tint-ink)">PDF</text>
   </svg>`;
 }
 function visFind() {
-  return `<svg viewBox="0 0 360 300" aria-hidden="true">
-    <g transform="translate(30 46)"><rect width="150" height="200" rx="6" fill="var(--paper)" stroke="var(--line)"/><g transform="scale(1.25)">${page('bill').replace(/<svg[^>]*>|<\/svg>/g, '')}</g><rect x="14" y="62" width="104" height="18" rx="5" fill="var(--brand)" opacity=".22"/><rect x="14" y="62" width="104" height="18" rx="5" fill="none" stroke="var(--brand)" stroke-width="2"/></g>
-    <g transform="translate(118 20)"><rect width="190" height="44" rx="22" fill="var(--bg)" stroke="var(--line)"/><g transform="translate(14 10)" stroke="var(--ink2)" fill="none" stroke-width="2.2"><circle cx="10" cy="10" r="7"/><path d="m19 19-4-4"/></g><text x="46" y="28" font-size="16" font-family="Roboto, Noto Sans Thai, sans-serif" fill="var(--ink)">${t().query}</text></g>
-    <path d="M196 150h24m-7-7 7 7-7 7" stroke="var(--ink3)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-    <g transform="translate(234 96)"><rect width="96" height="124" rx="8" fill="var(--bg)" stroke="var(--line)"/><rect x="14" y="16" width="34" height="18" rx="4" fill="#D93025"/><text x="19" y="29.5" font-size="11" font-weight="700" fill="#fff" font-family="Roboto, sans-serif">PDF</text>${lines(14, 46, 68, 5, 9, [1, .8, .9, .6])}<rect x="14" y="96" width="68" height="18" rx="9" fill="var(--brand)"/><g transform="translate(26 99) scale(.5)" stroke="var(--brand-ink)" fill="none" stroke-width="2.6">${P.share}</g><rect x="44" y="103" width="28" height="4" rx="2" fill="var(--brand-ink)"/></g>
+  return `<svg viewBox="0 0 360 300" aria-hidden="true"><defs>${paperShadow}</defs>
+    <g transform="translate(24 50)" filter="url(#ps)"><rect width="138" height="184" rx="3" fill="var(--paper)"/><g transform="scale(1.15)">${pg('bill')}</g></g>
+    <rect x="34" y="104" width="118" height="20" rx="4" fill="var(--brand)" opacity=".2"/><rect x="34" y="104" width="118" height="20" rx="4" fill="none" stroke="var(--brand)" stroke-width="2"/>
+    <g transform="translate(70 18)"><rect width="168" height="40" rx="20" fill="var(--bg)" stroke="var(--line)"/><g transform="translate(13 9)" stroke="var(--ink2)" fill="none" stroke-width="2.2"><circle cx="10" cy="10" r="7"/><path d="m19 19-4-4"/></g><text x="42" y="26" font-size="15" font-family="Roboto, Noto Sans Thai, sans-serif" fill="var(--ink)">${t().query}</text></g>
+    ${arrow(176, 150)}
+    <g filter="url(#ps)"><rect x="226" y="66" width="108" height="144" rx="3" fill="var(--paper)"/><g transform="translate(226 66) scale(.9)">${pg('bill')}</g></g>
+    ${marks(216, 56, 128, 164)}
+    <rect x="232" y="222" width="96" height="30" rx="15" fill="var(--brand)"/><g transform="translate(244 228) scale(.75)" stroke="var(--brand-ink)" fill="none" stroke-width="2.4">${P.share}</g><text x="292" y="241.5" text-anchor="middle" font-size="13" font-weight="600" font-family="Roboto, Noto Sans Thai, sans-serif" fill="var(--brand-ink)">PDF</text>
   </svg>`;
 }
 function visPrivate() {
-  return `<svg viewBox="0 0 360 300" aria-hidden="true">
-    <g transform="translate(110 26)"><rect width="140" height="250" rx="24" fill="var(--bg)" stroke="var(--ink3)" stroke-width="3"/><rect x="54" y="10" width="32" height="6" rx="3" fill="var(--ink3)"/>
-    ${[0, 1, 2].map((i) => `<g transform="translate(${24 + i * 10} ${46 + i * 22}) rotate(${-6 + i * 5})"><rect width="72" height="96" rx="3" fill="var(--paper)" stroke="var(--line)"/><g transform="scale(.6)">${page(['receipt', 'bill', 'contract'][i]).replace(/<svg[^>]*>|<\/svg>/g, '')}</g></g>`).join('')}
-    <rect x="18" y="200" width="104" height="30" rx="15" fill="var(--tint)"/><g transform="translate(28 205) scale(.83)" stroke="var(--tint-ink)" fill="none" stroke-width="2.2">${P.lock}</g><rect x="56" y="212" width="54" height="6" rx="3" fill="var(--tint-ink)"/></g>
+  return `<svg viewBox="0 0 360 300" aria-hidden="true"><defs>${paperShadow}</defs>
+    <g filter="url(#ps)"><rect x="146" y="14" width="68" height="90" rx="2" fill="var(--paper)"/><g transform="translate(146 14) scale(.566)">${pg('contract')}</g></g>
+    ${marks(138, 6, 84, 106, 12, 4)}
+    ${arrow(180, 120, 'down')}
+    <rect x="120" y="152" width="120" height="140" rx="22" fill="var(--bg)" stroke="var(--ink)" stroke-width="3.5"/><rect x="164" y="160" width="32" height="5" rx="2.5" fill="var(--ink)"/>
+    <g transform="translate(150 176)"><rect width="60" height="80" rx="2" fill="var(--paper)" stroke="var(--line)"/><g transform="scale(.5)">${pg('contract')}</g></g>
+    ${marks(144, 170, 72, 92, 11, 4)}
+    <rect x="128" y="270" width="104" height="0" fill="none"/>
+    <g transform="translate(250 196)"><rect width="96" height="30" rx="15" fill="var(--tint)"/><text x="48" y="19.5" text-anchor="middle" font-size="12" font-weight="600" font-family="Roboto, Noto Sans Thai, sans-serif" fill="var(--tint-ink)">${t().onDevice}</text></g>
+    <path d="M244 211h-6" stroke="var(--tint-ink)" stroke-width="2" stroke-linecap="round"/>
   </svg>`;
 }
 
@@ -444,7 +494,10 @@ const screens = {
   ob3: { cap: ['Onboarding 3', 'Privacy'], j: 0, html: () => onboarding(3) },
   fresh: { cap: ['Fresh Home', 'No documents yet'], j: 1, html: fresh },
   home: { cap: ['Home', 'Returning user'], j: 1, html: home },
-  camera: { cap: ['Scan', 'One tap from any tab'], j: 2, html: camera },
+  camDetect: { cap: ['Scan', 'Finding edges'], j: 2, html: () => camera('detect') },
+  camera: { cap: ['Scan', 'Locked · hold still'], j: 2, html: () => camera('ready') },
+  capture: { cap: ['Capture', 'Page into the tray'], j: 2, html: () => camera('capture') },
+  processing: { cap: ['Processing', 'Clean-up on the page'], j: 3, html: () => review(3, true) },
   review1: { cap: ['Review', 'Single page'], j: 3, html: () => review(1) },
   review3: { cap: ['Review', 'Multi-page'], j: 3, html: () => review(3) },
   saved: { cap: ['Saved', 'Lands in Documents'], j: 4, html: () => docs('grid', { snack: true }) },
@@ -461,7 +514,7 @@ const screens = {
   share: { cap: ['Share', 'Android share sheet'], j: 7, html: () => viewer(true) },
 };
 const order = Object.keys(screens);
-const journeyTargets = ['ob1', 'home', 'camera', 'review3', 'saved', 'docs', 'search', 'share'];
+const journeyTargets = ['ob1', 'home', 'camDetect', 'review3', 'saved', 'docs', 'search', 'share'];
 
 function onboarding(n) {
   const x = t();
@@ -484,42 +537,54 @@ function fresh() {
     <div class="empty">
       <svg width="148" height="120" viewBox="0 0 148 120" aria-hidden="true"><g transform="translate(26 14) rotate(-8)"><rect width="66" height="88" rx="4" fill="var(--surface2)"/></g><g transform="translate(46 10)"><rect width="66" height="88" rx="4" fill="var(--paper)" stroke="var(--line)"/><rect x="12" y="12" width="28" height="5" rx="2" fill="var(--brand)"/>${lines(12, 26, 42, 6, 8, [1, .8, .9, .6])}</g><path d="M38 30v-10a6 6 0 0 1 6-6h10M104 14h10a6 6 0 0 1 6 6v10M120 88v10a6 6 0 0 1-6 6h-10M54 104H44a6 6 0 0 1-6-6V88" stroke="var(--brand)" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
       <h2>${x.emptyT}</h2><p>${x.emptyP}</p>
-      <button class="btn" data-go="camera" style="margin-top:16px">${ic('camera', 's20')}${x.scanDoc}</button>
+      <button class="btn" data-go="camDetect" style="margin-top:16px">${ic('camera', 's20')}${x.scanDoc}</button>
       <div class="pair"><button class="btn text">${ic('image', 's20')}${x.impPhoto}</button><button class="btn text">${ic('pdf', 's20')}${x.impPdf}</button></div>
     </div></div>${nav('home')}${gesture()}`;
 }
 function home() {
   const x = t();
-  const cards = DOCS.slice(0, 5).map((d) => `<button class="rc" data-go="viewer">${thumb(d.kind)}<div class="name">${dn(d)}</div><div class="meta">${dw(d)}</div></button>`).join('');
-  const qa = (icon, label, go) => `<button class="qa" ${go ? `data-go="${go}"` : ''}><span class="ic">${ic(icon, 's20')}</span><span>${label}</span></button>`;
+  const cards = DOCS.slice(0, 5).map((d) => `<button class="rc" data-go="viewer"><span class="thumb ${d.pages > 1 ? 'multi' : ''}">${page(d.kind)}${d.pages > 1 ? `<span class="badge-pages">${d.pages}</span>` : ''}</span><div class="name">${dn(d)}</div><div class="meta">${dw(d)}</div></button>`).join('');
+  const q = (icon, label, go) => `<button class="qr" ${go ? `data-go="${go}"` : ''}><i>${ic(icon)}</i>${label}</button>`;
   return `${status()}<div class="body">${homeBar()}<div class="scroll">
     <div class="sec"><h3>${x.recent}</h3><a data-go="docs">${x.seeAll}</a></div>
     <div class="carousel">${cards}</div>
-    <div class="sec" style="padding-top:24px"><h3>${x.shortcuts}</h3></div>
-    <div class="quick">${qa('image', x.impPhoto)}${qa('pdf', x.impPdf)}${qa('card', x.card, 'camera')}${qa('receipt', x.receipt, 'camera')}</div>
+    <div class="quickrow">${q('image', x.impPhoto)}${q('pdf', x.impPdf)}${q('card', x.card, 'camDetect')}${q('receipt', x.receipt, 'camDetect')}</div>
   </div></div>${nav('home')}${gesture()}`;
 }
-function camera() {
+function camera(state = 'ready') {
   const x = t();
+  const quad = [[70, 70], [321, 54], [336, 404], [88, 420]];
+  const pts = quad.map((p) => p.join(',')).join(' ');
+  // Edge-locked frame: corner brackets drawn along each edge, filled softly.
+  const brackets = quad.map(([px, py], i) => {
+    const [nx, ny] = quad[(i + 1) % 4]; const [qx, qy] = quad[(i + 3) % 4];
+    const f = 0.16;
+    return `<path d="M${px + (qx - px) * f} ${py + (qy - py) * f}L${px} ${py}L${px + (nx - px) * f} ${py + (ny - py) * f}" stroke="#7FA9FF" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }).join('');
+  const frame = state === 'detect'
+    ? `<polygon points="76,82 318,62 330,398 94,412" fill="none" stroke="rgba(15,21,33,.45)" stroke-width="5" stroke-linejoin="round"/><polygon points="76,82 318,62 330,398 94,412" fill="none" stroke="#9BBCFF" stroke-width="3" stroke-dasharray="12 10" stroke-linejoin="round" class="hunt"/>`
+    : `<polygon points="${pts}" fill="rgba(91,147,255,.13)" stroke="#5B93FF" stroke-width="2.5" stroke-linejoin="round"/>${brackets}`;
+  const hint = state === 'detect' ? x.hunting : state === 'ready' ? `${ic('check', 's18')}${x.holdStill}` : x.captured;
+  const count = state === 'capture' ? 3 : 2;
+  const fly = state === 'capture' ? `<div class="fly">${page('notes')}</div><div class="flash"></div>` : '';
   return `${status(true)}<div class="body cam">
     <div class="appbar">${b('close', 'home', 'Close')}<div class="title"></div>${b('flash', '', 'Flash')}<button class="ib" style="font-size:13px;font-weight:700">HD</button></div>
     <div class="viewfinder"><svg viewBox="0 0 412 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <rect width="412" height="520" fill="var(--desk)"/><rect width="412" height="520" fill="url(#grain)" opacity=".0"/>
-      <g transform="matrix(.93 -.06 .05 .97 70 70)"><rect width="270" height="360" fill="#F3F1EC"/><g transform="scale(2.25)">${page('contract').replace(/<svg[^>]*>|<\/svg>|<rect width="120" height="160" fill="var\(--paper\)"\/>/g, '')}</g></g>
-      <polygon points="70,70 321,54 336,404 88,420" fill="rgba(91,147,255,.10)" stroke="#5B93FF" stroke-width="3" stroke-linejoin="round"/>
-      ${[[70, 70], [321, 54], [336, 404], [88, 420]].map(([a, c]) => `<circle cx="${a}" cy="${c}" r="7" fill="#0B0C0E" stroke="#5B93FF" stroke-width="3"/>`).join('')}
-    </svg><div class="hintpill">${x.hint}</div></div>
+      <rect width="412" height="520" fill="var(--desk)"/>
+      <g transform="matrix(.93 -.06 .05 .97 70 70)"><rect width="270" height="360" fill="#F3F1EC"/><g transform="scale(2.25)">${page('notes').replace(/<svg[^>]*>|<\/svg>|<rect width="120" height="160" fill="var\(--paper\)"\/>/g, '')}</g></g>
+      ${frame}
+    </svg><div class="hintpill ${state === 'ready' ? 'ready' : ''}">${hint}</div>${fly}</div>
     <div class="modes">${x.modes.map((m, i) => `<span class="${i === 0 ? 'on' : ''}">${m}</span>`).join('')}</div>
-    <div class="camctl"><button class="roundbtn" aria-label="${x.impPhoto}">${ic('image')}</button><button class="shutter" data-go="review1" aria-label="Capture"><i></i></button><button class="stack" data-go="review3" aria-label="Pages"><span class="thumb" style="transform:rotate(-6deg);left:2px">${page('form')}</span><span class="thumb" style="left:6px;top:4px">${page('contract')}</span><b>2</b></button></div>
+    <div class="camctl"><button class="roundbtn" aria-label="${x.impPhoto}">${ic('image')}</button><button class="shutter ${state === 'ready' ? 'armed' : ''}" data-go="capture" aria-label="Capture"><i></i></button><button class="stack ${state === 'capture' ? 'bump' : ''}" data-go="review3" aria-label="Pages"><span class="thumb" style="transform:rotate(-6deg);left:2px">${page('form')}</span><span class="thumb" style="left:6px;top:4px">${page(state === 'capture' ? 'notes' : 'contract')}</span><b>${count}</b></button></div>
   </div><div class="gesture"><i style="background:#fff"></i></div>`;
 }
-function review(n) {
+function review(n, processing) {
   const x = t();
   const kinds = ['contract', 'form', 'notes'];
   const cur = n === 1 ? 0 : 1;
-  const strip = Array.from({ length: n }, (_, i) => `<button class="p ${i === cur ? 'on' : ''}">${thumb(kinds[i])}<b>${i + 1}</b></button>`).join('') + `<button class="add" data-go="camera" aria-label="Add page">${ic('plus')}</button>`;
+  const strip = Array.from({ length: n }, (_, i) => `<button class="p ${i === cur ? 'on' : ''}">${thumb(kinds[i])}<b>${i + 1}</b></button>`).join('') + `<button class="add" data-go="camDetect" aria-label="Add page">${ic('plus')}</button>`;
   return `${status()}<div class="body review">${appbar(x.pages(n), b('more', '', 'More'), b('back', 'camera', 'Back'))}
-    <div class="stagearea" style="position:relative"><span class="pageno">${x.page(cur + 1, n)}</span>${thumb(n === 1 ? 'contract' : kinds[cur])}</div>
+    <div class="stagearea" style="position:relative"><span class="pageno">${processing ? x.enhancing : x.page(cur + 1, n)}</span><span class="thumb ${processing ? 'working' : ''}">${page(n === 1 ? 'contract' : kinds[cur])}</span></div>
     <div class="edits"><button class="edit">${ic('crop')}${x.crop}</button><button class="edit">${ic('adjust')}${x.filter}</button><button class="edit">${ic('rotate')}${x.rotate}</button><button class="edit">${ic('trash')}${x.del}</button></div>
     <div class="strip">${strip}</div>
     <div class="savebar"><button class="btn block" data-go="saved">${x.save}</button></div></div>${gesture()}`;
@@ -562,11 +627,10 @@ function folderOpen() {
 }
 function tools() {
   const x = t();
-  const tl = (icon, label, go, primary) => `<button class="tool ${primary ? 'primary' : ''}" ${go ? `data-go="${go}"` : ''}><i>${ic(icon)}</i>${label}</button>`;
+  const tl = (icon, label, go) => `<button class="tool2" ${go ? `data-go="${go}"` : ''}><i>${ic(icon)}</i><span>${label}</span></button>`;
   return `${status()}<div class="body">${appbar(x.tools)}<div class="scroll">
-    <div class="label">${x.create}</div><div class="tools">${tl('scan', x.scanDoc, 'camera', true)}${tl('card', x.card, 'camera', true)}${tl('receipt', x.receipt, 'camera', true)}${tl('book', x.book, 'camera', true)}${tl('board', x.board, 'camera', true)}${tl('bcard', x.bcard, 'camera', true)}</div>
-    <div class="label">${x.import}</div><div class="tools">${tl('image', x.impPhoto)}${tl('pdf', x.impPdf)}</div>
-    <div class="label">${x.manage}</div><div class="tools">${tl('docs', x.arrange, 'review3')}${tl('rotate', x.rotate, 'review3')}${tl('crop', x.crop, 'review3')}${tl('share', x.share, 'share')}</div>
+    <div class="label">${x.scanLabel}</div><div class="tools2">${tl('card', x.scanCard, 'camDetect')}${tl('receipt', x.scanReceipt, 'camDetect')}</div>
+    <div class="label">${x.import}</div><div class="tools2">${tl('image', x.impPhoto)}${tl('pdf', x.impPdf)}</div>
   </div></div>${nav('tools')}${gesture()}`;
 }
 function me() {
@@ -604,7 +668,7 @@ function viewer(share) {
 function device(id, scale) {
   const w = S.w;
   const inner = screens[id].html();
-  return `<div class="frame" style="width:${w * scale}px;height:${H * scale}px"><div class="device" style="width:${w}px;height:${H}px;transform:scale(${scale})"><div class="app ${S.scheme === 'dark' ? 'dark' : ''} ${id === 'camera' ? 'cam' : ''}" data-screen="${id}" lang="${S.lang}">${inner}</div></div></div>`;
+  return `<div class="frame" style="width:${w * scale}px;height:${H * scale}px"><div class="device" style="width:${w}px;height:${H}px;transform:scale(${scale})"><div class="app ${S.scheme === 'dark' ? 'dark' : ''} ${['camera', 'camDetect', 'capture'].includes(id) ? 'cam' : ''}" data-screen="${id}" lang="${S.lang}">${inner}</div></div></div>`;
 }
 function phoneScale() {
   const avail = Math.max(320, window.innerHeight - 190);
@@ -612,12 +676,15 @@ function phoneScale() {
   return Math.min(1, avail / H, wAvail / S.w);
 }
 const NOTES = {
-  ob1: ['Onboarding sells; Home works.', 'Three short screens with product visuals: paper → detection frame → clean scan. Skip goes straight to Home.'],
+  ob1: ['Onboarding sells; Home works.', 'One visual language across the three screens: real paper, the blue corner marks of a found page, a short arrow. Paper on a desk → found → clean page.'],
   ob2: ['Show the outcome, not a paragraph.', 'Search highlight on a real bill, then a PDF ready to share.'],
-  ob3: ['Privacy, stated as behaviour.', 'Core scanning and OCR on the phone; no automatic upload. Last screen: Get started.'],
+  ob3: ['Privacy, stated as behaviour.', 'Same visual language: your document goes into the phone and stays there. Core scanning and OCR on the phone; no automatic upload.'],
   fresh: ['Zero documents: one action.', 'No empty Recent list, no samples, no marketing. Scan, or import photos / PDF.'],
-  home: ['Documents first.', 'Recent documents as real previews, then four shortcuts. Scan lives in the navigation bar, one tap from every tab.'],
-  camera: ['Scan opens the camera directly.', 'No menu before the camera. Modes (Document, ID card, Receipt, Book) switch inside the camera. Shutter → Review.'],
+  home: ['Documents first, with weight.', 'Recent documents as physical pages (stacked when multi-page, with a page count), then four quiet shortcuts with no heading. Scan is the round action in the bar, one tap from every tab.'],
+  camDetect: ['Scan opens the camera directly.', 'No menu first. A dashed frame tracks the page while edges are found; modes switch inside the camera.'],
+  camera: ['Locked: the page is found.', 'The frame snaps to the page with corner marks; the hint turns to Hold still and the shutter is armed.'],
+  capture: ['Capture feedback.', 'A short flash, the page flies into the tray, the page count bumps. Keep shooting, or tap the tray to review.'],
+  processing: ['Processing in place.', 'The page sweeps while it is cleaned, then Review is ready. No blocking spinner.'],
   review1: ['Review: the page is the hero.', 'Crop, Adjust, Rotate, Delete. The strip shows pages; + adds the next page. One primary action: Save document.'],
   review3: ['Multi-page review.', 'Tap a page in the strip to work on it; long press to reorder (existing editor actions).'],
   saved: ['Saved → lands in Documents.', 'A snackbar confirms with Open. OCR and PDF happen on save as today.'],
@@ -627,7 +694,7 @@ const NOTES = {
   moreSheet: ['More → bottom sheet.', 'Rename, Move to folder, Share as PDF, Duplicate, Delete.'],
   foldersEmpty: ['0 folders on a fresh install.', 'No automatic folders. One action: Create folder. Existing users keep their folders.'],
   folder: ['Folder with content.', 'Opens straight into its documents.'],
-  tools: ['Tools: a launcher, only what works.', 'Create and Import open existing flows. Manage opens a document picker, then the existing editor (pages, rotate, crop) or share.'],
+  tools: ['Tools: only what starts from nothing.', 'Scan an ID card or a receipt, import photos or a PDF. Anything that needs a document first (crop, rotate, pages, share) starts from that document instead.'],
   me: ['Me: a settings list.', 'Language, OCR language, theme, scan quality, storage, privacy, security, about. Nothing that competes with Home.'],
   search: ['Search shows why it matched.', 'Thumbnail, name, the matching text from OCR with the term highlighted, then pages and date.'],
   viewer: ['Open document.', 'Page first; Share, Edit, Text (OCR), More at the bottom.'],
@@ -644,12 +711,20 @@ function render() {
   const main = document.getElementById('main');
   if (S.mode === 'flow') {
     const n = NOTES[S.screen];
+    setTimeout(autoAdvance);
     main.innerHTML = `<div class="stage"><div class="phone-slot">${device(S.screen, phoneScale())}</div><aside class="notes"><h2>${screens[S.screen].cap.join(' · ')}</h2><p><b style="color:var(--page-ink)">${n[0]}</b> ${n[1]}</p>
       <ul>${order.map((id) => `<li><a href="#${id}" data-jump="${id}" style="color:${id === S.screen ? 'var(--page-accent)' : 'inherit'}">${screens[id].cap.join(' · ')}</a></li>`).join('')}</ul>
       <div class="hint">Tap buttons inside the phone to move through the flow. Sample documents are examples.</div></aside></div>`;
   } else {
     main.innerHTML = `<div class="board">${order.map((id) => `<figure>${device(id, 0.5)}<figcaption>${screens[id].cap[0]}<span>${screens[id].cap[1]}</span></figcaption></figure>`).join('')}</div>`;
   }
+}
+let flowTimer = null;
+const AUTO = { camDetect: ['camera', 1300], capture: ['processing', 800], processing: ['review3', 1100] };
+function autoAdvance() {
+  clearTimeout(flowTimer);
+  const next = S.mode === 'flow' && AUTO[S.screen];
+  if (next) flowTimer = setTimeout(() => { S.screen = next[0]; render(); }, next[1]);
 }
 function save() { try { localStorage.setItem('onescan-proto', JSON.stringify({ lang: S.lang, scheme: S.scheme, w: S.w, mode: S.mode })); } catch (e) {} }
 
