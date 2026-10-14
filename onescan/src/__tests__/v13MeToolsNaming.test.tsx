@@ -28,7 +28,8 @@ jest.mock('expo-camera', () => ({
   },
 }));
 jest.mock('@/features/home/HomeScreen', () => ({ openScanner: jest.fn() }));
-jest.mock('@/features/pages/openPageTools', () => ({ openImagesToPdf: jest.fn(), openMerge: jest.fn(), openPageManager: jest.fn(), openSplit: jest.fn(), openToImages: jest.fn() }));
+jest.mock('@/features/pages/openPageTools', () => ({ pickImagesForPdf: jest.fn(), openImagesToPdf: jest.fn(), openMerge: jest.fn(), openPageManager: jest.fn(), openSplit: jest.fn(), openToImages: jest.fn() }));
+jest.mock('@/core/document-engine/storage/diskSpace', () => ({ isDiskFull: () => false }));
 jest.mock('@/features/pages/DocumentPickSheet', () => ({ DocumentPickSheet: () => null }));
 jest.mock('@/features/shared/useImport', () => ({ useImport: () => ({ importPdf: jest.fn(), importPhotos: jest.fn(), overlay: null }) }));
 jest.mock('@/features/shared/SecureImage', () => ({ SecureImage: () => null }));

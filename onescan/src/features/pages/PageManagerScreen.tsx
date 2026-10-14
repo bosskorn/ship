@@ -6,20 +6,26 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  IconName, TActionSheet, TButton, TDialog, TIcon, TIconButton, TNavigationBar, TProgress, TScreen, TText, useTheme, useToast,
+  IconName, TActionSheet, TButton, TDialog, TIcon, TIconButton, TNavigationBar, TScreen, TText, useTheme, useToast,
 } from '@/design-system';
 import type { DraftPage } from '@/core/document-engine/model';
 import { duplicateAt, insertAt, MAX_DOCUMENT_PAGES, movePage, PageItem, removeAt, roomFor } from '@/core/document-engine/pages/pageOps';
-import { DocumentPageService, PageLimitError } from '@/core/document-engine/services/DocumentPageService';
+import { DocumentPageService, OperationCancelled } from '@/core/document-engine/services/DocumentPageService';
 import { documentRepository } from '@/core/database/repositories/documentRepository';
-import { isDiskFull } from '@/core/document-engine/storage/diskSpace';
 import { useSettings } from '@/core/config/settingsStore';
 import { useDocuments } from '@/features/documents/documentsStore';
-import { nextScanTitle } from '@/features/scanner/fileName';
+import { MERGED_PREFIX, nextScanTitle } from '@/features/scanner/fileName';
 import { CropEditor } from '@/features/editor/CropEditor';
 import { PageGrid, PageThumb } from './PageGrid';
 import { DocumentPickSheet } from './DocumentPickSheet';
-import { usePageWorkspace } from './pageWorkspace';
+import { allWorkspacePages, usePageWorkspace } from './pageWorkspace';
+import { useLongTask } from './useLongTask';
+
+/** Done with the workspace: its working files (renders, previews, picked photos) are removed. */
+export function closeWorkspace() {
+  DocumentPageService.discard(allWorkspacePages());
+  usePageWorkspace.getState().clear();
+}
 
 type AddSource = 'camera' | 'photos' | 'document' | 'pdf';
 
@@ -33,22 +39,24 @@ export function PageManagerScreen() {
   const { t } = useTranslation();
   const toast = useToast();
   const { colors, spacing } = useTheme();
-  const { purpose, documentId, docType, items, dirty, setItems, clear } = usePageWorkspace();
+  const { purpose, documentId, docType, items, dirty, setItems, undo, redo, past, future } = usePageWorkspace();
+  const task = useLongTask();
   const documents = useDocuments((s) => s.documents);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragging, setDragging] = useState(false);
-  const [busy, setBusy] = useState<{ label: string; progress: number } | null>(null);
   const [adding, setAdding] = useState(false);
   const [pickDoc, setPickDoc] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [preview, setPreview] = useState<number | null>(null);
   const [cropping, setCropping] = useState<PageItem | null>(null);
 
+  const busy = task.busy;
   const leave = useCallback(() => {
-    clear();
+    closeWorkspace();
     router.back();
-  }, [clear]);
+  }, []);
+  // Asks only when there are real unsaved changes (undoing back to the start is not a change).
   const back = useCallback(() => {
     if (busy) return true;
     if (dirty) setConfirmLeave(true);
@@ -74,16 +82,7 @@ export function PageManagerScreen() {
     if (room > 0) update(insertAt(items, items.length, more.slice(0, room)));
   };
 
-  const run = async (label: string, work: (progress: (p: number) => void) => Promise<void>) => {
-    setBusy({ label, progress: 0 });
-    try {
-      await work((progress) => setBusy({ label, progress }));
-    } catch (e) {
-      toast(e instanceof PageLimitError ? t('pages.limit', { count: e.limit }) : isDiskFull(e) ? t('errors.disk_full') : t('pages.failed'), 'error');
-    } finally {
-      setBusy(null);
-    }
-  };
+  const load = (work: Parameters<typeof task.run>[2]) => task.run(t('pages.loading'), t('pages.add_failed'), work);
 
   const add = async (source: AddSource) => {
     setAdding(false);
@@ -93,12 +92,8 @@ export function PageManagerScreen() {
       const res = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
       if (res.canceled || !res.assets[0]) return;
       const uri = res.assets[0].uri;
-      return run(t('pages.loading'), async (p) => {
-        try {
-          append(await DocumentPageService.fromPdfFile(uri, (d, n) => p(d / n)));
-        } catch {
-          toast(t('pages.pdf_failed'), 'error');
-        }
+      return void load(async ({ signal, progress }) => {
+        append(await DocumentPageService.fromPdfFile(uri, { signal, onProgress: progress, limit: roomFor(items.length) }));
       });
     }
     const asScan = purpose === 'document';
@@ -108,22 +103,33 @@ export function PageManagerScreen() {
       const res = await ImagePicker.launchCameraAsync({ quality: 1 });
       if (res.canceled || !res.assets[0]) return;
       const uri = res.assets[0].uri;
-      return run(t('pages.loading'), async () => {
-        append([asScan ? await DocumentPageService.fromCapture(uri, docType) : (await DocumentPageService.fromImages([uri]))[0]]);
+      return void load(async () => {
+        if (asScan) return append([await DocumentPageService.fromCapture(uri, docType)]);
+        appendImages(await DocumentPageService.fromImages([uri]));
       });
     }
     const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: roomFor(items.length), quality: 1 });
     if (res.canceled || !res.assets.length) return;
     const uris = res.assets.map((a) => a.uri);
-    return run(t('pages.loading'), async (p) => {
-      if (!asScan) return append(await DocumentPageService.fromImages(uris, (d, n) => p(d / n)));
+    return void load(async ({ signal, progress }) => {
+      if (!asScan) return appendImages(await DocumentPageService.fromImages(uris, { signal, onProgress: progress }));
       const out: PageItem[] = [];
-      for (let i = 0; i < uris.length; i++) {
-        out.push(await DocumentPageService.fromCapture(uris[i], docType));
-        p((i + 1) / uris.length);
+      try {
+        for (let i = 0; i < uris.length; i++) {
+          if (signal.cancelled) throw new OperationCancelled();
+          out.push(await DocumentPageService.fromCapture(uris[i], docType));
+          progress(i + 1, uris.length);
+        }
+      } catch (e) {
+        DocumentPageService.discard(out);
+        throw e;
       }
       append(out);
     });
+  };
+  const appendImages = ({ items: added, skipped }: { items: PageItem[]; skipped: number }) => {
+    if (skipped) toast(t('pages.skipped_images', { count: skipped }), 'info');
+    append(added);
   };
 
   const rotate = (delta: 90 | -90) => update(items.map((it) => (selected.has(it.key) ? DocumentPageService.rotate(it, delta) : it)));
@@ -134,7 +140,7 @@ export function PageManagerScreen() {
     update(next);
   };
   const remove = () => {
-    if (selectedIdx.length >= items.length) return toast(t('pages.need_one'), 'info');
+    if (selectedIdx.length >= items.length) return toast(t('pages.last_page'), 'info');
     update(removeAt(items, selectedIdx));
     setSelected(new Set());
   };
@@ -144,23 +150,24 @@ export function PageManagerScreen() {
   };
 
   const save = () =>
-    run(t('pages.working'), async (p) => {
+    task.run(t('pages.working'), purpose === 'merge' ? t('merge.failed') : purpose === 'images' ? t('pages.create_failed') : t('pages.save_failed'), async ({ signal, onStage }) => {
       const quality = useSettings.getState().scanner.quality;
-      const onStage = (_s: unknown, progress: number) => p(progress);
       if (purpose === 'document' && documentId) {
         const doc = await documentRepository.get(documentId);
         if (!doc) throw new Error('missing');
-        await DocumentPageService.saveInto(doc, items, { quality, onStage });
+        await DocumentPageService.saveInto(doc, items, { quality, onStage, signal });
         await useDocuments.getState().refresh();
         toast(t('pages.saved'), 'success');
         leave();
         return;
       }
-      const title = await nextScanTitle(useSettings.getState().fileNamePrefix, (b) => documentRepository.titlesLike(b));
-      const doc = await DocumentPageService.saveAsNew(items, { title, docType, quality, onStage });
+      // Merge: Merged_<date>; Images → PDF: the user's scan prefix. Never overwrites (suffix _2, _3…).
+      const prefix = purpose === 'merge' ? MERGED_PREFIX : useSettings.getState().fileNamePrefix;
+      const title = await nextScanTitle(prefix, (b) => documentRepository.titlesLike(b));
+      const doc = await DocumentPageService.saveAsNew(items, { title, docType, quality, onStage, signal });
       await useDocuments.getState().refresh();
       toast(t('pages.created'), 'success');
-      clear();
+      closeWorkspace();
       router.replace({ pathname: '/document/[id]', params: { id: doc.id } });
     });
 
@@ -214,16 +221,20 @@ export function PageManagerScreen() {
           title={t(titleKey)}
           onBack={back}
           right={
-            <TButton
-              testID="pm-select"
-              label={selecting ? t('pages.done') : t('pages.select')}
-              variant="text"
-              size="small"
-              onPress={() => {
-                setSelecting(!selecting);
-                setSelected(new Set());
-              }}
-            />
+            <>
+              <TIconButton testID="pm-undo" icon="undo" accessibilityLabel={t('pages.undo')} disabled={!past.length || busy} onPress={undo} />
+              <TIconButton testID="pm-redo" icon="redo" accessibilityLabel={t('pages.redo')} disabled={!future.length || busy} onPress={redo} />
+              <TButton
+                testID="pm-select"
+                label={selecting ? t('pages.done') : t('pages.select')}
+                variant="text"
+                size="small"
+                onPress={() => {
+                  setSelecting(!selecting);
+                  setSelected(new Set());
+                }}
+              />
+            </>
           }
         />
       }
@@ -244,6 +255,11 @@ export function PageManagerScreen() {
           selected={selecting ? selected : undefined}
           onDragChange={setDragging}
           onMove={(from, to) => update(movePage(items, from, to))}
+          onLongPress={(it) => {
+            // Long press selects (and, if the finger moves, drags the page).
+            if (!selecting) setSelecting(true);
+            setSelected((s) => (selecting ? new Set(s).add(it.key) : new Set([it.key])));
+          }}
           badge={sourceTitle}
           onPress={(it, i) => {
             if (!selecting) return setPreview(i);
@@ -276,7 +292,7 @@ export function PageManagerScreen() {
         onClose={() => setPickDoc(false)}
         onPick={(doc) => {
           setPickDoc(false);
-          void run(t('pages.loading'), async () => append(await DocumentPageService.fromDocument(doc)));
+          void load(async () => append(await DocumentPageService.fromDocument(doc)));
         }}
       />
       <PagePreview items={items} index={preview} onIndex={setPreview} />
@@ -288,7 +304,7 @@ export function PageManagerScreen() {
             onDone={(quad) => {
               const target = cropping;
               setCropping(null);
-              void run(t('pages.loading'), async () => {
+              void load(async () => {
                 const done = await DocumentPageService.crop(target, quad);
                 update(usePageWorkspace.getState().items.map((it) => (it.key === target.key ? done : it)));
               });
@@ -313,16 +329,7 @@ export function PageManagerScreen() {
           },
         ]}
       />
-      {busy ? (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgMask, alignItems: 'center', justifyContent: 'center', padding: spacing.xxl }]}>
-          <View testID="pm-busy" style={{ width: '100%', backgroundColor: colors.bgContainer, borderRadius: 16, padding: spacing.lg, gap: spacing.sm }}>
-            <TText variant="title" align="center">
-              {busy.label}
-            </TText>
-            <TProgress value={busy.progress} />
-          </View>
-        </View>
-      ) : null}
+      {task.element}
     </TScreen>
   );
 }

@@ -245,6 +245,14 @@ class OneScanVisionModule : Module() {
       mapOf("pages" to PdfRasterizer.render(context, ImageIO.fileFromUri(uri), maxWidth))
     }
 
+    AsyncFunction("pdfPageCountAsync") { uri: String ->
+      PdfRasterizer.pageCount(ImageIO.fileFromUri(uri))
+    }
+
+    AsyncFunction("renderPdfPagesAsync") { uri: String, maxWidth: Int, from: Int, count: Int ->
+      mapOf("pages" to PdfRasterizer.render(context, ImageIO.fileFromUri(uri), maxWidth, from, count))
+    }
+
     View(OneScanCameraView::class) {
       Events("onCameraReady", "onFrame", "onCameraError")
 

@@ -59,6 +59,7 @@ export function PageGrid({
   onPress,
   onMove,
   onDragChange,
+  onLongPress,
   badge,
 }: {
   items: PageItem[];
@@ -67,6 +68,8 @@ export function PageGrid({
   /** Omit to disable dragging (e.g. Split, PDF → Images). */
   onMove?: (from: number, to: number) => void;
   onDragChange?: (dragging: boolean) => void;
+  /** Long press (e.g. enter selection mode). With `onMove`, keeping the finger down and moving drags the page. */
+  onLongPress?: (item: PageItem, index: number) => void;
   /** Extra label under a page (e.g. its source document in Merge). */
   badge?: (item: PageItem) => string | undefined;
 }) {
@@ -156,7 +159,10 @@ export function PageGrid({
             accessibilityHint={onMove ? t('pages.drag_hint') : undefined}
             delayLongPress={300}
             onPress={() => !drag && onPress(it, i)}
-            onLongPress={() => startDrag(i)}
+            onLongPress={() => {
+              onLongPress?.(it, i);
+              startDrag(i);
+            }}
             style={{ opacity: isDragged ? 0.25 : 1 }}
           >
             <PageThumb item={it} width={cellW} height={thumbH} selected={selected?.has(it.key)} label={label} />

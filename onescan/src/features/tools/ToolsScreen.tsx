@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { IconName, TIcon, TProgress, TScreen, TSearch, TText, TTopAppBar, useTheme, useToast } from '@/design-system';
+import { IconName, TIcon, TScreen, TSearch, TText, TTopAppBar, useTheme, useToast } from '@/design-system';
 import { openScanner } from '@/features/home/HomeScreen';
 import { useImport } from '@/features/shared/useImport';
 import { DocumentPickSheet } from '@/features/pages/DocumentPickSheet';
-import { openImagesToPdf, openMerge, openPageManager, openSplit, openToImages } from '@/features/pages/openPageTools';
+import { openImagesToPdf, openMerge, openPageManager, openSplit, openToImages, pickImagesForPdf } from '@/features/pages/openPageTools';
+import { useLongTask } from '@/features/pages/useLongTask';
 
 type Tint = 'brand' | 'success' | 'warning' | 'info';
 
@@ -37,13 +38,15 @@ export function ToolsScreen() {
   const { importPdf, importPhotos, overlay: importOverlay } = useImport();
   const toast = useToast();
   const [pickForPages, setPickForPages] = useState(false);
-  const [preparing, setPreparing] = useState<number | null>(null);
+  const task = useLongTask();
   const imagesToPdf = async () => {
-    try {
-      await openImagesToPdf(setPreparing);
-    } catch {
-      toast(t('pages.failed'), 'error');
-    }
+    const uris = await pickImagesForPdf();
+    if (!uris) return;
+    await task.run(t('pages.loading'), t('pages.add_failed'), async ({ signal, progress }) => {
+      const { opened, skipped } = await openImagesToPdf(uris, { signal, onProgress: progress });
+      if (skipped) toast(t('pages.skipped_images', { count: skipped }), 'info');
+      if (!opened && !skipped) toast(t('pages.failed'), 'error');
+    });
   };
   const [query, setQuery] = useState('');
 
@@ -171,16 +174,7 @@ export function ToolsScreen() {
           void openPageManager(doc).catch(() => toast(t('pages.failed'), 'error'));
         }}
       />
-      {preparing !== null ? (
-        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: colors.bgMask, alignItems: 'center', justifyContent: 'center', padding: spacing.xxl }}>
-          <View style={{ width: '100%', backgroundColor: colors.bgContainer, borderRadius: 16, padding: spacing.lg, gap: spacing.sm }}>
-            <TText variant="title" align="center">
-              {t('pages.loading')}
-            </TText>
-            <TProgress value={preparing} />
-          </View>
-        </View>
-      ) : null}
+      {task.element}
     </TScreen>
   );
 }

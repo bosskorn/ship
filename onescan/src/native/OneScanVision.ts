@@ -103,6 +103,10 @@ export interface OneScanVisionModule {
   redactRegionsAsync(imageUri: string, boxes: NativeOcrBlock['box'][]): Promise<{ uri: string }>;
   /** Rasterise each PDF page (one at a time) to JPEG. */
   renderPdfAsync(pdfUri: string, maxWidth: number): Promise<{ pages: NativeImage[] }>;
+  /** Number of pages, nothing rendered. (Android; absent on older native builds.) */
+  pdfPageCountAsync?(pdfUri: string): Promise<number>;
+  /** Pages [from, from + count) only, one at a time in memory. (Android; absent on older native builds.) */
+  renderPdfPagesAsync?(pdfUri: string, maxWidth: number, from: number, count: number): Promise<{ pages: NativeImage[] }>;
 }
 
 const nativeModule = requireOptionalNativeModule<OneScanVisionModule>('OneScanVision');
@@ -123,6 +127,8 @@ const READS_DOCUMENT_FILES: ReadonlySet<string> = new Set([
   'recognizeTextAsync',
   'redactRegionsAsync',
   'renderPdfAsync',
+  'pdfPageCountAsync',
+  'renderPdfPagesAsync',
 ]);
 
 let plainReset: Promise<void> | null = null;

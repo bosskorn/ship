@@ -77,7 +77,7 @@ export function MergeScreen() {
       usePageWorkspace.getState().open({ purpose: 'merge', items, docType: 'document' });
       router.replace('/pages');
     } catch {
-      toast(t('pages.failed'), 'error');
+      toast(t('merge.load_failed'), 'error');
     } finally {
       setLoading(false);
     }

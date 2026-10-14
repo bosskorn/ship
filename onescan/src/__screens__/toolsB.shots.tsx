@@ -73,6 +73,7 @@ jest.mock('@/core/document-engine/services/DocumentPageService', () => {
   return {
     PageLimitError: class extends Error {},
     DocumentPageService: {
+      discard: () => undefined,
       fromDocument: async (doc: { id: string; pageCount: number }) =>
         Array.from({ length: doc.pageCount }, () => ({ key: `k${++n}`, page: { id: `p${n}`, sourceUri: 's', processedUri: 'v', filter: 'original', rotation: 0 }, previewRotation: 0, sourceDocumentId: doc.id })),
     },
@@ -150,7 +151,7 @@ async function page({ Content, lang, scheme, steps = [], docId, workspace }: Sho
   const bg = scheme === 'dark' ? '#181818' : '#ffffff';
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=${width}">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=block">
-<style id="${sheet.id}">${sheet.textContent}</style><style>html,body{margin:0;background:${bg}} #root{display:flex;min-height:100vh}
+<style id="${sheet.id}">${sheet.textContent}</style><style>html,body{margin:0;background:${bg}} #root{display:flex;height:100vh;overflow:hidden}
 *{font-family:Roboto,"Noto Sans Thai",sans-serif!important}</style></head><body>${html}</body></html>`;
 }
 
@@ -168,8 +169,11 @@ const shots: Shot[] = [
   { name: 'app-b6-split-ranges-th', Content: SplitScreen, lang: 'th', scheme: 'light', docId: 'a', steps: [{ type: '1-3, 7-10', into: 'split-input' }] },
   { name: 'app-b7-split-select-th', Content: SplitScreen, lang: 'th', scheme: 'light', docId: 'a', steps: ['split-select', 'page-1', 'page-4'] },
   { name: 'app-b8-to-images-th', Content: ToImagesScreen, lang: 'th', scheme: 'light', docId: 'b', steps: ['fmt-png'] },
-  { name: 'app-b9-to-images-en-dark', Content: ToImagesScreen, lang: 'en', scheme: 'dark', docId: 'b', steps: ['pick-all', 'page-2'] },
+  { name: 'app-b9-to-images-en-dark', Content: ToImagesScreen, lang: 'en', scheme: 'dark', docId: 'b', steps: ['mode-select', 'page-2'] },
   { name: 'app-b10-split-source-th', Content: SplitScreen, lang: 'th', scheme: 'light' },
+  { name: 'app-b11-to-images-ranges-th', Content: ToImagesScreen, lang: 'th', scheme: 'light', docId: 'a', steps: ['mode-ranges', { type: '1-3, 5, 8-10', into: 'img-ranges' }] },
+  { name: 'app-b12-pages-undo-th', Content: PageManagerScreen, lang: 'th', scheme: 'light', workspace: { purpose: 'document', docs: ['b'] }, steps: ['pm-select', 'page-1', 'pm-later', 'pm-select'] },
+  { name: 'app-b13-split-overlap-th', Content: SplitScreen, lang: 'th', scheme: 'light', docId: 'a', steps: [{ type: '1-3, 2-4', into: 'split-input' }] },
 ];
 
 it.each(shots.map((s) => [s.name, s] as const))('%s', async (_name, shot) => {

@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TButton, TChip, TChipRow, TInput, TNavigationBar, TProgress, TScreen, TText, useTheme, useToast } from '@/design-system';
+import { TButton, TChip, TChipRow, TInput, TNavigationBar, TScreen, TText, useTheme, useToast } from '@/design-system';
 import { DocumentPageService } from '@/core/document-engine/services/DocumentPageService';
 import { documentRepository } from '@/core/database/repositories/documentRepository';
 import { useSettings } from '@/core/config/settingsStore';
-import { isDiskFull } from '@/core/document-engine/storage/diskSpace';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { uniqueTitle } from '@/features/scanner/fileName';
 import { PageGrid } from './PageGrid';
 import { SourcePicker } from './SourcePicker';
-import { usePageSource } from './usePageSource';
+import { pickPdf, usePageSource } from './usePageSource';
+import { useLongTask } from './useLongTask';
 import { planSplit, SplitMode } from './splitPlan';
 
 /**
@@ -27,7 +27,7 @@ export function SplitScreen() {
   const [mode, setMode] = useState<SplitMode>('ranges');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [ranges, setRanges] = useState('');
-  const [busy, setBusy] = useState<number | null>(null);
+  const task = useLongTask();
 
   const items = source?.items ?? [];
   const selected = items.map((it, i) => (picked.has(it.key) ? i : -1)).filter((i) => i >= 0);
@@ -35,27 +35,33 @@ export function SplitScreen() {
   const parts = plan && 'parts' in plan ? plan.parts : [];
   const planError = plan && 'error' in plan && !(plan.error === 'empty' && !ranges.trim()) ? plan.error : null;
 
-  const run = async () => {
-    if (!source || !parts.length) return;
-    setBusy(0);
-    try {
-      const quality = useSettings.getState().scanner.quality;
-      for (let k = 0; k < parts.length; k++) {
-        const base = parts[k].title;
-        const title = uniqueTitle(base, await documentRepository.titlesLike(base).catch(() => []));
-        await DocumentPageService.saveAsNew(
-          parts[k].pages.map((i) => DocumentPageService.copy(items[i])),
-          { title, docType: source.document?.docType ?? 'document', quality, onStage: (_s, p) => setBusy((k + p) / parts.length) },
-        );
+  const run = () =>
+    task.run(t('pages.working'), t('split.failed'), async ({ signal, progress, onStage }) => {
+      if (!source || !parts.length) return;
+      // Titles first (never overwrite: _2, _3… on collision), then all parts or none.
+      const titled = [];
+      const taken: string[] = [];
+      for (const p of parts) {
+        const title = uniqueTitle(p.title, [...(await documentRepository.titlesLike(p.title).catch(() => [])), ...taken]);
+        taken.push(title);
+        titled.push({ title, items: p.pages.map((i) => DocumentPageService.copy(items[i])) });
       }
+      const many = titled.length > 1;
+      await DocumentPageService.saveParts(titled, {
+        docType: source.document?.docType ?? 'document',
+        quality: useSettings.getState().scanner.quality,
+        signal,
+        onPart: many ? (d, n) => progress(d, n, 'documents') : undefined,
+        onStage: many ? undefined : onStage,
+      });
       await useDocuments.getState().refresh();
-      toast(t('split.done', { count: parts.length }), 'success');
+      toast(t('split.done', { count: titled.length }), 'success');
       router.back();
-    } catch (e) {
-      toast(isDiskFull(e) ? t('errors.disk_full') : t('pages.failed'), 'error');
-    } finally {
-      setBusy(null);
-    }
+    });
+
+  const openFile = async () => {
+    const file = await pickPdf();
+    if (file) await task.run(t('pages.loading'), t('pages.pdf_failed'), ({ signal, progress }) => fromFile(file, { signal, onProgress: progress }));
   };
 
   const hint = mode === 'all' ? t('split.all_hint') : mode === 'select' ? t('split.select_hint') : t('split.ranges_hint');
@@ -74,7 +80,7 @@ export function SplitScreen() {
             <TButton
               testID="split-run"
               label={mode === 'select' ? t('split.run_extract') : t('split.run_split')}
-              disabled={!parts.length || !!tooShort || busy !== null}
+              disabled={!parts.length || !!tooShort || task.busy}
               onPress={() => void run()}
             />
           </View>
@@ -82,7 +88,7 @@ export function SplitScreen() {
       }
     >
       {!source ? (
-        <SourcePicker hint={t('split.title')} loading={loading} error={error} onDocument={fromDocument} onFile={() => void fromFile()} />
+        <SourcePicker hint={t('split.title')} loading={loading} error={error} onDocument={fromDocument} onFile={() => void openFile()} />
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl }} keyboardShouldPersistTaps="handled">
           <View style={{ paddingHorizontal: spacing.md, paddingTop: spacing.sm, gap: 2 }}>
@@ -131,16 +137,7 @@ export function SplitScreen() {
           />
         </ScrollView>
       )}
-      {busy !== null ? (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgMask, alignItems: 'center', justifyContent: 'center', padding: spacing.xxl }]}>
-          <View style={{ width: '100%', backgroundColor: colors.bgContainer, borderRadius: 16, padding: spacing.lg, gap: spacing.sm }}>
-            <TText variant="title" align="center">
-              {t('pages.working')}
-            </TText>
-            <TProgress value={busy} />
-          </View>
-        </View>
-      ) : null}
+      {task.element}
     </TScreen>
   );
 }

@@ -10,13 +10,41 @@ import kotlin.math.roundToInt
 
 /** Renders an imported PDF to page images, one page in memory at a time (spec §53). */
 internal object PdfRasterizer {
-  fun render(context: Context, file: File, maxWidth: Int): List<Map<String, Any>> {
+  fun render(context: Context, file: File, maxWidth: Int): List<Map<String, Any>> = render(context, file, maxWidth, 0, Int.MAX_VALUE)
+
+  /** Pages [from, from + count) clamped to the document (no overflow for count = Int.MAX_VALUE). */
+  fun pageWindow(pageCount: Int, from: Int, count: Int): IntRange {
+    val first = from.coerceIn(0, pageCount)
+    val end = if (count >= pageCount - first) pageCount else first + count.coerceAtLeast(0)
+    return first until end
+  }
+
+  /** Page count without rendering anything. */
+  fun pageCount(file: File): Int {
+    val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+    try {
+      val renderer = PdfRenderer(pfd)
+      try {
+        return renderer.pageCount
+      } finally {
+        renderer.close()
+      }
+    } finally {
+      pfd.close()
+    }
+  }
+
+  /**
+   * Pages [from, from + count) only, so callers can work page by page (progress, cancel, and
+   * no up-front render of a long PDF). Out-of-range pages are skipped.
+   */
+  fun render(context: Context, file: File, maxWidth: Int, from: Int, count: Int): List<Map<String, Any>> {
     val out = ArrayList<Map<String, Any>>()
     val pfd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
     try {
       val renderer = PdfRenderer(pfd)
       try {
-        for (i in 0 until renderer.pageCount) {
+        for (i in pageWindow(renderer.pageCount, from, count)) {
           val page = renderer.openPage(i)
           try {
             val scale = maxWidth.toFloat() / page.width

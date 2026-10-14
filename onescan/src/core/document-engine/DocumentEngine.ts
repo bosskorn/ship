@@ -9,6 +9,7 @@ import { RedactionEngine } from './redaction/RedactionEngine';
 import { ExportEngine } from './export/ExportEngine';
 import { DocumentFileStore } from './storage/DocumentFileStore';
 import { newId } from './ids';
+import { CancelSignal, throwIfCancelled } from './cancel';
 import { OneScanVision } from '@/native/OneScanVision';
 import { defaultScanQuality, masterProfiles, masterSize, PREVIEW, ScanQuality, THUMBNAIL } from './image/quality';
 import { toStage, useScanDiagnostics } from './image/diagnostics';
@@ -16,7 +17,11 @@ import type { ProcessedImage } from './image/ImageEngine';
 import type { DocumentRecord, DocumentType, DraftPage, PageFilter, PageRecord, Quad, Rotation, SystemFolderKey } from './model';
 
 export type SaveStage = 'pages' | 'pdf' | 'ocr' | 'index';
-export type StageCallback = (s: SaveStage, progress: number) => void;
+/** `progress` is 0–1; `done`/`total` are real page counts where the stage works page by page. */
+export type StageCallback = (s: SaveStage, progress: number, done?: number, total?: number) => void;
+
+export { OperationCancelled, throwIfCancelled } from './cancel';
+export type { CancelSignal } from './cancel';
 
 /** PDF import raster width: A4 at 300 dpi. */
 /** 2480 px wide ≈ A4 at 300 dpi. */
@@ -149,10 +154,11 @@ export const DocumentEngine = {
    * Render each page's master once from its original (decode once → crop/rotate/filter →
    * encode once at the quality setting) and file all tiers under `docId`.
    */
-  async renderPages(draft: DraftPage[], docId: string, tier: ScanQuality, onStage?: StageCallback): Promise<StoredPage[]> {
+  async renderPages(draft: DraftPage[], docId: string, tier: ScanQuality, onStage?: StageCallback, signal?: CancelSignal): Promise<StoredPage[]> {
     const pages: StoredPage[] = [];
     for (let i = 0; i < draft.length; i++) {
-      onStage?.('pages', i / draft.length);
+      throwIfCancelled(signal);
+      onStage?.('pages', i / draft.length, i, draft.length);
       const p = draft[i];
       const pageTier = p.quality ?? tier;
       const profile = masterProfiles[pageTier];
@@ -190,6 +196,7 @@ export const DocumentEngine = {
         },
       });
     }
+    onStage?.('pages', 1, draft.length, draft.length);
     return pages;
   },
 
@@ -199,7 +206,9 @@ export const DocumentEngine = {
     pages: StoredPage[],
     title: string,
     onStage?: StageCallback,
+    signal?: CancelSignal,
   ): Promise<{ pdfUri: string; thumbUri: string; sizeBytes: number; ocrText: string; hasSensitive: boolean }> {
+    throwIfCancelled(signal);
     onStage?.('pdf', 0);
     const filterApplied = CaptureEngine.hasNativeVision();
     const pdf = await PDFEngine.create(pages.map((p) => ({ ...p, filterApplied })), title);
@@ -207,9 +216,14 @@ export const DocumentEngine = {
     const thumbFile = (await DocumentFileStore.adopt(await ImageEngine.thumbnail(pages[0].previewUri ?? pages[0].uri), docId, 'thumbnail/thumb.jpg'));
     useScanDiagnostics.getState().attach(1, 'thumbnail', toStage(await ImageEngine.info(thumbFile.uri), { quality: THUMBNAIL.quality }));
 
-    onStage?.('ocr', 0);
+    throwIfCancelled(signal);
+    onStage?.('ocr', 0, 0, pages.length);
     // OCR decodes its own working copy natively; coordinates are normalised to the master.
-    const ocr = await OCREngine.recognize(pages.map((p) => p.uri), currentOcrLanguages(), (d, t) => onStage?.('ocr', d / t));
+    // Cancelling stops between pages (the progress callback is called after each page).
+    const ocr = await OCREngine.recognize(pages.map((p) => p.uri), currentOcrLanguages(), (d, t) => {
+      onStage?.('ocr', d / t, d, t);
+      throwIfCancelled(signal);
+    });
     return {
       pdfUri: pdfFile.uri,
       thumbUri: thumbFile.uri,
@@ -221,14 +235,16 @@ export const DocumentEngine = {
 
   async save(
     draft: DraftPage[],
-    opts: { title: string; docType: DocumentType; quality?: ScanQuality; onStage?: StageCallback },
+    opts: { title: string; docType: DocumentType; quality?: ScanQuality; onStage?: StageCallback; signal?: CancelSignal },
   ): Promise<DocumentRecord> {
     if (!draft.length) throw new Error('Cannot save an empty document');
     // Files are written under `docId`; the DB rows reference these URIs.
     const docId = newId();
     try {
-      const pages = await this.renderPages(draft, docId, opts.quality ?? defaultScanQuality, opts.onStage);
-      const out = await this.finalize(docId, pages, opts.title, opts.onStage);
+      const pages = await this.renderPages(draft, docId, opts.quality ?? defaultScanQuality, opts.onStage, opts.signal);
+      const out = await this.finalize(docId, pages, opts.title, opts.onStage, opts.signal);
+      // Last point to cancel: the row is written in one transaction below.
+      throwIfCancelled(opts.signal);
       opts.onStage?.('index', 1);
       const folderKey = folderForType[opts.docType];
       return await documentRepository.create({
@@ -281,21 +297,36 @@ export const DocumentEngine = {
     );
   },
 
-  /** Save edits back into an existing document (new files; old files removed). */
-  async saveEdits(doc: DocumentRecord, draft: DraftPage[], onStage?: StageCallback, quality: ScanQuality = defaultScanQuality): Promise<DocumentRecord> {
+  /**
+   * Save edits back into an existing document. New files are written to a new folder and the
+   * document is switched to them in one transaction; only then are the old files removed. If
+   * anything fails (or is cancelled) before that, the new folder is removed and the document
+   * stays exactly as it was.
+   */
+  async saveEdits(doc: DocumentRecord, draft: DraftPage[], onStage?: StageCallback, quality: ScanQuality = defaultScanQuality, signal?: CancelSignal): Promise<DocumentRecord> {
     if (!draft.length) throw new Error('Cannot save an empty document');
     const fileId = newId();
-    const pages = await this.renderPages(draft, fileId, quality, onStage);
-    const out = await this.finalize(fileId, pages, doc.title, onStage);
-    onStage?.('index', 1);
-    await documentRepository.replaceContent(doc.id, {
-      pdfUri: out.pdfUri,
-      thumbnailUri: out.thumbUri,
-      sizeBytes: out.sizeBytes,
-      ocrText: out.ocrText,
-      hasSensitive: out.hasSensitive,
-      pages: pages.map(toPageRow),
-    });
+    try {
+      const pages = await this.renderPages(draft, fileId, quality, onStage, signal);
+      const out = await this.finalize(fileId, pages, doc.title, onStage, signal);
+      throwIfCancelled(signal);
+      onStage?.('index', 1);
+      await documentRepository.replaceContent(doc.id, {
+        pdfUri: out.pdfUri,
+        thumbnailUri: out.thumbUri,
+        sizeBytes: out.sizeBytes,
+        ocrText: out.ocrText,
+        hasSensitive: out.hasSensitive,
+        pages: pages.map(toPageRow),
+      });
+    } catch (e) {
+      try {
+        DocumentFileStore.deleteDocument(fileId);
+      } catch {
+        // best effort; an unreferenced folder is also swept at start-up
+      }
+      throw e;
+    }
     const oldDir = doc.pdfUri?.match(/docs\/([^/]+)\//)?.[1];
     if (oldDir && oldDir !== fileId) DocumentFileStore.deleteDocument(oldDir);
     return (await documentRepository.get(doc.id))!;

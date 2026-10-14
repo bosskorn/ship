@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import type { DocumentRecord } from '@/core/document-engine/model';
 import { MAX_DOCUMENT_PAGES } from '@/core/document-engine/pages/pageOps';
-import { DocumentPageService } from '@/core/document-engine/services/DocumentPageService';
+import { DocumentPageService, LoadOptions } from '@/core/document-engine/services/DocumentPageService';
 import { usePageWorkspace } from './pageWorkspace';
 
 /** Entry points into the page tools (Tools tab, Viewer). Each opens the shared Page Manager or a tool screen. */
@@ -14,22 +14,23 @@ export async function openPageManager(doc: DocumentRecord) {
   router.push('/pages');
 }
 
-/**
- * Images → PDF: pick photos, then reorder / rotate / crop / preview in the Page Manager.
- * Returns false when nothing was picked. `onLoading` covers the preview rendering.
- */
-export async function openImagesToPdf(onLoading?: (p: number | null) => void): Promise<boolean> {
+/** Images → PDF, step 1: the system photo picker (several at once). Null when nothing was picked. */
+export async function pickImagesForPdf(): Promise<string[] | null> {
   const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: MAX_DOCUMENT_PAGES, quality: 1 });
-  if (res.canceled || !res.assets.length) return false;
-  onLoading?.(0);
-  try {
-    const items = await DocumentPageService.fromImages(res.assets.map((a) => a.uri), (d, n) => onLoading?.(d / n));
-    usePageWorkspace.getState().open({ purpose: 'images', items, docType: 'document' });
-    router.push('/pages');
-    return true;
-  } finally {
-    onLoading?.(null);
-  }
+  return res.canceled || !res.assets.length ? null : res.assets.map((a) => a.uri);
+}
+
+/**
+ * Images → PDF, step 2: previews for the picked photos (one at a time, cancellable), then the
+ * Page Manager to reorder / rotate / crop / preview before creating the PDF. Returns how many
+ * files were skipped (not JPEG / PNG); opens nothing when no photo could be used.
+ */
+export async function openImagesToPdf(uris: string[], opts: LoadOptions = {}): Promise<{ opened: boolean; skipped: number }> {
+  const { items, skipped } = await DocumentPageService.fromImages(uris, opts);
+  if (!items.length) return { opened: false, skipped };
+  usePageWorkspace.getState().open({ purpose: 'images', items, docType: 'document' });
+  router.push('/pages');
+  return { opened: true, skipped };
 }
 
 export const openMerge = () => router.push('/tools/merge');

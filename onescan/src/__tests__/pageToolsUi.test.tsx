@@ -20,6 +20,10 @@ jest.mock('expo-image-picker', () => ({}));
 jest.mock('@/features/shared/SecureImage', () => ({ SecureImage: () => null }));
 jest.mock('@/features/editor/CropEditor', () => ({ CropEditor: () => null }));
 jest.mock('@/core/document-engine/storage/diskSpace', () => ({ isDiskFull: () => false }));
+jest.mock('@/core/document-engine/cancel', () => {
+  const { OperationCancelled } = jest.requireMock('@/core/document-engine/services/DocumentPageService');
+  return { OperationCancelled, throwIfCancelled: (s?: { cancelled: boolean }) => { if (s?.cancelled) throw new OperationCancelled(); } };
+});
 jest.mock('@/features/documents/DocumentListItem', () => ({ DocumentTypeBadge: () => null, useDocumentMeta: () => '' }));
 jest.mock('@/core/database/repositories/documentRepository', () => ({
   documentRepository: {
@@ -41,8 +45,9 @@ jest.mock('@/core/document-engine/services/ImageExportService', () => ({
 }));
 jest.mock('@/core/document-engine/services/DocumentPageService', () => {
   class PageLimitError extends Error {
-    limit = 50;
+    limit = 100;
   }
+  class OperationCancelled extends Error {}
   let n = 0;
   const item = (docId: string | undefined, i: number) => ({
     key: `k${++n}`,
@@ -58,7 +63,10 @@ jest.mock('@/core/document-engine/services/DocumentPageService', () => {
       rotate: jest.fn((it: { page: { rotation: number } }, d: number) => ({ ...it, page: { ...it.page, rotation: (it.page.rotation + d + 360) % 360 } })),
       saveAsNew: jest.fn(async () => ({ id: 'new-doc' })),
       saveInto: jest.fn(async () => undefined),
+      saveParts: jest.fn(async (parts: unknown[]) => parts.map((_, i) => ({ id: `part-${i}` }))),
+      discard: jest.fn(),
     },
+    OperationCancelled,
   };
 });
 
@@ -199,10 +207,12 @@ describe('Split', () => {
     const r = await render(<SplitScreen />);
     await act(async () => r.root.find((n) => n.props.testID === 'split-input' && typeof n.props.onChangeText === 'function').props.onChangeText('1-2, 3'));
     await press(r, 'split-run');
-    expect(DocumentPageService.saveAsNew).toHaveBeenCalledTimes(2);
-    const titles = DocumentPageService.saveAsNew.mock.calls.map((c) => c[1].title);
-    expect(titles).toEqual(['Doc b_p1-2', 'Doc b_p3']);
-    expect(DocumentPageService.saveAsNew.mock.calls.map((c) => c[0].length)).toEqual([2, 1]);
+    expect(DocumentPageService.saveParts).toHaveBeenCalledTimes(1);
+    const parts = DocumentPageService.saveParts.mock.calls[0][0] as { title: string; items: unknown[] }[];
+    expect(parts.map((p) => p.title)).toEqual(['Doc b_p1-2', 'Doc b_p3']);
+    expect(parts.map((p) => p.items.length)).toEqual([2, 1]);
+    // Pages are copies: the source document is only read.
+    expect(DocumentPageService.copy).toHaveBeenCalledTimes(3);
     expect(DocumentPageService.saveInto).not.toHaveBeenCalled();
   });
 
@@ -218,7 +228,7 @@ describe('Split', () => {
     const r = await render(<SplitScreen />);
     await press(r, 'split-all');
     await press(r, 'split-run');
-    expect(DocumentPageService.saveAsNew).toHaveBeenCalledTimes(3);
+    expect(DocumentPageService.saveParts.mock.calls[0][0]).toHaveLength(3);
   });
 });
 
@@ -236,7 +246,7 @@ describe('PDF → images', () => {
     expect(ImageExportService.saveToDevice).toHaveBeenCalled();
 
     // Pick only page 2: share becomes available and exports just that page.
-    await press(r, 'pick-all');
+    await press(r, 'mode-select');
     await press(r, 'page-2');
     expect(disabled(r, 'img-share')).toBe(false);
     await press(r, 'img-share');
@@ -251,5 +261,117 @@ describe('PDF → images', () => {
     expect(DocumentPageService.saveAsNew).toHaveBeenCalledTimes(1);
     expect(DocumentPageService.copy).toHaveBeenCalledTimes(2);
     expect(DocumentPageService.saveInto).not.toHaveBeenCalled();
+  });
+});
+
+describe('Page Manager v2: undo, long press, cancel, retry, unsaved changes', () => {
+  const back = async (r: ReactTestRenderer) => act(async () => r.root.findAll((n) => typeof n.props.onBack === 'function')[0].props.onBack());
+  const dialogOpen = (r: ReactTestRenderer, title: string) => r.root.findAll((n) => n.props.visible === true && n.props.title === title).length > 0;
+  const th = (k: string) => (i18n.t as (key: string) => string)(k);
+
+  it('undo and redo buttons step through edits', async () => {
+    const before = await openWorkspace('document', ['b']);
+    const r = await render(<PageManagerScreen />);
+    expect(disabled(r, 'pm-undo')).toBe(true);
+    await press(r, 'pm-select');
+    await press(r, 'page-1');
+    await press(r, 'pm-later');
+    expect(keys()[1]).toBe(before[0].key);
+    await press(r, 'pm-undo');
+    expect(keys()).toEqual(before.map((i) => i.key));
+    expect(disabled(r, 'pm-redo')).toBe(false);
+    await press(r, 'pm-redo');
+    expect(keys()[1]).toBe(before[0].key);
+  });
+
+  it('long press enters selection mode with that page selected', async () => {
+    await openWorkspace('document', ['b']);
+    const r = await render(<PageManagerScreen />);
+    await act(async () => r.root.find((n) => n.props.testID === 'page-2' && typeof n.props.onLongPress === 'function').props.onLongPress());
+    expect(text(r, 'pm-count')).toContain('1');
+    expect(r.root.findAll((n) => n.props.testID === 'pm-delete').length).toBeGreaterThan(0);
+  });
+
+  it('back asks only when there are real changes', async () => {
+    await openWorkspace('document', ['b']);
+    const r = await render(<PageManagerScreen />);
+    await back(r);
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
+    expect(dialogOpen(r, th('pages.discard_title'))).toBe(false);
+  });
+
+  it('back with unsaved changes asks first, and undoing them removes the question', async () => {
+    await openWorkspace('document', ['b']);
+    const r = await render(<PageManagerScreen />);
+    await press(r, 'pm-select');
+    await press(r, 'page-1');
+    await press(r, 'pm-later');
+    await back(r);
+    expect(mockRouter.back).not.toHaveBeenCalled();
+    expect(dialogOpen(r, th('pages.discard_title'))).toBe(true);
+    await act(async () => usePageWorkspace.getState().undo());
+    expect(usePageWorkspace.getState().dirty).toBe(false);
+  });
+
+  it('cancel during save: nothing created, the editor stays open', async () => {
+    let finish!: () => void;
+    DocumentPageService.saveAsNew.mockImplementationOnce(
+      (_items: unknown, opts: { signal: { cancelled: boolean } }) =>
+        new Promise((resolve, reject) => {
+          const { OperationCancelled } = jest.requireMock('@/core/document-engine/services/DocumentPageService');
+          finish = () => (opts.signal.cancelled ? reject(new OperationCancelled()) : resolve({ id: 'x' }));
+        }),
+    );
+    await openWorkspace('images', ['a']);
+    const r = await render(<PageManagerScreen />);
+    await press(r, 'pm-save');
+    expect(r.root.findAll((n) => n.props.testID === 'task-busy').length).toBeGreaterThan(0);
+    await press(r, 'task-cancel');
+    await act(async () => finish());
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    expect(usePageWorkspace.getState().items).toHaveLength(2);
+    expect(r.root.findAll((n) => n.props.testID === 'task-busy')).toHaveLength(0);
+  });
+
+  it('a failure shows a plain message with Try again, which runs it again', async () => {
+    DocumentPageService.saveAsNew.mockRejectedValueOnce(new Error('ENOENT /data/user/0/app/files/secret path'));
+    await openWorkspace('merge', ['a', 'b']);
+    const r = await render(<PageManagerScreen />);
+    await press(r, 'pm-save');
+    const dialog = r.root.find((n) => n.props.visible === true && n.props.title === th('merge.failed'));
+    // Nothing technical reaches the screen.
+    expect(JSON.stringify(dialog.props)).not.toContain('ENOENT');
+    await act(async () => dialog.props.actions[1].onPress());
+    expect(DocumentPageService.saveAsNew).toHaveBeenCalledTimes(2);
+    expect(mockRouter.replace).toHaveBeenCalled();
+  });
+
+  it('merge output is named Merged_<date>', async () => {
+    await openWorkspace('merge', ['a', 'b']);
+    const r = await render(<PageManagerScreen />);
+    await press(r, 'pm-save');
+    expect(DocumentPageService.saveAsNew.mock.calls[0][1].title).toMatch(/^Merged_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}$/);
+  });
+
+  it('leaving removes the working files of the workspace', async () => {
+    await openWorkspace('images', ['a']);
+    const r = await render(<PageManagerScreen />);
+    await back(r);
+    expect(DocumentPageService.discard).toHaveBeenCalled();
+    expect(usePageWorkspace.getState().items).toHaveLength(0);
+  });
+});
+
+describe('PDF → images: page ranges', () => {
+  it('exports exactly the pages in the range, and rejects bad input', async () => {
+    mockParams.id = 'b';
+    const r = await render(<ToImagesScreen />);
+    await press(r, 'mode-ranges');
+    const input = () => r.root.find((n) => n.props.testID === 'img-ranges' && typeof n.props.onChangeText === 'function');
+    await act(async () => input().props.onChangeText('3-1'));
+    expect(disabled(r, 'img-save')).toBe(true);
+    await act(async () => input().props.onChangeText('1, 3'));
+    await press(r, 'img-save');
+    expect(ImageExportService.exportPages.mock.calls[0][0].map((p: { pageNumber: number }) => p.pageNumber)).toEqual([1, 3]);
   });
 });

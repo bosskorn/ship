@@ -6,7 +6,14 @@ import type { DraftPage, Rotation } from '../model';
  */
 
 /** Pages in a document built by the page tools (the PDF writer embeds JPEGs as they are). */
-export const MAX_DOCUMENT_PAGES = 50;
+export const MAX_DOCUMENT_PAGES = 100;
+
+/** More pages than a tool output may have; refused before any work. */
+export class PageLimitError extends Error {
+  constructor(readonly limit: number) {
+    super('page_limit');
+  }
+}
 
 /** A page in a page tool: the draft plus where it came from and what its preview shows. */
 export interface PageItem {
@@ -58,7 +65,7 @@ export function displayTurn(item: PageItem): number {
 /** Room left before the page limit. */
 export const roomFor = (count: number) => Math.max(0, MAX_DOCUMENT_PAGES - count);
 
-export type RangeError = 'empty' | 'syntax' | 'out_of_range' | 'reversed';
+export type RangeError = 'empty' | 'syntax' | 'out_of_range' | 'reversed' | 'overlap';
 
 /**
  * Page ranges as typed by a person: "1-3, 7-10", "5", "2–4" (any dash), 1-based, inclusive.
@@ -66,13 +73,15 @@ export type RangeError = 'empty' | 'syntax' | 'out_of_range' | 'reversed';
  */
 export function parseRanges(input: string, pageCount: number): { ranges: [number, number][] } | { error: RangeError } {
   const parts = input
+    // "1 - 3" is one range: drop spaces around the dash before splitting on separators.
+    .replace(/\s*([-–—~])\s*/g, '$1')
     .split(/[,،、\s]+/)
     .map((s) => s.trim())
     .filter(Boolean);
   if (!parts.length) return { error: 'empty' };
   const ranges: [number, number][] = [];
   for (const part of parts) {
-    const m = /^(\d{1,4})(?:\s*[-–—~]\s*(\d{1,4}))?$/.exec(part);
+    const m = /^(\d{1,4})(?:[-–—~](\d{1,4}))?$/.exec(part);
     if (!m) return { error: 'syntax' };
     const a = Number(m[1]);
     const b = m[2] ? Number(m[2]) : a;
@@ -80,7 +89,15 @@ export function parseRanges(input: string, pageCount: number): { ranges: [number
     if (b < a) return { error: 'reversed' };
     ranges.push([a - 1, b - 1]);
   }
+  // A page in two ranges ("1-3, 2-4" or "2, 2") would be output twice: refused.
+  const sorted = [...ranges].sort((x, y) => x[0] - y[0]);
+  for (let i = 1; i < sorted.length; i++) if (sorted[i][0] <= sorted[i - 1][1]) return { error: 'overlap' };
   return { ranges };
+}
+
+/** Page indexes (0-based) covered by ranges, in the order typed. */
+export function pagesInRanges(ranges: [number, number][]): number[] {
+  return ranges.flatMap(([a, b]) => Array.from({ length: b - a + 1 }, (_, i) => a + i));
 }
 
 /** Grid slot under a point (container coordinates), clamped to the list. */

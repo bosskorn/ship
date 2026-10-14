@@ -2,6 +2,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Sharing from 'expo-sharing';
 import { newId } from '../ids';
+import { CancelSignal, throwIfCancelled } from '../cancel';
 import { DocumentFileStore } from '../storage/DocumentFileStore';
 
 export type ImageFormat = 'jpg' | 'png';
@@ -34,7 +35,7 @@ export function imageFileName(base: string, pageNumber: number, pageCount: numbe
 export const ImageExportService = {
   async exportPages(
     pages: { uri: string; pageNumber: number }[],
-    opts: { title: string; pageCount: number; format: ImageFormat; onProgress?: (done: number, total: number) => void },
+    opts: { title: string; pageCount: number; format: ImageFormat; onProgress?: (done: number, total: number) => void; signal?: CancelSignal },
   ): Promise<ExportedImages> {
     const dir = new Directory(Paths.cache, 'onescan', 'plain', `export-${newId()}`);
     dir.create({ intermediates: true, idempotent: true });
@@ -42,6 +43,7 @@ export const ImageExportService = {
     const files: ExportedImages['files'] = [];
     try {
       for (let i = 0; i < pages.length; i++) {
+        throwIfCancelled(opts.signal);
         const name = imageFileName(base, pages[i].pageNumber, opts.pageCount, opts.format);
         const target = new File(dir, name);
         const readable = await DocumentFileStore.readableUri(pages[i].uri);

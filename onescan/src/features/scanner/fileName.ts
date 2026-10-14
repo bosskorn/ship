@@ -1,6 +1,8 @@
 /** Default name for a new scan, e.g. `OneScan_2026-10-14_14-30`: sortable, safe as a PDF file name. */
 export const DEFAULT_FILE_PREFIX = 'OneScan';
 export const MAX_FILE_PREFIX = 40;
+/** Merge PDF output, e.g. `Merged_2026-10-15_14-30`. */
+export const MERGED_PREFIX = 'Merged';
 
 /** Removes characters that are not allowed in file names on Android / Windows / macOS. */
 export function cleanFilePrefix(prefix: string): string {

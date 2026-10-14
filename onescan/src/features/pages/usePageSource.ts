@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import { documentRepository } from '@/core/database/repositories/documentRepository';
 import type { DocumentRecord } from '@/core/document-engine/model';
 import type { PageItem } from '@/core/document-engine/pages/pageOps';
-import { DocumentPageService } from '@/core/document-engine/services/DocumentPageService';
+import { DocumentPageService, LoadOptions } from '@/core/document-engine/services/DocumentPageService';
 
 export interface PageSource {
   title: string;
@@ -14,14 +14,24 @@ export interface PageSource {
   document: DocumentRecord | null;
 }
 
+/** The system file picker for one PDF (no storage permission needed). */
+export async function pickPdf(): Promise<{ uri: string; name: string } | null> {
+  const res = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+  return res.canceled || !res.assets[0] ? null : { uri: res.assets[0].uri, name: res.assets[0].name };
+}
+
 /**
  * The pages a one-source tool works on (Split, PDF → images): a OneScan document (by id or
  * picked) or a PDF file on the device. Shared so tools don't load pages their own way.
+ * Pages rendered from a file are working files: they are removed when the tool closes.
  */
 export function usePageSource(documentId: string | undefined) {
   const [source, setSource] = useState<PageSource | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<'pdf' | 'load' | null>(null);
+  const loaded = useRef<PageItem[]>([]);
+
+  useEffect(() => () => DocumentPageService.discard(loaded.current), []);
 
   const fromDocument = useCallback(async (doc: DocumentRecord) => {
     setLoading(true);
@@ -36,19 +46,13 @@ export function usePageSource(documentId: string | undefined) {
     }
   }, []);
 
-  const fromFile = useCallback(async () => {
-    const res = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
-    if (res.canceled || !res.assets[0]) return;
-    setLoading(true);
+  /** Renders the file page by page (progress, cancel; errors are thrown to the caller's task). */
+  const fromFile = useCallback(async (file: { uri: string; name: string }, opts: LoadOptions = {}) => {
     setError(null);
-    try {
-      const items = await DocumentPageService.fromPdfFile(res.assets[0].uri);
-      setSource({ title: res.assets[0].name.replace(/\.pdf$/i, ''), items, masters: items.map((i) => i.page.sourceUri), document: null });
-    } catch {
-      setError('pdf');
-    } finally {
-      setLoading(false);
-    }
+    const items = await DocumentPageService.fromPdfFile(file.uri, opts);
+    DocumentPageService.discard(loaded.current);
+    loaded.current = items;
+    setSource({ title: file.name.replace(/\.pdf$/i, ''), items, masters: items.map((i) => i.page.sourceUri), document: null });
   }, []);
 
   useEffect(() => {
@@ -63,5 +67,5 @@ export function usePageSource(documentId: string | undefined) {
     };
   }, [documentId, fromDocument]);
 
-  return { source, loading, error, fromDocument, fromFile, reset: () => setSource(null) };
+  return { source, loading, error, fromDocument, fromFile };
 }
