@@ -9,6 +9,7 @@ import {
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import type { PageRecord } from '@/core/document-engine/model';
 import { track } from '@/services/analytics/analytics';
+import { useDocuments } from '@/features/documents/documentsStore';
 import { useDocumentActions } from '@/features/documents/useDocumentActions';
 import { useDocument } from './useDocument';
 import { PageZoomView } from './PageZoomView';
@@ -28,7 +29,7 @@ export function DocumentViewerScreen() {
   const pageWidth = width - spacing.xl * 2;
   // Pages rendered from an imported PDF keep the render itself as their source.
   const importedPdf = pages.length > 0 && pages.every((p) => p.sourceUri === p.imageUri && p.filter === 'original');
-  const actions = useDocumentActions();
+  const actions = useDocumentActions({ inViewer: true });
   const [current, setCurrent] = useState(0);
   const [more, setMore] = useState(false);
   const [zoomPage, setZoomPage] = useState<PageRecord | null>(null);
@@ -116,7 +117,7 @@ export function DocumentViewerScreen() {
         right={
           <>
             <TIconButton icon="search" accessibilityLabel={t('viewer.search')} onPress={() => router.push({ pathname: '/ocr/[id]', params: { id: doc.id } })} />
-            <TIconButton icon="more" accessibilityLabel={t('common.more')} onPress={() => actions.open(doc)} />
+            <TIconButton icon="more" accessibilityLabel={t('common.more')} onPress={() => actions.open(useDocuments.getState().documents.find((d) => d.id === doc.id) ?? doc)} />
           </>
         }
       />

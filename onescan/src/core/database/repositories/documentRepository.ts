@@ -51,6 +51,22 @@ interface DocumentRow {
   opened_at: number | null;
   deleted_at: number | null;
   sync_state: string;
+  /** Computed in queries that select FAVORITE_COL. */
+  is_favorite?: number;
+}
+
+/** `is_favorite` for a query over `documents d`. */
+const FAVORITE_COL = 'EXISTS (SELECT 1 FROM document_favorites fv WHERE fv.document_id = d.id) AS is_favorite';
+
+/** Optional narrowing for search (all local). */
+export interface SearchFilters {
+  docType?: DocumentType;
+  /** created_at range, ms. */
+  from?: number;
+  to?: number;
+  folderId?: string;
+  tagId?: string;
+  favorite?: boolean;
 }
 
 function toRecord(r: DocumentRow): DocumentRecord {
@@ -70,6 +86,7 @@ function toRecord(r: DocumentRow): DocumentRecord {
     openedAt: r.opened_at,
     deletedAt: r.deleted_at,
     syncState: r.sync_state as SyncState,
+    isFavorite: r.is_favorite === 1,
   };
 }
 
@@ -115,22 +132,22 @@ export const documentRepository = {
 
   async get(id: string): Promise<DocumentRecord | null> {
     const db = await getDatabase();
-    const row = await db.getFirstAsync<DocumentRow>('SELECT * FROM documents WHERE id = ?', id);
+    const row = await db.getFirstAsync<DocumentRow>(`SELECT d.*, ${FAVORITE_COL} FROM documents d WHERE d.id = ?`, id);
     return row ? toRecord(row) : null;
   },
 
   async list(opts: { folderId?: string; limit?: number; orderBy?: 'updated' | 'opened' } = {}): Promise<DocumentRecord[]> {
     const db = await getDatabase();
-    const order = opts.orderBy === 'opened' ? 'COALESCE(opened_at, updated_at) DESC' : 'updated_at DESC';
-    const where = ['deleted_at IS NULL'];
+    const order = opts.orderBy === 'opened' ? 'COALESCE(d.opened_at, d.updated_at) DESC' : 'd.updated_at DESC';
+    const where = ['d.deleted_at IS NULL'];
     const params: (string | number)[] = [];
     if (opts.folderId) {
-      where.push('folder_id = ?');
+      where.push('d.folder_id = ?');
       params.push(opts.folderId);
     }
     params.push(opts.limit ?? 500);
     const rows = await db.getAllAsync<DocumentRow>(
-      `SELECT * FROM documents WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ?`,
+      `SELECT d.*, ${FAVORITE_COL} FROM documents d WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ?`,
       ...params,
     );
     return rows.map(toRecord);
@@ -201,6 +218,12 @@ export const documentRepository = {
     return rows.map((r) => r.title);
   },
 
+  async setFavorite(id: string, favorite: boolean) {
+    const db = await getDatabase();
+    if (favorite) await db.runAsync('INSERT OR IGNORE INTO document_favorites (document_id, created_at) VALUES (?, ?)', id, Date.now());
+    else await db.runAsync('DELETE FROM document_favorites WHERE document_id = ?', id);
+  },
+
   async rename(id: string, title: string) {
     const db = await getDatabase();
     await db.withTransactionAsync(async () => {
@@ -253,7 +276,7 @@ export const documentRepository = {
   },
 
   /** Local-only search across title, OCR text, folder name, type and date. */
-  async search(query: string, limit = 100): Promise<DocumentRecord[]> {
+  async search(query: string, limit = 100, filters: SearchFilters = {}): Promise<DocumentRecord[]> {
     const q = parseSearchQuery(query);
     const db = await getDatabase();
     const where: string[] = ['d.deleted_at IS NULL'];
@@ -292,9 +315,31 @@ export const documentRepository = {
       params.push(q.year);
     }
 
+    if (filters.docType) {
+      where.push('d.doc_type = ?');
+      params.push(filters.docType);
+    }
+    if (filters.from !== undefined) {
+      where.push('d.created_at >= ?');
+      params.push(filters.from);
+    }
+    if (filters.to !== undefined) {
+      where.push('d.created_at < ?');
+      params.push(filters.to);
+    }
+    if (filters.folderId) {
+      where.push('d.folder_id = ?');
+      params.push(filters.folderId);
+    }
+    if (filters.tagId) {
+      where.push('d.id IN (SELECT document_id FROM document_tags WHERE tag_id = ?)');
+      params.push(filters.tagId);
+    }
+    if (filters.favorite) where.push('d.id IN (SELECT document_id FROM document_favorites)');
+
     params.push(limit);
     const rows = await db.getAllAsync<DocumentRow>(
-      `SELECT d.* FROM documents d LEFT JOIN folders f ON f.id = d.folder_id
+      `SELECT d.*, ${FAVORITE_COL} FROM documents d LEFT JOIN folders f ON f.id = d.folder_id
        WHERE ${where.join(' AND ')} ORDER BY d.updated_at DESC LIMIT ?`,
       ...params,
     );

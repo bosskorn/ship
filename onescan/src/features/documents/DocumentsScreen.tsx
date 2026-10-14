@@ -17,7 +17,8 @@ import { DocumentListItem } from './DocumentListItem';
 import { DocumentGridItem } from './DocumentGridItem';
 import { useDocumentActions } from './useDocumentActions';
 
-type Filter = 'all' | 'folders' | 'recent';
+/** `tag:<id>` = documents carrying that tag. */
+type Filter = 'all' | 'folders' | 'recent' | 'favorites' | `tag:${string}`;
 
 function DocumentsSkeleton({ view }: { view: 'list' | 'grid' }) {
   const { colors, spacing } = useTheme();
@@ -61,7 +62,7 @@ export function DocumentsScreen() {
   const view = useSettings((s) => s.documentsView);
   const setView = useSettings((s) => s.setDocumentsView);
   const trashEnabled = useFeature('trash');
-  const { documents, folders, refresh, loaded } = useDocuments();
+  const { documents, folders, tags, tagMap, refresh, loaded } = useDocuments();
   const actions = useDocumentActions();
   const selecting = selected.size > 0;
 
@@ -114,7 +115,21 @@ export function DocumentsScreen() {
   };
   const selectedDocs = () => documents.filter((d) => selected.has(d.id));
 
-  const docs = filter === 'recent' ? recent : documents;
+  // A tag filter whose tag was deleted shows all documents.
+  const rawTag = filter.startsWith('tag:') ? filter.slice(4) : null;
+  const tagFilter = rawTag && tags.some((x) => x.id === rawTag) ? rawTag : null;
+  const active: Filter = rawTag && !tagFilter ? 'all' : filter;
+  const docs = useMemo(
+    () =>
+      active === 'recent'
+        ? recent
+        : active === 'favorites'
+          ? documents.filter((d) => d.isFavorite)
+          : tagFilter
+            ? documents.filter((d) => tagMap[d.id]?.includes(tagFilter))
+            : documents,
+    [active, recent, documents, tagFilter, tagMap],
+  );
   const [selectionMenu, setSelectionMenu] = useState(false);
 
   // The share engine shares one document at a time: Share is enabled only for a single selection.
@@ -231,13 +246,17 @@ export function DocumentsScreen() {
     <TScreen surface="container" header={header} footer={selectionBar}>
       {!selecting ? (
         <TChipRow>
-          <TChip testID="chip-all" label={t('documents.tab_all')} selected={filter === 'all'} onPress={() => setFilter('all')} />
-          <TChip testID="chip-folders" label={t('documents.tab_folders')} icon="folder" selected={filter === 'folders'} onPress={() => setFilter('folders')} />
-          <TChip testID="chip-recent" label={t('documents.tab_recent')} icon="recent" selected={filter === 'recent'} onPress={() => setFilter('recent')} />
+          <TChip testID="chip-all" label={t('documents.tab_all')} selected={active === 'all'} onPress={() => setFilter('all')} />
+          <TChip testID="chip-folders" label={t('documents.tab_folders')} icon="folder" selected={active === 'folders'} onPress={() => setFilter('folders')} />
+          <TChip testID="chip-recent" label={t('documents.tab_recent')} icon="recent" selected={active === 'recent'} onPress={() => setFilter('recent')} />
+          <TChip testID="chip-favorites" label={t('documents.tab_favorites')} icon="star" selected={active === 'favorites'} onPress={() => setFilter('favorites')} />
+          {tags.map((tag) => (
+            <TChip key={tag.id} testID={`chip-tag-${tag.name}`} label={tag.name} icon="tag" selected={active === `tag:${tag.id}`} onPress={() => setFilter(`tag:${tag.id}`)} />
+          ))}
         </TChipRow>
       ) : null}
 
-      {filter === 'folders' ? (
+      {active === 'folders' ? (
         <FlatList<FolderRecord>
           data={folders}
           keyExtractor={(f) => f.id}
@@ -296,7 +315,13 @@ export function DocumentsScreen() {
           }}
           ListEmptyComponent={
             loaded ? (
-              <TEmpty icon="documents" title={t('documents.empty')} description={t('documents.empty_hint')} actionLabel={t('home.scan_document')} onAction={() => openScanner({ source: 'documents_empty' })} />
+              active === 'favorites' ? (
+                <TEmpty icon="star" title={t('documents.favorites_empty')} description={t('documents.favorites_empty_hint')} />
+              ) : tagFilter ? (
+                <TEmpty icon="tag" title={t('documents.tag_empty')} />
+              ) : (
+                <TEmpty icon="documents" title={t('documents.empty')} description={t('documents.empty_hint')} actionLabel={t('home.scan_document')} onAction={() => openScanner({ source: 'documents_empty' })} />
+              )
             ) : (
               <DocumentsSkeleton view={view} />
             )

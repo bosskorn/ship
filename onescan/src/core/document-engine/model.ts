@@ -89,6 +89,15 @@ export interface DocumentRecord {
   openedAt: number | null;
   deletedAt: number | null;
   syncState: SyncState;
+  /** In the user's favourites (local). Filled by list/get/search queries. */
+  isFavorite?: boolean;
+}
+
+export interface TagRecord {
+  id: string;
+  name: string;
+  /** Documents (not in the trash) carrying the tag. */
+  count: number;
 }
 
 export interface PageRecord {

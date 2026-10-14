@@ -27,7 +27,7 @@ const mockOrder: string[] = [];
 const mockRefresh = jest.fn(async () => void mockOrder.push('list'));
 const mockState: { documents: DocumentRecord[]; folders: { id: string; name: string; systemKey: null; createdAt: number; itemCount: number }[] } = { documents: [], folders: [] };
 jest.mock('@/features/documents/documentsStore', () => {
-  const state = () => ({ documents: mockState.documents, recent: mockState.documents, folders: mockState.folders, loaded: true, refresh: mockRefresh });
+  const state = () => ({ documents: mockState.documents, recent: mockState.documents, folders: mockState.folders, tags: [], tagMap: {}, loaded: true, refresh: mockRefresh });
   const useDocuments = (sel?: (s: ReturnType<typeof state>) => unknown) => (sel ? sel(state()) : state());
   useDocuments.getState = state;
   return { useDocuments };
@@ -36,6 +36,7 @@ jest.mock('@/features/documents/useDocumentActions', () => ({ useDocumentActions
 jest.mock('@/features/shared/useImport', () => ({ useImport: () => ({ importPdf: jest.fn(), importPhotos: jest.fn(), overlay: null }) }));
 jest.mock('@/features/shared/SecureImage', () => ({ SecureImage: () => null, useReadableUri: () => null, clearReadableUris: () => undefined }));
 jest.mock('@/core/database/repositories/documentRepository', () => ({ documentRepository: { move: jest.fn() }, folderRepository: { create: jest.fn() } }));
+jest.mock('@/core/database/repositories/tagRepository', () => ({ tagRepository: {} }));
 const mockShare = jest.fn(async () => undefined);
 jest.mock('@/core/document-engine/DocumentEngine', () => ({
   DocumentEngine: {

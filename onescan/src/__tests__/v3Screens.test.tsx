@@ -23,6 +23,7 @@ jest.mock('@/core/document-engine/storage/diskSpace', () => ({ lowDisk: () => fa
 jest.mock('@/features/scanner/cropStats', () => ({ noteCropAccepted: jest.fn(), noteCropCorrected: jest.fn() }));
 jest.mock('@/core/document-engine/image/filters', () => ({ cssFilterFor: {}, pageFilters: ['original', 'auto', 'document'] }));
 jest.mock('@/core/database/repositories/documentRepository', () => ({ documentRepository: {} }));
+jest.mock('@/core/database/repositories/tagRepository', () => ({ tagRepository: {} }));
 jest.mock('@/core/document-engine/DocumentEngine', () => ({ DocumentEngine: { capture: { hasNativeVision: () => true }, export: { isShareAvailable: async () => true }, share: jest.fn() } }));
 const mockViewer: { doc: DocumentRecord | null | undefined; pages: PageRecord[]; loading: boolean } = { doc: undefined, pages: [], loading: true };
 jest.mock('@/features/viewer/useDocument', () => ({ useDocument: () => mockViewer }));

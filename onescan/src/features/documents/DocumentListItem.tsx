@@ -141,6 +141,7 @@ export const DocumentListItem = memo(function DocumentListItem({ doc, onPress, o
           <TText variant="bodyLarge" numberOfLines={1} style={{ flexShrink: 1 }}>
             {doc.title}
           </TText>
+          {doc.isFavorite ? <TIcon name="star" size={14} color={colors.warning} filled /> : null}
           {doc.hasSensitive ? <TIcon name="shield" size={14} color={colors.warning} /> : null}
         </View>
         <TText variant="bodySmall" color="textSecondary" numberOfLines={1}>

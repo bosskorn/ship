@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
+import { router } from 'expo-router';
 import { TActionSheet, TDialog, TInput, TText, useTheme, useToast } from '@/design-system';
 import type { DocumentRecord } from '@/core/document-engine/model';
 import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
@@ -9,6 +10,8 @@ import { useFeature, useRemoteConfig } from '@/core/config/remoteConfig';
 import { track } from '@/services/analytics/analytics';
 import { useDocuments } from './documentsStore';
 import { DocumentThumb, useDocumentMeta } from './DocumentListItem';
+import { DocumentInfoDialog, TagPickerDialog } from './DocumentSheets';
+import { DocumentMetadataService } from '@/core/document-engine/services/DocumentMetadataService';
 
 /** Bottom-sheet header: which document the actions apply to. */
 function SheetHeader({ doc }: { doc: DocumentRecord }) {
@@ -29,13 +32,14 @@ function SheetHeader({ doc }: { doc: DocumentRecord }) {
   );
 }
 
-type Pending = { kind: 'menu' | 'rename' | 'delete' | 'move'; doc: DocumentRecord } | null;
+type Pending = { kind: 'menu' | 'rename' | 'delete' | 'move' | 'tags' | 'info'; doc: DocumentRecord } | null;
 
 /**
- * Context menu for a document (spec §23): actions are revealed on demand,
- * never all shown inline.
+ * Context menu for a document (spec §23): actions are revealed on demand, never all shown inline.
+ * Order: open, rename, favourite, tags, move, share, print, duplicate, delete. In the Viewer
+ * (`inViewer`) "open" is replaced by Document info.
  */
-export function useDocumentActions() {
+export function useDocumentActions(opts: { inViewer?: boolean; onChanged?: () => void } = {}) {
   const { t } = useTranslation();
   const toast = useToast();
   const folders = useDocuments((s) => s.folders);
@@ -52,6 +56,33 @@ export function useDocumentActions() {
     if (!pending) return;
     const doc = pending.doc;
     switch (key) {
+      case 'open':
+        close();
+        router.push({ pathname: '/document/[id]', params: { id: doc.id } });
+        return;
+      case 'favorite':
+        close();
+        try {
+          await DocumentMetadataService.setFavorite(doc, !doc.isFavorite);
+          await refresh();
+          opts.onChanged?.();
+          toast(t(doc.isFavorite ? 'documents.unfavorited' : 'documents.favorited'), 'success');
+        } catch {
+          toast(t('errors.generic'), 'error');
+        }
+        return;
+      case 'tags':
+        return setPending({ kind: 'tags', doc });
+      case 'info':
+        return setPending({ kind: 'info', doc });
+      case 'print':
+        close();
+        try {
+          await DocumentEngine.print(doc);
+        } catch {
+          toast(t('errors.print_failed'), 'error');
+        }
+        return;
       case 'share':
         close();
         try {
@@ -85,7 +116,6 @@ export function useDocumentActions() {
         return;
       default:
         close();
-        toast(t('common.comingSoon'));
     }
   };
 
@@ -99,9 +129,13 @@ export function useDocumentActions() {
         onSelect={onSelect}
         header={pending?.kind === 'menu' ? <SheetHeader doc={pending.doc} /> : undefined}
         items={[
+          opts.inViewer ? { key: 'info', label: t('doc_info.title'), icon: 'info' as const } : { key: 'open', label: t('documents.open'), icon: 'documents' as const },
           { key: 'rename', label: t('documents.rename'), icon: 'edit' },
+          { key: 'favorite', label: t(pending?.doc.isFavorite ? 'documents.unfavorite' : 'documents.favorite'), icon: 'star' },
+          { key: 'tags', label: t('documents.tags'), icon: 'tag' },
           { key: 'move', label: t('documents.move_to_folder'), icon: 'folder' },
           { key: 'share', label: t('documents.share_pdf'), icon: 'share' },
+          ...(pending?.doc.pdfUri ? [{ key: 'print', label: t('documents.print'), icon: 'print' as const }] : []),
           { key: 'duplicate', label: t('documents.duplicate'), icon: 'duplicate' },
           { key: 'delete', label: t('documents.delete'), icon: 'delete', danger: true },
         ]}
@@ -119,6 +153,8 @@ export function useDocumentActions() {
           await refresh();
         }}
       />
+      <TagPickerDialog doc={pending?.kind === 'tags' ? pending.doc : null} onClose={close} />
+      <DocumentInfoDialog doc={pending?.kind === 'info' ? pending.doc : null} onClose={close} />
       <TDialog
         visible={pending?.kind === 'rename'}
         title={t('documents.rename')}

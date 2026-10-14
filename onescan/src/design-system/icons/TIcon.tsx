@@ -8,7 +8,7 @@ import {
   Layers, List, ListChecks, Lock, LogOut, LucideIcon, Merge, MessageSquareText, Minimize2, Palette,
   PenLine, Plus, Presentation, QrCode, Receipt, RefreshCw, RotateCw, ScanLine, ScanText, Search,
   Settings, Share2, ShieldCheck, Signature, SlidersHorizontal, Smartphone, Sparkles, Split, Trash,
-  User, WifiOff, X, Zap, ZapOff, Eye, Mail } from 'lucide-react-native';
+  User, WifiOff, X, Zap, ZapOff, Eye, Mail, Star, Tag, Printer, CalendarDays } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
 /**
@@ -91,6 +91,10 @@ const registry = {
   eye: Eye,
   eyeOff: EyeOff,
   mail: Mail,
+  star: Star,
+  tag: Tag,
+  print: Printer,
+  calendar: CalendarDays,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof registry;
@@ -106,12 +110,15 @@ export interface TIconProps {
   color?: string;
   /** Stroke stays constant across the app for a uniform visual weight. */
   strokeWidth?: number;
+  /** Solid shape (e.g. a set favourite star). */
+  filled?: boolean;
 }
 
-export function TIcon({ name, size = 'lg', color, strokeWidth = 1.75 }: TIconProps) {
+export function TIcon({ name, size = 'lg', color, strokeWidth = 1.75, filled }: TIconProps) {
   const { colors } = useTheme();
   const Cmp = registry[name];
   const px = typeof size === 'number' ? size : iconSizes[size];
   const mirror = I18nManager.isRTL && directional.has(name);
-  return <Cmp size={px} color={color ?? colors.textPrimary} strokeWidth={strokeWidth} style={mirror ? { transform: [{ scaleX: -1 }] } : undefined} />;
+  const c = color ?? colors.textPrimary;
+  return <Cmp size={px} color={c} fill={filled ? c : 'none'} strokeWidth={strokeWidth} style={mirror ? { transform: [{ scaleX: -1 }] } : undefined} />;
 }

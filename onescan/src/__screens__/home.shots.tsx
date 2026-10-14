@@ -27,11 +27,12 @@ jest.mock('@/features/scanner/scanSession', () => ({ useScanSession: { getState:
 jest.mock('expo-router', () => ({ router: { back: jest.fn(), push: jest.fn() }, useFocusEffect: jest.fn() }));
 jest.mock('@/features/documents/documentsStore', () => ({
   useDocuments: (sel?: (s: object) => unknown) => {
-    const state = { recent: mockState.recent, documents: mockState.recent, folders: [], refresh: () => undefined };
+    const state = { recent: mockState.recent, documents: mockState.recent, folders: [], tags: [], tagMap: {}, refresh: () => undefined };
     return sel ? sel(state) : state;
   },
 }));
 jest.mock('@/core/database/repositories/documentRepository', () => ({ folderRepository: { create: jest.fn() }, documentRepository: {} }));
+jest.mock('@/core/database/repositories/tagRepository', () => ({ tagRepository: {} }));
 jest.mock('@/features/documents/useDocumentActions', () => ({ useDocumentActions: () => ({ open: jest.fn(), element: null }) }));
 jest.mock('@/features/shared/useImport', () => ({ useImport: () => ({ importPdf: jest.fn(), importPhotos: jest.fn(), overlay: null }) }));
 // Thumbnails: a drawn page instead of decrypting real files.

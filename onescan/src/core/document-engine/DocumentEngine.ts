@@ -458,6 +458,12 @@ export const DocumentEngine = {
     await ExportEngine.sharePdf(doc.pdfUri, doc.title);
   },
 
+  /** Android Print Framework; documents without a PDF cannot be printed. */
+  async print(doc: DocumentRecord) {
+    if (!doc.pdfUri) return;
+    await ExportEngine.printPdf(doc.pdfUri, doc.title);
+  },
+
   async moveToTrash(id: string) {
     await documentRepository.trash(id);
   },

@@ -32,6 +32,7 @@ const mockState: { docs: DocumentRecord[]; folders: FolderRecord[]; ocr: Record<
 jest.mock('@/core/storage/kvStorage', () => ({ kvStore: { getItem: jest.fn(), setItem: jest.fn(), removeItem: jest.fn() } }));
 jest.mock('@/core/document-engine/ids', () => ({ newId: () => 'shot-id' }));
 jest.mock('@/core/document-engine/DocumentEngine', () => ({ DocumentEngine: { capture: { hasNativeVision: () => true } } }));
+jest.mock('@/core/database/repositories/tagRepository', () => ({ tagRepository: {} }));
 jest.mock('@/core/database/repositories/documentRepository', () => ({
   folderRepository: { create: jest.fn() },
   documentRepository: {
@@ -57,7 +58,7 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/features/documents/documentsStore', () => ({
   useDocuments: (sel?: (s: object) => unknown) => {
-    const state = { recent: mockState.docs.slice(0, 5), documents: mockState.docs, folders: mockState.folders, loaded: true, refresh: async () => undefined };
+    const state = { recent: mockState.docs.slice(0, 5), documents: mockState.docs, folders: mockState.folders, tags: [], tagMap: {}, loaded: true, refresh: async () => undefined };
     return sel ? sel(state) : state;
   },
 }));

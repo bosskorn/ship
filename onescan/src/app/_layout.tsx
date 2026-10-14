@@ -47,6 +47,7 @@ function RootStack() {
         <Stack.Screen name="security" />
         <Stack.Screen name="scan-quality" />
         <Stack.Screen name="file-name" />
+        <Stack.Screen name="tags" />
         <Stack.Screen name="scan-diagnostics" />
         <Stack.Screen name="cloud" />
         <Stack.Screen name="pricing" />

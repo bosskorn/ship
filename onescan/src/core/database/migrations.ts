@@ -94,4 +94,12 @@ export const migrations: string[] = [
     value TEXT NOT NULL
   );
   `,
+  /* v4 (Document Tools A) — favourites. Additive only: a new table and an index on the v1 tag
+     link table; documents, pages, folders and the search index are untouched. */ `
+  CREATE TABLE IF NOT EXISTS document_favorites (
+    document_id TEXT PRIMARY KEY NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS document_tags_tag ON document_tags(tag_id);
+  `,
 ];

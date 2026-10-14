@@ -62,7 +62,7 @@ describe('1.2 → 1.3 database upgrade', () => {
   });
 
   it('v3 only adds app_meta: no ALTER/DROP/UPDATE/DELETE of existing tables', () => {
-    expect(migrations).toHaveLength(3);
+    expect(migrations.length).toBeGreaterThanOrEqual(3);
     const v3 = migrations[2].replace(/\/\*[\s\S]*?\*\//g, '');
     expect(v3).toMatch(/CREATE TABLE IF NOT EXISTS app_meta/);
     expect(v3).not.toMatch(/\b(ALTER|DROP|UPDATE|DELETE|INSERT)\b/i);
@@ -73,7 +73,7 @@ describe('1.2 → 1.3 database upgrade', () => {
     const db = v12Database();
     const before = snapshot(db);
     migrate(db);
-    expect(version(db)).toBe(3);
+    expect(version(db)).toBe(migrations.length);
     expect(snapshot(db)).toEqual(before);
     const hits = db.prepare("SELECT document_id FROM document_fts WHERE document_fts MATCH ?").all('"ยอดชำระ"');
     expect(hits).toEqual([{ document_id: 'd1' }]);
@@ -89,7 +89,7 @@ describe('1.2 → 1.3 database upgrade', () => {
     expect(db.prepare("SELECT name FROM sqlite_master WHERE name = 'app_meta'").get()).toBeUndefined();
     expect(snapshot(db)).toEqual(before);
     migrate(db);
-    expect(version(db)).toBe(3);
+    expect(version(db)).toBe(migrations.length);
     expect(snapshot(db)).toEqual(before);
   });
 
@@ -102,8 +102,38 @@ describe('1.2 → 1.3 database upgrade', () => {
   it('a fresh 1.3 install creates the full schema', () => {
     const db = new DatabaseSync(':memory:');
     migrate(db);
-    expect(version(db)).toBe(3);
+    expect(version(db)).toBe(migrations.length);
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((r) => r.name);
     expect(tables).toEqual(expect.arrayContaining(['documents', 'pages', 'folders', 'app_meta']));
+  });
+});
+
+describe('v4 (Document Tools A): favourites', () => {
+  it('is additive: one new table and an index, nothing existing is altered', () => {
+    expect(migrations).toHaveLength(4);
+    const v4 = migrations[3].replace(/\/\*[\s\S]*?\*\//g, '');
+    // No statement that alters or rewrites existing data (ON DELETE CASCADE is a constraint, not a statement).
+    expect(v4).not.toMatch(/(^|;)\s*(ALTER|DROP|UPDATE|DELETE|INSERT|REPLACE)\b/i);
+    expect(v4).toMatch(/CREATE TABLE IF NOT EXISTS document_favorites/);
+  });
+
+  it('1.2 data survives v1→v4; favourites and tags follow their document when it is deleted', () => {
+    const db = v12Database();
+    const before = snapshot(db);
+    migrate(db);
+    expect(snapshot(db)).toEqual(before);
+    db.exec(`INSERT INTO document_favorites (document_id, created_at) VALUES ('d1', 1);
+             INSERT INTO tags (id, name) VALUES ('t1', 'ภาษี');
+             INSERT INTO document_tags (document_id, tag_id) VALUES ('d1', 't1');`);
+    db.exec(`DELETE FROM documents WHERE id = 'd1'`);
+    expect(db.prepare('SELECT count(*) AS n FROM document_favorites').get()!.n).toBe(0);
+    expect(db.prepare('SELECT count(*) AS n FROM document_tags').get()!.n).toBe(0);
+    expect(db.prepare('SELECT count(*) AS n FROM tags').get()!.n).toBe(1);
+  });
+
+  it('v4 is idempotent', () => {
+    const db = v12Database();
+    migrate(db);
+    expect(() => db.exec(migrations[3])).not.toThrow();
   });
 });
