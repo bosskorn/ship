@@ -1,0 +1,689 @@
+<title>OneScan Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: review chrome (journey stepper + toggles) around one live phone, or a board of every screen in flow order. */
+:root {
+  /* Review page (follows the viewer's theme) */
+  --page: #EEF1F5; --page-ink: #121722; --page-mute: #5B6475; --page-line: #D8DDE5; --page-chip: #FFFFFF; --page-accent: #0052D9;
+  --font: Roboto, "Noto Sans Thai", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #0E1116; --page-ink: #E7EBF1; --page-mute: #98A2B3; --page-line: #262D38; --page-chip: #181D25; --page-accent: #6EA0FF; color-scheme: dark } }
+:root[data-theme="dark"] { --page: #0E1116; --page-ink: #E7EBF1; --page-mute: #98A2B3; --page-line: #262D38; --page-chip: #181D25; --page-accent: #6EA0FF; color-scheme: dark }
+
+/* App (inside the phone): OneScan design system, light and a designed dark. */
+.app { --bg: #FFFFFF; --surface: #F4F6F9; --surface2: #EBEEF3; --ink: #0F1521; --ink2: #586173; --ink3: #8A93A3; --line: #E3E7ED;
+  --brand: #0052D9; --brand-ink: #FFFFFF; --tint: #E8F0FF; --tint-ink: #0046BA; --danger: #C62828; --ok: #1E7F4F; --scrim: rgba(15,21,33,.42);
+  --paper: #FFFFFF; --paper-line: #C7CEDA; --paper-head: #2F5FD0; --desk: #3B3631; --shadow: 0 1px 2px rgba(15,21,33,.10); }
+.app.dark { --bg: #121419; --surface: #1A1D24; --surface2: #232831; --ink: #E8EBF0; --ink2: #A3ABB9; --ink3: #737D8E; --line: #2A303A;
+  --brand: #5B93FF; --brand-ink: #0B1220; --tint: #1D2A44; --tint-ink: #A9C6FF; --danger: #FF7B7B; --ok: #5BD08F; --scrim: rgba(0,0,0,.58);
+  --paper: #F4F3EF; --paper-line: #C4C9D2; --paper-head: #3B66D4; --desk: #2A2724; --shadow: 0 1px 2px rgba(0,0,0,.5); }
+
+* { box-sizing: border-box }
+html, body { height: 100% }
+body { background: var(--page); color: var(--page-ink); font-family: var(--font); margin: 0 }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px 32px; max-width: 1440px; margin: 0 auto }
+header.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between }
+h1 { font-size: 20px; margin: 0; letter-spacing: -.01em }
+.sub { color: var(--page-mute); font-size: 13px; margin-top: 2px }
+.controls { display: flex; flex-wrap: wrap; gap: 8px }
+.seg { display: inline-flex; background: var(--page-chip); border: 1px solid var(--page-line); border-radius: 999px; padding: 3px }
+.seg button { font: 500 13px var(--font); color: var(--page-mute); background: none; border: 0; padding: 6px 12px; border-radius: 999px; cursor: pointer }
+.seg button[aria-pressed="true"] { background: var(--page-accent); color: #fff }
+.seg button:focus-visible, .step:focus-visible { outline: 2px solid var(--page-accent); outline-offset: 2px }
+.journey { display: flex; gap: 6px; margin: 16px 0 8px; overflow-x: auto; padding-bottom: 4px }
+.step { flex: none; font: 500 13px var(--font); color: var(--page-ink); background: var(--page-chip); border: 1px solid var(--page-line); border-radius: 999px; padding: 7px 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center }
+.step b { font-weight: 700; color: var(--page-mute); font-variant-numeric: tabular-nums }
+.step[aria-current="true"] { border-color: var(--page-accent); color: var(--page-accent) }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); gap: 24px; align-items: start; margin-top: 12px }
+@media (max-width: 820px) { .stage { grid-template-columns: minmax(0, 1fr) } }
+.phone-slot { display: flex; justify-content: center; min-width: 0 }
+.notes { background: var(--page-chip); border: 1px solid var(--page-line); border-radius: 14px; padding: 16px; font-size: 14px; line-height: 1.55; min-width: 0 }
+.notes h2 { font-size: 15px; margin: 0 0 6px }
+.notes p { margin: 0 0 10px; color: var(--page-mute) }
+.notes ul { margin: 0; padding-left: 18px; color: var(--page-mute) }
+.notes .hint { font-size: 12px; color: var(--page-mute); border-top: 1px solid var(--page-line); padding-top: 10px; margin-top: 12px }
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px 16px; margin-top: 16px }
+.board figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0 }
+.board figcaption { font-size: 13px; font-weight: 500; text-align: center }
+.board figcaption span { display: block; color: var(--page-mute); font-weight: 400; font-size: 12px }
+.board .arrow { color: var(--page-mute) }
+
+/* Phone frame (dp = CSS px; scaled to fit) */
+.frame { position: relative; flex: none }
+.device { position: absolute; top: 0; left: 0; transform-origin: top left; border-radius: 36px; overflow: hidden; box-shadow: 0 0 0 10px #1B1E24, 0 20px 50px rgba(0,0,0,.28) }
+.app { width: 100%; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; position: relative; display: flex; flex-direction: column; overflow: hidden; -webkit-font-smoothing: antialiased }
+:where(.app) :where(button) { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit }
+.status { height: 28px; flex: none; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; font-size: 13px; font-weight: 500; color: var(--ink) }
+.status.on-dark { color: #fff }
+.status .dots { display: flex; gap: 5px; align-items: center }
+.gesture { height: 18px; flex: none; display: flex; justify-content: center; align-items: center }
+.gesture i { width: 108px; height: 4px; border-radius: 2px; background: var(--ink); opacity: .35 }
+.body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; position: relative }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none }
+.scroll::-webkit-scrollbar { display: none }
+svg.i { width: 24px; height: 24px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round }
+svg.i.s20 { width: 20px; height: 20px }
+svg.i.s18 { width: 18px; height: 18px }
+
+.appbar { height: 64px; flex: none; display: flex; align-items: center; padding: 0 4px 0 16px; gap: 4px }
+.appbar .title { flex: 1; min-width: 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.appbar .title.small { font-size: 18px; font-weight: 500 }
+.appbar.lead { padding-left: 4px }
+.ib { width: 48px; height: 48px; border-radius: 24px; display: inline-flex; align-items: center; justify-content: center; color: var(--ink) }
+.ib:hover { background: var(--surface) }
+.wordmark { font-size: 22px; font-weight: 700; letter-spacing: -.02em }
+.wordmark em { font-style: normal; color: var(--brand) }
+
+.sec { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 16px 8px }
+.sec h3 { margin: 0; font-size: 16px; font-weight: 600 }
+.sec a, .link { color: var(--brand); font-size: 14px; font-weight: 500; cursor: pointer }
+.label { padding: 20px 16px 8px; font-size: 13px; font-weight: 600; color: var(--ink2); letter-spacing: .01em }
+
+.carousel { display: flex; gap: 12px; overflow-x: auto; padding: 0 16px 4px; scrollbar-width: none }
+.carousel::-webkit-scrollbar { display: none }
+.rc { flex: none; width: 128px; cursor: pointer }
+.thumb { border-radius: 10px; border: 1px solid var(--line); background: var(--paper); overflow: hidden; display: block; box-shadow: var(--shadow) }
+.thumb svg { display: block; width: 100%; height: 100% }
+.rc .thumb { width: 128px; height: 170px }
+.name { font-size: 14px; font-weight: 500; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.meta { font-size: 12px; color: var(--ink2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+
+.quick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 16px }
+.qa { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px; border-radius: 14px; background: var(--surface); cursor: pointer; font-weight: 500; min-width: 0 }
+.qa span { line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.qa .ic { width: 32px; height: 32px; border-radius: 10px; background: var(--tint); color: var(--tint-ink); display: flex; align-items: center; justify-content: center; flex: none }
+
+.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 32px 16px; text-align: center; gap: 8px }
+.empty h2 { margin: 12px 0 0; font-size: 20px; font-weight: 600 }
+.empty p { margin: 0; color: var(--ink2); line-height: 1.5 }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 24px; border-radius: 24px; background: var(--brand); color: var(--brand-ink) !important; font-weight: 600 !important; font-size: 15px }
+.btn.block { width: 100%; height: 52px; border-radius: 26px }
+.btn.tonal { background: var(--tint); color: var(--tint-ink) !important }
+.btn.text { background: none; color: var(--brand) !important; padding: 0 12px }
+.pair { display: flex; gap: 8px; margin-top: 4px }
+
+/* Bottom navigation */
+.nav { flex: none; height: 72px; display: flex; background: var(--bg); border-top: 1px solid var(--line); position: relative }
+.tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: var(--ink2); cursor: pointer; min-width: 0 }
+.tab .pill { width: 56px; height: 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center }
+.tab.on { color: var(--ink); font-weight: 600 }
+.tab.on .pill { background: var(--tint); color: var(--tint-ink) }
+.tab.scan { color: var(--brand); font-weight: 600 }
+.tab.scan .fab { width: 52px; height: 40px; border-radius: 16px; background: var(--brand); color: var(--brand-ink); display: flex; align-items: center; justify-content: center }
+
+/* Document grid / list */
+.chips { display: flex; gap: 8px; padding: 4px 16px 12px; overflow-x: auto; scrollbar-width: none; flex: none }
+.chip { flex: none; height: 34px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); display: inline-flex; align-items: center; gap: 6px; color: var(--ink2); cursor: pointer; font-weight: 500 }
+.chip.on { background: var(--tint); color: var(--tint-ink); border-color: transparent }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 12px; padding: 0 16px 16px }
+.gi { min-width: 0; cursor: pointer; position: relative }
+.gi .thumb { width: 100%; aspect-ratio: 3 / 4 }
+.gi .row { display: flex; align-items: flex-start; gap: 4px }
+.gi .row > div { flex: 1; min-width: 0 }
+.gi .more { width: 32px; height: 32px; margin-top: 4px; margin-right: -6px; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: var(--ink2) }
+.check { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 13px; border: 2px solid #fff; background: rgba(15,21,33,.25); display: flex; align-items: center; justify-content: center; color: #fff }
+.gi.sel .thumb { outline: 3px solid var(--brand); outline-offset: -1px }
+.gi.sel .check { background: var(--brand); border-color: var(--brand) }
+.li { display: flex; gap: 14px; align-items: center; padding: 10px 4px 10px 16px; cursor: pointer }
+.li .thumb { width: 48px; height: 62px; flex: none; border-radius: 6px }
+.li > div { flex: 1; min-width: 0 }
+.li .name { margin-top: 0 }
+.hr { height: 1px; background: var(--line); margin-left: 78px }
+.snack { position: absolute; left: 12px; right: 12px; bottom: 84px; background: var(--ink); color: var(--bg); border-radius: 10px; padding: 0 8px 0 16px; height: 48px; display: flex; align-items: center; justify-content: space-between; font-size: 14px; box-shadow: 0 4px 14px rgba(0,0,0,.2) }
+.snack b { color: var(--tint); font-weight: 600; padding: 8px }
+.app.dark .snack b { color: #0046BA }
+
+/* Sheets */
+.scrim { position: absolute; inset: 0; background: var(--scrim); display: flex; flex-direction: column; justify-content: flex-end; z-index: 5 }
+.sheet { background: var(--bg); border-radius: 28px 28px 0 0; padding: 8px 0 24px }
+.handle { width: 32px; height: 4px; border-radius: 2px; background: var(--ink3); opacity: .5; margin: 4px auto 8px }
+.sheet .sh-head { display: flex; gap: 12px; align-items: center; padding: 8px 24px 12px }
+.sheet .sh-head .thumb { width: 36px; height: 46px; border-radius: 5px; flex: none }
+.sheet .sh-title { font-size: 16px; font-weight: 600 }
+.si { display: flex; align-items: center; gap: 18px; height: 56px; padding: 0 24px; cursor: pointer; font-size: 15px }
+.si svg { color: var(--ink2) }
+.si.danger, .si.danger svg { color: var(--danger) }
+.share-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 8px 20px 4px }
+.share-row div { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; text-align: center; color: var(--ink2) }
+.share-row i { width: 56px; height: 56px; border-radius: 28px; background: var(--surface2); display: flex; align-items: center; justify-content: center; color: var(--ink) }
+
+/* Settings */
+.set { display: flex; align-items: center; gap: 16px; min-height: 64px; padding: 8px 16px; cursor: pointer }
+.set svg { color: var(--ink2) }
+.set > div { flex: 1; min-width: 0 }
+.set .t { font-size: 16px }
+.set .v { font-size: 13px; color: var(--ink2); margin-top: 2px }
+
+/* Tools */
+.tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 0 8px }
+.tool { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 4px 12px; border-radius: 16px; cursor: pointer; font-size: 13px; text-align: center; min-width: 0 }
+.tool i { width: 56px; height: 56px; border-radius: 18px; background: var(--surface); color: var(--ink); display: flex; align-items: center; justify-content: center }
+.tool.primary i { background: var(--tint); color: var(--tint-ink) }
+
+/* Search */
+.searchbar { margin: 8px 12px; height: 52px; border-radius: 26px; background: var(--surface); display: flex; align-items: center; gap: 4px; padding: 0 4px; flex: none }
+.searchbar .q { flex: 1; font-size: 16px }
+.searchbar .q::after { content: ""; display: inline-block; width: 2px; height: 20px; background: var(--brand); vertical-align: -4px; margin-left: 1px }
+.sr { display: flex; gap: 14px; padding: 12px 16px; cursor: pointer }
+.sr .thumb { width: 52px; height: 68px; flex: none; border-radius: 6px }
+.sr > div { min-width: 0; flex: 1 }
+.sr .snip { font-size: 13px; color: var(--ink2); margin-top: 4px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+mark { background: var(--tint); color: var(--tint-ink); border-radius: 3px; padding: 0 2px; font-weight: 600 }
+.count { padding: 4px 16px 4px; font-size: 13px; color: var(--ink2) }
+
+/* Camera + review */
+.cam { background: #0B0C0E; color: #fff }
+.cam .ib { color: #fff }
+.cam .ib:hover { background: rgba(255,255,255,.08) }
+.viewfinder { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--desk) }
+.viewfinder svg { position: absolute; inset: 0; width: 100%; height: 100% }
+.hintpill { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); background: rgba(0,0,0,.55); color: #fff; border-radius: 18px; padding: 8px 14px; font-size: 13px; white-space: nowrap }
+.modes { display: flex; justify-content: center; gap: 22px; padding: 14px 0 8px; font-size: 14px; color: rgba(255,255,255,.62) }
+.modes .on { color: #fff; font-weight: 600 }
+.camctl { height: 112px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px }
+.shutter { width: 76px; height: 76px; border-radius: 38px; border: 4px solid #fff; display: flex; align-items: center; justify-content: center; cursor: pointer }
+.shutter i { width: 60px; height: 60px; border-radius: 30px; background: #fff; display: block }
+.stack { width: 48px; height: 56px; position: relative; cursor: pointer }
+.stack .thumb { position: absolute; width: 40px; height: 52px; border-radius: 5px; border: 2px solid #fff }
+.stack b { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; border-radius: 11px; background: var(--brand); color: var(--brand-ink); font-size: 12px; display: flex; align-items: center; justify-content: center; padding: 0 5px }
+.roundbtn { width: 48px; height: 48px; border-radius: 24px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; color: #fff }
+.review { background: var(--surface) }
+.review .stagearea { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 8px 40px 12px }
+.review .stagearea .thumb { width: 100%; max-width: 300px; aspect-ratio: 210 / 297; border-radius: 4px; box-shadow: 0 8px 28px rgba(15,21,33,.18) }
+.pageno { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--ink2); background: var(--bg); padding: 4px 10px; border-radius: 12px; border: 1px solid var(--line) }
+.edits { display: flex; justify-content: space-around; padding: 6px 8px 2px; background: var(--bg) }
+.edit { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: var(--ink2); padding: 8px 10px; cursor: pointer; border-radius: 12px; min-width: 64px }
+.edit svg { color: var(--ink) }
+.strip { display: flex; gap: 10px; padding: 10px 16px; background: var(--bg); overflow-x: auto; scrollbar-width: none }
+.strip .p { flex: none; width: 48px; height: 64px; border-radius: 6px; position: relative; cursor: pointer }
+.strip .p .thumb { width: 100%; height: 100%; border-radius: 6px }
+.strip .p.on .thumb { outline: 2.5px solid var(--brand); outline-offset: 1px }
+.strip .p b { position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-radius: 9px; background: var(--ink); color: var(--bg); font-size: 11px; display: flex; align-items: center; justify-content: center }
+.strip .add { flex: none; width: 48px; height: 64px; border-radius: 6px; border: 1.5px dashed var(--ink3); display: flex; align-items: center; justify-content: center; color: var(--ink2); cursor: pointer }
+.savebar { padding: 8px 16px 12px; background: var(--bg) }
+
+/* Viewer */
+.viewer .pagewrap { flex: 1; min-height: 0; background: var(--surface); display: flex; align-items: center; justify-content: center; padding: 16px 36px; position: relative }
+.viewer .pagewrap .thumb { width: 100%; aspect-ratio: 210 / 297; border-radius: 3px; box-shadow: 0 6px 22px rgba(15,21,33,.16) }
+.actions4 { display: flex; justify-content: space-around; padding: 8px 4px; border-top: 1px solid var(--line) }
+
+/* Onboarding */
+.ob { flex: 1; display: flex; flex-direction: column; padding: 0 24px 16px }
+.ob .vis { height: 44%; min-height: 300px; display: flex; align-items: center; justify-content: center; margin: 4px -8px 0; border-radius: 28px; background: var(--surface) }
+.ob .vis svg { width: 100%; height: 100% }
+.ob h2 { font-size: 28px; line-height: 1.25; margin: 28px 0 10px; font-weight: 700; letter-spacing: -.01em; text-wrap: balance }
+.ob p { color: var(--ink2); font-size: 16px; line-height: 1.55; margin: 0 }
+.ob .bottom { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px }
+.dotsrow { display: flex; gap: 6px }
+.dotsrow i { width: 6px; height: 6px; border-radius: 3px; background: var(--line) }
+.dotsrow i.on { width: 20px; background: var(--brand) }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px }
+.tags span { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px; background: var(--surface); font-size: 13px; font-weight: 500 }
+.tags svg { color: var(--ok) }
+
+/* Picker sheet */
+.pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 4px 20px 8px }
+.pick div { min-width: 0; cursor: pointer }
+.pick .thumb { width: 100%; aspect-ratio: 3 / 4; border-radius: 8px }
+@media (prefers-reduced-motion: no-preference) { .scrim .sheet { animation: up .22s cubic-bezier(.2,.8,.2,1) } @keyframes up { from { transform: translateY(40px); opacity: .6 } } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>OneScan Prototype</h1>
+      <div class="sub" id="sub"></div>
+    </div>
+    <div class="controls" role="group" aria-label="Prototype options">
+      <div class="seg" id="seg-mode"><button id="m-flow" data-mode="flow">Flow</button><button id="m-board" data-mode="board">All screens</button></div>
+      <div class="seg" id="seg-lang"><button id="l-th" data-lang="th">ไทย</button><button id="l-en" data-lang="en">English</button></div>
+      <div class="seg" id="seg-theme"><button id="t-light" data-scheme="light">Light</button><button id="t-dark" data-scheme="dark">Dark</button></div>
+      <div class="seg" id="seg-w"><button id="w-412" data-w="412">412 dp</button><button id="w-360" data-w="360">360 dp</button></div>
+    </div>
+  </header>
+  <nav class="journey" id="journey" aria-label="Journey"></nav>
+  <main id="main"></main>
+</div>
+
+<script>
+'use strict';
+const S = { mode: 'flow', lang: 'th', scheme: 'light', w: 412, screen: 'ob1', sel: new Set(['d2', 'd4']) };
+try { const saved = JSON.parse(localStorage.getItem('onescan-proto') || '{}'); Object.assign(S, { lang: saved.lang || S.lang, scheme: saved.scheme || S.scheme, w: saved.w || S.w, mode: saved.mode || S.mode }); } catch (e) {}
+const H = 915;
+
+/* ---------- copy ---------- */
+const T = {
+  th: {
+    sub: 'แตะในหน้าจอเพื่อเดินตาม Flow จริง · ข้อมูลเป็นตัวอย่าง',
+    j: ['Onboarding', 'หน้าแรก', 'สแกน', 'ตรวจทาน', 'บันทึก', 'เอกสาร', 'ค้นหา', 'แชร์'],
+    tabs: ['หน้าแรก', 'เอกสาร', 'สแกน', 'เครื่องมือ', 'ฉัน'],
+    ob1t: 'เปลี่ยนกระดาษเป็นเอกสารที่พร้อมใช้', ob1p: 'ถ่ายเอกสาร ใบเสร็จ หรือบัตร OneScan หาขอบ ปรับภาพให้อ่านง่าย และบันทึกเป็น PDF',
+    ob2t: 'ค้นหาและแชร์ได้ง่าย', ob2p: 'ค้นหาจากข้อความในเอกสารที่สแกนไว้ แล้วแชร์เป็น PDF ได้ทันที',
+    ob3t: 'เอกสารของคุณ อยู่กับคุณ', ob3p: 'การสแกนและอ่านข้อความหลักทำงานบนเครื่องของคุณ OneScan ไม่อัปโหลดเอกสารโดยอัตโนมัติ',
+    ob3a: 'ทำงานบนเครื่อง', ob3b: 'ไม่อัปโหลดอัตโนมัติ', ob3c: 'ไม่มีลายน้ำ',
+    skip: 'ข้าม', next: 'ถัดไป', start: 'เริ่มใช้งาน',
+    emptyT: 'ยังไม่มีเอกสาร', emptyP: 'สแกนเอกสารใบแรกของคุณเพื่อเริ่มต้น', scanDoc: 'สแกนเอกสาร', impPhoto: 'นำเข้ารูป', impPdf: 'นำเข้า PDF',
+    recent: 'เอกสารล่าสุด', seeAll: 'ดูทั้งหมด', shortcuts: 'ทางลัด', card: 'บัตร', receipt: 'ใบเสร็จ',
+    hint: 'วางเอกสารให้อยู่ในกรอบ', modes: ['เอกสาร', 'บัตร', 'ใบเสร็จ', 'หนังสือ'],
+    pages: (n) => `เอกสาร ${n} หน้า`, page: (i, n) => `หน้า ${i} / ${n}`,
+    crop: 'ครอบตัด', filter: 'ปรับภาพ', rotate: 'หมุน', del: 'ลบหน้า', save: 'บันทึกเอกสาร',
+    docs: 'เอกสาร', all: 'ทั้งหมด', folders: 'โฟลเดอร์', recentChip: 'ล่าสุด', saved: 'บันทึกเอกสารแล้ว', open: 'เปิด',
+    selected: (n) => `เลือก ${n} รายการ`, selAll: 'เลือกทั้งหมด', move: 'ย้ายไปโฟลเดอร์', share: 'แชร์', delete: 'ลบ',
+    rename: 'เปลี่ยนชื่อ', dup: 'ทำสำเนา', exportPdf: 'แชร์เป็น PDF',
+    fEmptyT: 'ยังไม่มีโฟลเดอร์', fEmptyP: 'สร้างโฟลเดอร์เพื่อจัดเอกสารในแบบของคุณ', newFolder: 'สร้างโฟลเดอร์', items: (n) => `${n} รายการ`,
+    tools: 'เครื่องมือ', create: 'สร้าง', import: 'นำเข้า', manage: 'จัดการ', book: 'หนังสือ', board: 'ไวท์บอร์ด', bcard: 'นามบัตร',
+    arrange: 'จัดหน้า', choose: 'เลือกเอกสาร',
+    me: 'ฉัน', general: 'ทั่วไป', lang: 'ภาษา', langV: 'ไทย', ocrLang: 'ภาษาสำหรับอ่านข้อความ', ocrV: 'อัตโนมัติ (ไทย + อังกฤษ)',
+    theme: 'ธีม', themeV: 'ตามระบบ', quality: 'คุณภาพการสแกน', qualityV: 'สูง', data: 'ข้อมูลและความเป็นส่วนตัว',
+    storage: 'พื้นที่จัดเก็บ', storageV: 'บนเครื่องนี้ · 24.6 MB', privacy: 'ความเป็นส่วนตัว', security: 'ความปลอดภัย', about: 'เกี่ยวกับ OneScan', aboutV: 'เวอร์ชัน 1.2.0',
+    query: 'ค่าไฟ', found: (n) => `พบ ${n} เอกสาร`, edit: 'แก้ไข', text: 'ข้อความ', sharePdf: 'แชร์ PDF',
+    shareTo: ['ข้อความ', 'อีเมล', 'ไดรฟ์', 'บันทึกในไฟล์'], copyLink: 'คัดลอก', nearby: 'แชร์ใกล้เคียง',
+    today: 'วันนี้', yesterday: 'เมื่อวาน',
+  },
+  en: {
+    sub: 'Tap inside the screen to walk the real flow · sample data',
+    j: ['Onboarding', 'Home', 'Scan', 'Review', 'Save', 'Documents', 'Search', 'Share'],
+    tabs: ['Home', 'Docs', 'Scan', 'Tools', 'Me'],
+    ob1t: 'Turn paper into documents you can use', ob1p: 'Capture documents, receipts or cards. OneScan finds the edges, makes them easy to read and saves a PDF.',
+    ob2t: 'Find and share with ease', ob2p: 'Search the text inside your scans, then share them as PDF in a tap.',
+    ob3t: 'Your documents stay with you', ob3p: 'Scanning and text recognition run on your phone. OneScan never uploads your documents automatically.',
+    ob3a: 'Works on your phone', ob3b: 'No automatic upload', ob3c: 'No watermark',
+    skip: 'Skip', next: 'Next', start: 'Get started',
+    emptyT: 'No documents yet', emptyP: 'Scan your first document to get started.', scanDoc: 'Scan document', impPhoto: 'Import photos', impPdf: 'Import PDF',
+    recent: 'Recent documents', seeAll: 'See all', shortcuts: 'Shortcuts', card: 'ID card', receipt: 'Receipt',
+    hint: 'Fit the document in the frame', modes: ['Document', 'ID card', 'Receipt', 'Book'],
+    pages: (n) => `${n}-page document`, page: (i, n) => `Page ${i} of ${n}`,
+    crop: 'Crop', filter: 'Adjust', rotate: 'Rotate', del: 'Delete', save: 'Save document',
+    docs: 'Documents', all: 'All', folders: 'Folders', recentChip: 'Recent', saved: 'Document saved', open: 'Open',
+    selected: (n) => `${n} selected`, selAll: 'Select all', move: 'Move to folder', share: 'Share', delete: 'Delete',
+    rename: 'Rename', dup: 'Duplicate', exportPdf: 'Share as PDF',
+    fEmptyT: 'No folders yet', fEmptyP: 'Create folders to organise documents your way.', newFolder: 'Create folder', items: (n) => `${n} items`,
+    tools: 'Tools', create: 'Create', import: 'Import', manage: 'Manage', book: 'Book', board: 'Whiteboard', bcard: 'Business card',
+    arrange: 'Arrange pages', choose: 'Choose a document',
+    me: 'Me', general: 'General', lang: 'Language', langV: 'English', ocrLang: 'Text recognition language', ocrV: 'Automatic (Thai + English)',
+    theme: 'Theme', themeV: 'System', quality: 'Scan quality', qualityV: 'High', data: 'Data and privacy',
+    storage: 'Storage', storageV: 'On this phone · 24.6 MB', privacy: 'Privacy', security: 'Security', about: 'About OneScan', aboutV: 'Version 1.2.0',
+    query: 'electricity', found: (n) => `${n} documents found`, edit: 'Edit', text: 'Text', sharePdf: 'Share PDF',
+    shareTo: ['Messages', 'Email', 'Drive', 'Save to Files'], copyLink: 'Copy', nearby: 'Nearby Share',
+    today: 'Today', yesterday: 'Yesterday',
+  },
+};
+const t = () => T[S.lang];
+
+/* ---------- sample documents (examples, not the user's data) ---------- */
+const DOCS = [
+  { id: 'd1', kind: 'contract', th: 'สัญญาเช่าคอนโด', en: 'Apartment lease', pages: 6, when: 'today' },
+  { id: 'd2', kind: 'receipt', th: 'ใบเสร็จร้านกาแฟ', en: 'Coffee receipt', pages: 1, when: 'yesterday' },
+  { id: 'd3', kind: 'bill', th: 'ใบแจ้งหนี้ค่าไฟ ต.ค.', en: 'Electricity bill Oct', pages: 2, when: { th: '12 ต.ค.', en: '12 Oct' } },
+  { id: 'd4', kind: 'id', th: 'สำเนาบัตรประชาชน', en: 'ID card copy', pages: 1, when: { th: '9 ต.ค.', en: '9 Oct' } },
+  { id: 'd5', kind: 'form', th: 'ใบสมัครงาน', en: 'Job application', pages: 3, when: { th: '2 ต.ค.', en: '2 Oct' } },
+  { id: 'd6', kind: 'notes', th: 'บันทึกการประชุม', en: 'Meeting notes', pages: 4, when: { th: '24 ก.ย.', en: '24 Sep' } },
+];
+const dn = (d) => d[S.lang];
+const dw = (d) => typeof d.when === 'string' ? t()[d.when] : d.when[S.lang];
+const pagesLabel = (n) => S.lang === 'th' ? `${n} หน้า` : `${n} page${n > 1 ? 's' : ''}`;
+
+/* ---------- icons (24 grid, stroke) ---------- */
+const P = {
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  home: '<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1z"/>',
+  docs: '<path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  scan: '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10"/>',
+  tools: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
+  back: '<path d="M15 5 8 12l7 7"/>',
+  more: '<circle cx="12" cy="5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="19" r="1.4" fill="currentColor"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  camera: '<path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>',
+  image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m4 18 5-5 4 4 3-3 4 4"/>',
+  pdf: '<path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5M12 17v-6M9.5 13.5 12 11l2.5 2.5"/>',
+  card: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><circle cx="8.5" cy="11" r="2"/><path d="M5.5 15.5a3.2 3.2 0 0 1 6 0M14 10h4M14 13.5h3"/>',
+  receipt: '<path d="M6 3h12v18l-2.2-1.5L13.6 21l-1.6-1.5-1.6 1.5-2.2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+  folder: '<path d="M3.5 7a1.5 1.5 0 0 1 1.5-1.5h4.5l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5V18a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18z"/>',
+  folderPlus: '<path d="M3.5 7a1.5 1.5 0 0 1 1.5-1.5h4.5l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5V18a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18z"/><path d="M12 11v5M9.5 13.5h5"/>',
+  book: '<path d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5v13"/>',
+  board: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20l4-4 4 4M7 9h6M7 12h9"/>',
+  bcard: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h6M7 13.5h9"/>',
+  flash: '<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>',
+  rotate: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>',
+  crop: '<path d="M7 3v14h14M3 7h14v14"/>',
+  adjust: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  share: '<circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="m8.2 10.8 7.6-4.1M8.2 13.2l7.6 4.1"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+  text: '<path d="M5 6h14M5 10h14M5 14h9M5 18h6"/>',
+  chevron: '<path d="m9 5 7 7-7 7"/>',
+  globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.7 2.5 14.3 0 17M12 3.5c-2.5 2.7-2.5 14.3 0 17"/>',
+  palette: '<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1 0 1.5-.7 1.5-1.5 0-1.2-1-1.6-1-2.6 0-.9.7-1.4 1.6-1.4H17a3.5 3.5 0 0 0 3.5-3.5c0-4.4-3.8-8-8.5-8z"/><circle cx="8" cy="11" r="1"/><circle cx="11" cy="7.5" r="1"/><circle cx="15.5" cy="8.5" r="1"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+  storage: '<rect x="3.5" y="5" width="17" height="6" rx="1.5"/><rect x="3.5" y="13" width="17" height="6" rx="1.5"/><path d="M7 8h.01M7 16h.01"/>',
+  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v6M12 7.5h.01"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  quality: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M7 15V9l2.5 3L12 9v6M15 9h2.5v6"/>',
+  ocrlang: '<path d="M4 6h9M8.5 4v2c0 4-2 7-4.5 8.5M6 10c1 2 3 3.5 5 4M13 20l4-9 4 9M14.5 17h5"/>',
+  selall: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12.5 3 3 5-6"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  mail: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m4 7 8 6 8-6"/>',
+  msg: '<path d="M4 5h16v11H9l-5 4z"/>',
+  drive: '<path d="M8.5 4h7l5.5 9.5-3.5 6h-11l-3.5-6z"/><path d="M8.5 4l5.5 9.5M15.5 4 10 13.5M3 13.5h18"/>',
+  file: '<path d="M4 7a1.5 1.5 0 0 1 1.5-1.5h4l2 2h7A1.5 1.5 0 0 1 20 9v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18z"/><path d="M12 11v5M9.5 13.5 12 16l2.5-2.5"/>',
+  nearby: '<circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>',
+  list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+};
+const ic = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n]}</svg>`;
+
+/* ---------- document thumbnails (drawn pages) ---------- */
+function lines(x, y, w, n, gap, widths) {
+  let s = '';
+  for (let i = 0; i < n; i++) s += `<rect x="${x}" y="${y + i * gap}" width="${w * widths[i % widths.length]}" height="3.2" rx="1.6" fill="var(--paper-line)"/>`;
+  return s;
+}
+function page(kind) {
+  const W = 120, Hh = 160;
+  let c = '';
+  if (kind === 'contract') c = `<rect x="34" y="14" width="52" height="7" rx="2" fill="var(--paper-head)"/>${lines(14, 32, 92, 9, 8, [1, .94, .97, .7])}${lines(14, 112, 92, 3, 8, [1, .9, .6])}<path d="M70 148c4-6 8 4 12-2s6 3 10-1" stroke="#2D3A55" stroke-width="1.6" fill="none"/>`;
+  if (kind === 'receipt') c = `<rect x="30" y="0" width="60" height="160" fill="var(--paper)"/><rect x="44" y="12" width="32" height="6" rx="2" fill="#24324D"/>${lines(38, 28, 44, 3, 7, [1, .8, .9])}${[0, 1, 2, 3, 4].map((i) => `<rect x="38" y="${56 + i * 10}" width="26" height="3.2" rx="1.6" fill="var(--paper-line)"/><rect x="70" y="${56 + i * 10}" width="12" height="3.2" rx="1.6" fill="var(--paper-line)"/>`).join('')}<rect x="38" y="112" width="44" height="1.4" fill="#24324D"/><rect x="38" y="118" width="20" height="5" rx="1.5" fill="#24324D"/><rect x="66" y="118" width="16" height="5" rx="1.5" fill="#24324D"/>`;
+  if (kind === 'bill') c = `<rect x="12" y="12" width="20" height="20" rx="4" fill="#E0A100"/><rect x="38" y="15" width="44" height="5" rx="2" fill="#24324D"/>${lines(38, 25, 40, 1, 7, [1])}<rect x="12" y="44" width="96" height="58" rx="3" fill="none" stroke="var(--paper-line)"/>${[0, 1, 2, 3].map((i) => `<rect x="18" y="${52 + i * 12}" width="44" height="3.2" rx="1.6" fill="var(--paper-line)"/><rect x="82" y="${52 + i * 12}" width="20" height="3.2" rx="1.6" fill="var(--paper-line)"/>`).join('')}<rect x="60" y="112" width="48" height="12" rx="3" fill="var(--paper-head)" opacity=".9"/>${lines(12, 134, 80, 2, 8, [1, .7])}`;
+  if (kind === 'id') c = `<rect x="10" y="44" width="100" height="64" rx="7" fill="#DCE7F7" stroke="#B9C8E2"/><rect x="18" y="52" width="40" height="5" rx="2" fill="#2F5FD0"/><rect x="18" y="64" width="24" height="30" rx="3" fill="#9FB2CF"/><circle cx="30" cy="74" r="6" fill="#7D90AE"/>${lines(48, 66, 52, 4, 8, [1, .8, .9, .6])}`;
+  if (kind === 'form') c = `<rect x="14" y="14" width="56" height="7" rx="2" fill="#24324D"/>${[0, 1, 2, 3, 4, 5].map((i) => `<rect x="14" y="${34 + i * 18}" width="30" height="3.2" rx="1.6" fill="var(--paper-line)"/><rect x="50" y="${30 + i * 18}" width="56" height="11" rx="2" fill="none" stroke="var(--paper-line)"/>`).join('')}<rect x="14" y="142" width="34" height="8" rx="2" fill="var(--paper-head)"/>`;
+  if (kind === 'notes') c = `<rect x="14" y="14" width="64" height="7" rx="2" fill="#24324D"/>${lines(14, 30, 70, 1, 8, [.6])}${[0, 1, 2].map((i) => `<circle cx="18" cy="${50 + i * 30}" r="2.2" fill="#24324D"/>${lines(26, 48 + i * 30, 80, 3, 7, [1, .85, .5])}`).join('')}`;
+  if (kind === 'clean') c = `<rect x="34" y="14" width="52" height="7" rx="2" fill="var(--paper-head)"/>${lines(14, 32, 92, 14, 8, [1, .94, .97, .7, .88])}`;
+  return `<svg viewBox="0 0 ${W} ${Hh}" preserveAspectRatio="xMidYMid slice"><rect width="${W}" height="${Hh}" fill="var(--paper)"/>${c}</svg>`;
+}
+const thumb = (kind, cls = '') => `<span class="thumb ${cls}">${page(kind)}</span>`;
+
+/* ---------- shared chrome ---------- */
+const status = (dark) => `<div class="status ${dark ? 'on-dark' : ''}"><span>9:41</span><span class="dots"><svg width="16" height="12" viewBox="0 0 16 12"><path d="M1 11h2V8H1zm4 0h2V6H5zm4 0h2V3H9zm4 0h2V0h-2z" fill="currentColor"/></svg><svg width="22" height="12" viewBox="0 0 22 12"><rect x=".5" y=".5" width="18" height="11" rx="2.5" fill="none" stroke="currentColor"/><rect x="2.5" y="2.5" width="12" height="7" rx="1" fill="currentColor"/><rect x="19.5" y="4" width="1.5" height="4" rx=".7" fill="currentColor"/></svg></span></div>`;
+function nav(active) {
+  const x = t().tabs;
+  const tab = (key, i, icon, go) => key === 'scan'
+    ? `<button class="tab scan" data-go="camera" aria-label="${x[i]}"><span class="fab">${ic('scan')}</span>${x[i]}</button>`
+    : `<button class="tab ${active === key ? 'on' : ''}" data-go="${go}"><span class="pill">${ic(icon, 's20')}</span>${x[i]}</button>`;
+  return `<div class="nav">${tab('home', 0, 'home', 'home')}${tab('docs', 1, 'docs', 'docs')}${tab('scan', 2)}${tab('tools', 3, 'tools', 'tools')}${tab('me', 4, 'user', 'me')}</div>`;
+}
+const appbar = (title, actions = '', lead = '') => `<div class="appbar ${lead ? 'lead' : ''}">${lead}<div class="title ${lead ? 'small' : ''}">${title}</div>${actions}</div>`;
+const b = (icon, go, label) => `<button class="ib" ${go ? `data-go="${go}"` : ''} aria-label="${label || icon}">${ic(icon)}</button>`;
+
+/* ---------- onboarding visuals ---------- */
+function visScan() {
+  const pg = (k) => page(k).replace(/<svg[^>]*>|<\/svg>/g, '');
+  return `<svg viewBox="0 0 360 300" aria-hidden="true">
+    <rect x="14" y="40" width="176" height="220" rx="18" fill="var(--desk)"/>
+    <g transform="matrix(.9 -.1 .07 .96 42 70)"><rect width="120" height="160" fill="#F3F1EC"/><g>${pg('contract')}</g></g>
+    <polygon points="42,70 150,58 161,212 53,224" fill="rgba(91,147,255,.12)" stroke="#5B93FF" stroke-width="3" stroke-linejoin="round"/>
+    ${[[42, 70], [150, 58], [161, 212], [53, 224]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5.5" fill="var(--desk)" stroke="#5B93FF" stroke-width="3"/>`).join('')}
+    <path d="M200 150h22m-7-7 7 7-7 7" stroke="var(--ink3)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(234 44)"><rect width="112" height="150" rx="3" fill="var(--paper)" stroke="var(--line)"/><g transform="scale(.933 .9375)">${pg('clean')}</g></g>
+    <g transform="translate(238 208)"><rect width="104" height="40" rx="20" fill="var(--tint)"/><text x="52" y="25.5" text-anchor="middle" font-size="13" font-weight="600" font-family="Roboto, Noto Sans Thai, sans-serif" fill="var(--tint-ink)">PDF · 1</text></g>
+  </svg>`;
+}
+function visFind() {
+  return `<svg viewBox="0 0 360 300" aria-hidden="true">
+    <g transform="translate(30 46)"><rect width="150" height="200" rx="6" fill="var(--paper)" stroke="var(--line)"/><g transform="scale(1.25)">${page('bill').replace(/<svg[^>]*>|<\/svg>/g, '')}</g><rect x="14" y="62" width="104" height="18" rx="5" fill="var(--brand)" opacity=".22"/><rect x="14" y="62" width="104" height="18" rx="5" fill="none" stroke="var(--brand)" stroke-width="2"/></g>
+    <g transform="translate(118 20)"><rect width="190" height="44" rx="22" fill="var(--bg)" stroke="var(--line)"/><g transform="translate(14 10)" stroke="var(--ink2)" fill="none" stroke-width="2.2"><circle cx="10" cy="10" r="7"/><path d="m19 19-4-4"/></g><text x="46" y="28" font-size="16" font-family="Roboto, Noto Sans Thai, sans-serif" fill="var(--ink)">${t().query}</text></g>
+    <path d="M196 150h24m-7-7 7 7-7 7" stroke="var(--ink3)" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(234 96)"><rect width="96" height="124" rx="8" fill="var(--bg)" stroke="var(--line)"/><rect x="14" y="16" width="34" height="18" rx="4" fill="#D93025"/><text x="19" y="29.5" font-size="11" font-weight="700" fill="#fff" font-family="Roboto, sans-serif">PDF</text>${lines(14, 46, 68, 5, 9, [1, .8, .9, .6])}<rect x="14" y="96" width="68" height="18" rx="9" fill="var(--brand)"/><g transform="translate(26 99) scale(.5)" stroke="var(--brand-ink)" fill="none" stroke-width="2.6">${P.share}</g><rect x="44" y="103" width="28" height="4" rx="2" fill="var(--brand-ink)"/></g>
+  </svg>`;
+}
+function visPrivate() {
+  return `<svg viewBox="0 0 360 300" aria-hidden="true">
+    <g transform="translate(110 26)"><rect width="140" height="250" rx="24" fill="var(--bg)" stroke="var(--ink3)" stroke-width="3"/><rect x="54" y="10" width="32" height="6" rx="3" fill="var(--ink3)"/>
+    ${[0, 1, 2].map((i) => `<g transform="translate(${24 + i * 10} ${46 + i * 22}) rotate(${-6 + i * 5})"><rect width="72" height="96" rx="3" fill="var(--paper)" stroke="var(--line)"/><g transform="scale(.6)">${page(['receipt', 'bill', 'contract'][i]).replace(/<svg[^>]*>|<\/svg>/g, '')}</g></g>`).join('')}
+    <rect x="18" y="200" width="104" height="30" rx="15" fill="var(--tint)"/><g transform="translate(28 205) scale(.83)" stroke="var(--tint-ink)" fill="none" stroke-width="2.2">${P.lock}</g><rect x="56" y="212" width="54" height="6" rx="3" fill="var(--tint-ink)"/></g>
+  </svg>`;
+}
+
+/* ---------- screens ---------- */
+const screens = {
+  ob1: { cap: ['Onboarding 1', 'Scan'], j: 0, html: () => onboarding(1) },
+  ob2: { cap: ['Onboarding 2', 'Find & share'], j: 0, html: () => onboarding(2) },
+  ob3: { cap: ['Onboarding 3', 'Privacy'], j: 0, html: () => onboarding(3) },
+  fresh: { cap: ['Fresh Home', 'No documents yet'], j: 1, html: fresh },
+  home: { cap: ['Home', 'Returning user'], j: 1, html: home },
+  camera: { cap: ['Scan', 'One tap from any tab'], j: 2, html: camera },
+  review1: { cap: ['Review', 'Single page'], j: 3, html: () => review(1) },
+  review3: { cap: ['Review', 'Multi-page'], j: 3, html: () => review(3) },
+  saved: { cap: ['Saved', 'Lands in Documents'], j: 4, html: () => docs('grid', { snack: true }) },
+  docs: { cap: ['Documents', 'Grid'], j: 5, html: () => docs('grid') },
+  docsList: { cap: ['Documents', 'List'], j: 5, html: () => docs('list') },
+  select: { cap: ['Selection', 'Long press'], j: 5, html: () => docs('grid', { select: true }) },
+  moreSheet: { cap: ['More', 'Bottom sheet'], j: 5, html: () => docs('grid', { sheet: 'more' }) },
+  foldersEmpty: { cap: ['Folders', 'Empty'], j: 5, html: () => folders(false) },
+  folder: { cap: ['Folder', 'With content'], j: 5, html: folderOpen },
+  tools: { cap: ['Tools', 'Utility launcher'], j: 5, html: tools },
+  me: { cap: ['Me', 'Settings'], j: 5, html: me },
+  search: { cap: ['Search', 'Matches in text'], j: 6, html: search },
+  viewer: { cap: ['Document', 'Open'], j: 6, html: viewer },
+  share: { cap: ['Share', 'Android share sheet'], j: 7, html: () => viewer(true) },
+};
+const order = Object.keys(screens);
+const journeyTargets = ['ob1', 'home', 'camera', 'review3', 'saved', 'docs', 'search', 'share'];
+
+function onboarding(n) {
+  const x = t();
+  const vis = [visScan, visFind, visPrivate][n - 1]();
+  const title = [x.ob1t, x.ob2t, x.ob3t][n - 1];
+  const body = [x.ob1p, x.ob2p, x.ob3p][n - 1];
+  const tags = n === 3 ? `<div class="tags"><span>${ic('check', 's18')}${x.ob3a}</span><span>${ic('check', 's18')}${x.ob3b}</span><span>${ic('check', 's18')}${x.ob3c}</span></div>` : '';
+  const next = n < 3 ? `<button class="btn" data-go="ob${n + 1}">${x.next}</button>` : `<button class="btn" data-go="fresh">${x.start}</button>`;
+  return `${status()}<div class="body"><div class="appbar"><div class="title"><span class="wordmark">One<em>Scan</em></span></div>${n < 3 ? `<button class="btn text" data-go="fresh">${x.skip}</button>` : ''}</div>
+    <div class="ob"><div class="vis">${vis}</div><h2>${title}</h2><p>${body}</p>${tags}
+    <div class="bottom"><div class="dotsrow">${[1, 2, 3].map((i) => `<i class="${i === n ? 'on' : ''}"></i>`).join('')}</div>${next}</div></div></div>${gesture()}`;
+}
+const gesture = () => '<div class="gesture"><i></i></div>';
+function homeBar() {
+  return appbar('<span class="wordmark">One<em>Scan</em></span>', b('search', 'search', 'Search') + b('user', 'me', 'Me'));
+}
+function fresh() {
+  const x = t();
+  return `${status()}<div class="body">${homeBar()}
+    <div class="empty">
+      <svg width="148" height="120" viewBox="0 0 148 120" aria-hidden="true"><g transform="translate(26 14) rotate(-8)"><rect width="66" height="88" rx="4" fill="var(--surface2)"/></g><g transform="translate(46 10)"><rect width="66" height="88" rx="4" fill="var(--paper)" stroke="var(--line)"/><rect x="12" y="12" width="28" height="5" rx="2" fill="var(--brand)"/>${lines(12, 26, 42, 6, 8, [1, .8, .9, .6])}</g><path d="M38 30v-10a6 6 0 0 1 6-6h10M104 14h10a6 6 0 0 1 6 6v10M120 88v10a6 6 0 0 1-6 6h-10M54 104H44a6 6 0 0 1-6-6V88" stroke="var(--brand)" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+      <h2>${x.emptyT}</h2><p>${x.emptyP}</p>
+      <button class="btn" data-go="camera" style="margin-top:16px">${ic('camera', 's20')}${x.scanDoc}</button>
+      <div class="pair"><button class="btn text">${ic('image', 's20')}${x.impPhoto}</button><button class="btn text">${ic('pdf', 's20')}${x.impPdf}</button></div>
+    </div></div>${nav('home')}${gesture()}`;
+}
+function home() {
+  const x = t();
+  const cards = DOCS.slice(0, 5).map((d) => `<button class="rc" data-go="viewer">${thumb(d.kind)}<div class="name">${dn(d)}</div><div class="meta">${dw(d)}</div></button>`).join('');
+  const qa = (icon, label, go) => `<button class="qa" ${go ? `data-go="${go}"` : ''}><span class="ic">${ic(icon, 's20')}</span><span>${label}</span></button>`;
+  return `${status()}<div class="body">${homeBar()}<div class="scroll">
+    <div class="sec"><h3>${x.recent}</h3><a data-go="docs">${x.seeAll}</a></div>
+    <div class="carousel">${cards}</div>
+    <div class="sec" style="padding-top:24px"><h3>${x.shortcuts}</h3></div>
+    <div class="quick">${qa('image', x.impPhoto)}${qa('pdf', x.impPdf)}${qa('card', x.card, 'camera')}${qa('receipt', x.receipt, 'camera')}</div>
+  </div></div>${nav('home')}${gesture()}`;
+}
+function camera() {
+  const x = t();
+  return `${status(true)}<div class="body cam">
+    <div class="appbar">${b('close', 'home', 'Close')}<div class="title"></div>${b('flash', '', 'Flash')}<button class="ib" style="font-size:13px;font-weight:700">HD</button></div>
+    <div class="viewfinder"><svg viewBox="0 0 412 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <rect width="412" height="520" fill="var(--desk)"/><rect width="412" height="520" fill="url(#grain)" opacity=".0"/>
+      <g transform="matrix(.93 -.06 .05 .97 70 70)"><rect width="270" height="360" fill="#F3F1EC"/><g transform="scale(2.25)">${page('contract').replace(/<svg[^>]*>|<\/svg>|<rect width="120" height="160" fill="var\(--paper\)"\/>/g, '')}</g></g>
+      <polygon points="70,70 321,54 336,404 88,420" fill="rgba(91,147,255,.10)" stroke="#5B93FF" stroke-width="3" stroke-linejoin="round"/>
+      ${[[70, 70], [321, 54], [336, 404], [88, 420]].map(([a, c]) => `<circle cx="${a}" cy="${c}" r="7" fill="#0B0C0E" stroke="#5B93FF" stroke-width="3"/>`).join('')}
+    </svg><div class="hintpill">${x.hint}</div></div>
+    <div class="modes">${x.modes.map((m, i) => `<span class="${i === 0 ? 'on' : ''}">${m}</span>`).join('')}</div>
+    <div class="camctl"><button class="roundbtn" aria-label="${x.impPhoto}">${ic('image')}</button><button class="shutter" data-go="review1" aria-label="Capture"><i></i></button><button class="stack" data-go="review3" aria-label="Pages"><span class="thumb" style="transform:rotate(-6deg);left:2px">${page('form')}</span><span class="thumb" style="left:6px;top:4px">${page('contract')}</span><b>2</b></button></div>
+  </div><div class="gesture"><i style="background:#fff"></i></div>`;
+}
+function review(n) {
+  const x = t();
+  const kinds = ['contract', 'form', 'notes'];
+  const cur = n === 1 ? 0 : 1;
+  const strip = Array.from({ length: n }, (_, i) => `<button class="p ${i === cur ? 'on' : ''}">${thumb(kinds[i])}<b>${i + 1}</b></button>`).join('') + `<button class="add" data-go="camera" aria-label="Add page">${ic('plus')}</button>`;
+  return `${status()}<div class="body review">${appbar(x.pages(n), b('more', '', 'More'), b('back', 'camera', 'Back'))}
+    <div class="stagearea" style="position:relative"><span class="pageno">${x.page(cur + 1, n)}</span>${thumb(n === 1 ? 'contract' : kinds[cur])}</div>
+    <div class="edits"><button class="edit">${ic('crop')}${x.crop}</button><button class="edit">${ic('adjust')}${x.filter}</button><button class="edit">${ic('rotate')}${x.rotate}</button><button class="edit">${ic('trash')}${x.del}</button></div>
+    <div class="strip">${strip}</div>
+    <div class="savebar"><button class="btn block" data-go="saved">${x.save}</button></div></div>${gesture()}`;
+}
+function docGrid(select) {
+  return `<div class="grid">${DOCS.map((d) => {
+    const sel = select && S.sel.has(d.id);
+    return `<div class="gi ${sel ? 'sel' : ''}" ${select ? `data-toggle="${d.id}"` : 'data-go="viewer"'}>${thumb(d.kind)}${select ? `<span class="check">${sel ? ic('check', 's18') : ''}</span>` : ''}<div class="row"><div><div class="name">${dn(d)}</div><div class="meta">${pagesLabel(d.pages)} · ${dw(d)}</div></div>${select ? '' : `<button class="more" data-go="moreSheet" aria-label="More">${ic('more', 's20')}</button>`}</div></div>`;
+  }).join('')}</div>`;
+}
+function docList() {
+  return DOCS.map((d, i) => `${i ? '<div class="hr"></div>' : ''}<div class="li" data-go="viewer">${thumb(d.kind)}<div><div class="name">${dn(d)}</div><div class="meta">${pagesLabel(d.pages)} · ${dw(d)}</div></div><button class="ib" data-go="moreSheet" aria-label="More" style="color:var(--ink2)">${ic('more', 's20')}</button></div>`).join('');
+}
+function chips(active) {
+  const x = t();
+  const c = (k, label, icon, go) => `<button class="chip ${active === k ? 'on' : ''}" data-go="${go}">${icon ? ic(icon, 's18') : ''}${label}</button>`;
+  return `<div class="chips">${c('all', x.all, '', 'docs')}${c('folders', x.folders, 'folder', 'foldersEmpty')}${c('recent', x.recentChip, '', 'docsList')}</div>`;
+}
+function docs(view, opt = {}) {
+  const x = t();
+  const bar = opt.select
+    ? appbar(x.selected(S.sel.size), b('selall', '', x.selAll) + b('folder', '', x.move) + b('trash', '', x.delete), b('close', 'docs', 'Close'))
+    : appbar(x.docs, b('search', 'search', 'Search') + `<button class="ib" data-go="${view === 'grid' ? 'docsList' : 'docs'}" aria-label="View">${ic(view === 'grid' ? 'list' : 'tools')}</button>` + b('folderPlus', 'foldersEmpty', x.newFolder));
+  const snack = opt.snack ? `<div class="snack">${x.saved}<b data-go="viewer">${x.open}</b></div>` : '';
+  const d0 = DOCS[1];
+  const sheet = opt.sheet === 'more' ? `<div class="scrim" data-go="docs"><div class="sheet" data-stop><div class="handle"></div><div class="sh-head">${thumb(d0.kind)}<div><div class="sh-title">${dn(d0)}</div><div class="meta">${pagesLabel(d0.pages)} · ${dw(d0)}</div></div></div>
+    <div class="si">${ic('edit')}${x.rename}</div><div class="si">${ic('folder')}${x.move}</div><div class="si" data-go="share">${ic('share')}${x.exportPdf}</div><div class="si">${ic('copy')}${x.dup}</div><div class="si danger">${ic('trash')}${x.delete}</div></div></div>` : '';
+  const content = view === 'grid' ? docGrid(opt.select) : docList();
+  return `${status()}<div class="body">${bar}${opt.select ? '<div style="height:50px"></div>' : chips(view === 'list' ? 'recent' : 'all')}<div class="scroll">${content}</div>${snack}${sheet}</div>${nav('docs')}${gesture()}`;
+}
+function folders() {
+  const x = t();
+  return `${status()}<div class="body">${appbar(x.docs, b('search', 'search', 'Search') + b('tools', 'docs', 'View') + b('folderPlus', 'folder', x.newFolder))}${chips('folders')}
+    <div class="empty"><span style="color:var(--ink3)">${ic('folder').replace('class="i ', 'style="width:56px;height:56px" class="i ')}</span><h2 style="font-size:18px">${x.fEmptyT}</h2><p>${x.fEmptyP}</p><button class="btn tonal" data-go="folder" style="margin-top:12px">${ic('plus', 's20')}${x.newFolder}</button></div></div>${nav('docs')}${gesture()}`;
+}
+function folderOpen() {
+  const x = t();
+  const name = S.lang === 'th' ? 'งาน' : 'Work';
+  return `${status()}<div class="body">${appbar(name, b('search', 'search', 'Search') + b('more', '', 'More'), b('back', 'foldersEmpty', 'Back'))}<div class="count" style="padding-bottom:12px">${x.items(4)}</div><div class="scroll"><div class="grid">${[DOCS[0], DOCS[4], DOCS[5], DOCS[2]].map((d) => `<div class="gi" data-go="viewer">${thumb(d.kind)}<div class="row"><div><div class="name">${dn(d)}</div><div class="meta">${pagesLabel(d.pages)} · ${dw(d)}</div></div><button class="more" data-go="moreSheet" aria-label="More">${ic('more', 's20')}</button></div></div>`).join('')}</div></div></div>${nav('docs')}${gesture()}`;
+}
+function tools() {
+  const x = t();
+  const tl = (icon, label, go, primary) => `<button class="tool ${primary ? 'primary' : ''}" ${go ? `data-go="${go}"` : ''}><i>${ic(icon)}</i>${label}</button>`;
+  return `${status()}<div class="body">${appbar(x.tools)}<div class="scroll">
+    <div class="label">${x.create}</div><div class="tools">${tl('scan', x.scanDoc, 'camera', true)}${tl('card', x.card, 'camera', true)}${tl('receipt', x.receipt, 'camera', true)}${tl('book', x.book, 'camera', true)}${tl('board', x.board, 'camera', true)}${tl('bcard', x.bcard, 'camera', true)}</div>
+    <div class="label">${x.import}</div><div class="tools">${tl('image', x.impPhoto)}${tl('pdf', x.impPdf)}</div>
+    <div class="label">${x.manage}</div><div class="tools">${tl('docs', x.arrange, 'review3')}${tl('rotate', x.rotate, 'review3')}${tl('crop', x.crop, 'review3')}${tl('share', x.share, 'share')}</div>
+  </div></div>${nav('tools')}${gesture()}`;
+}
+function me() {
+  const x = t();
+  const row = (icon, title, value) => `<div class="set">${ic(icon)}<div><div class="t">${title}</div>${value ? `<div class="v">${value}</div>` : ''}</div>${ic('chevron', 's20').replace('class="i', 'style="color:var(--ink3)" class="i')}</div>`;
+  return `${status()}<div class="body">${appbar(x.me)}<div class="scroll">
+    <div class="label">${x.general}</div>${row('globe', x.lang, x.langV)}${row('ocrlang', x.ocrLang, x.ocrV)}${row('palette', x.theme, x.themeV)}${row('quality', x.quality, x.qualityV)}
+    <div class="label">${x.data}</div>${row('storage', x.storage, x.storageV)}${row('eye', x.privacy)}${row('lock', x.security)}
+    <div class="label"></div>${row('info', x.about, x.aboutV)}
+  </div></div>${nav('me')}${gesture()}`;
+}
+function search() {
+  const x = t();
+  const res = S.lang === 'th'
+    ? [[DOCS[2], 'การไฟฟ้านครหลวง ใบแจ้ง<mark>ค่าไฟ</mark>ฟ้า ประจำเดือนตุลาคม 2569 ยอดชำระ 1,284.50 บาท'], [{ kind: 'bill', th: 'ใบแจ้งหนี้ค่าไฟ ก.ย.', pages: 2, when: { th: '11 ก.ย.' } }, '…รวม<mark>ค่าไฟ</mark>ฟ้าและภาษีมูลค่าเพิ่ม 1,102.75 บาท ชำระภายในวันที่ 25…']]
+    : [[DOCS[2], 'Metropolitan Electricity Authority — <mark>electricity</mark> bill for October 2026, amount due 1,284.50 THB'], [{ kind: 'bill', en: 'Electricity bill Sep', pages: 2, when: { en: '11 Sep' } }, '…total <mark>electricity</mark> charge incl. VAT 1,102.75 THB, due by the 25th…']];
+  return `${status()}<div class="body"><div class="searchbar">${b('back', 'home', 'Back')}<span class="q">${x.query}</span>${b('close', '', 'Clear')}</div>
+    <div class="count">${x.found(res.length)}</div>
+    ${res.map(([d, snip]) => `<div class="sr" data-go="viewer">${thumb(d.kind)}<div><div class="name" style="margin-top:0">${dn(d)}</div><div class="snip">${snip}</div><div class="meta" style="margin-top:4px">${pagesLabel(d.pages)} · ${dw(d)}</div></div></div>`).join('')}
+  </div>${gesture()}`;
+}
+function viewer(share) {
+  const x = t();
+  const d = DOCS[2];
+  const sheet = share ? `<div class="scrim" data-go="viewer"><div class="sheet" data-stop><div class="handle"></div><div class="sh-head">${thumb(d.kind)}<div><div class="sh-title">${dn(d)}.pdf</div><div class="meta">PDF · 958 KB</div></div></div>
+    <div class="share-row">${[['msg', x.shareTo[0]], ['mail', x.shareTo[1]], ['drive', x.shareTo[2]], ['file', x.shareTo[3]]].map(([i, l]) => `<div><i>${ic(i)}</i>${l}</div>`).join('')}</div>
+    <div class="share-row">${[['nearby', x.nearby], ['copy', x.copyLink]].map(([i, l]) => `<div><i>${ic(i)}</i>${l}</div>`).join('')}</div></div></div>` : '';
+  return `${status()}<div class="body viewer">${appbar(dn(d), b('search', '', 'Find') + b('more', 'moreSheet', 'More'), b('back', 'search', 'Back'))}
+    <div class="pagewrap"><span class="pageno">${x.page(1, 2)}</span>${thumb(d.kind)}</div>
+    <div class="actions4"><button class="edit" data-go="share">${ic('share')}${x.share}</button><button class="edit" data-go="review3">${ic('edit')}${x.edit}</button><button class="edit">${ic('text')}${x.text}</button><button class="edit" data-go="moreSheet">${ic('more')}${S.lang === 'th' ? 'เพิ่มเติม' : 'More'}</button></div>
+    ${sheet}</div>${gesture()}`;
+}
+
+/* ---------- rendering ---------- */
+function device(id, scale) {
+  const w = S.w;
+  const inner = screens[id].html();
+  return `<div class="frame" style="width:${w * scale}px;height:${H * scale}px"><div class="device" style="width:${w}px;height:${H}px;transform:scale(${scale})"><div class="app ${S.scheme === 'dark' ? 'dark' : ''} ${id === 'camera' ? 'cam' : ''}" data-screen="${id}" lang="${S.lang}">${inner}</div></div></div>`;
+}
+function phoneScale() {
+  const avail = Math.max(320, window.innerHeight - 190);
+  const wAvail = Math.min(document.querySelector('.wrap').clientWidth - 40, 520);
+  return Math.min(1, avail / H, wAvail / S.w);
+}
+const NOTES = {
+  ob1: ['Onboarding sells; Home works.', 'Three short screens with product visuals: paper → detection frame → clean scan. Skip goes straight to Home.'],
+  ob2: ['Show the outcome, not a paragraph.', 'Search highlight on a real bill, then a PDF ready to share.'],
+  ob3: ['Privacy, stated as behaviour.', 'Core scanning and OCR on the phone; no automatic upload. Last screen: Get started.'],
+  fresh: ['Zero documents: one action.', 'No empty Recent list, no samples, no marketing. Scan, or import photos / PDF.'],
+  home: ['Documents first.', 'Recent documents as real previews, then four shortcuts. Scan lives in the navigation bar, one tap from every tab.'],
+  camera: ['Scan opens the camera directly.', 'No menu before the camera. Modes (Document, ID card, Receipt, Book) switch inside the camera. Shutter → Review.'],
+  review1: ['Review: the page is the hero.', 'Crop, Adjust, Rotate, Delete. The strip shows pages; + adds the next page. One primary action: Save document.'],
+  review3: ['Multi-page review.', 'Tap a page in the strip to work on it; long press to reorder (existing editor actions).'],
+  saved: ['Saved → lands in Documents.', 'A snackbar confirms with Open. OCR and PDF happen on save as today.'],
+  docs: ['Native document manager.', 'Visual grid by default; name, pages and date under each preview; ⋮ opens the bottom sheet. No checkboxes until long press.'],
+  docsList: ['List view.', 'Same data, denser. The toggle in the app bar remembers the choice.'],
+  select: ['Long press → selection.', 'Tap toggles; app bar shows the count with Select all, Move and Delete. Back exits selection.'],
+  moreSheet: ['More → bottom sheet.', 'Rename, Move to folder, Share as PDF, Duplicate, Delete.'],
+  foldersEmpty: ['0 folders on a fresh install.', 'No automatic folders. One action: Create folder. Existing users keep their folders.'],
+  folder: ['Folder with content.', 'Opens straight into its documents.'],
+  tools: ['Tools: a launcher, only what works.', 'Create and Import open existing flows. Manage opens a document picker, then the existing editor (pages, rotate, crop) or share.'],
+  me: ['Me: a settings list.', 'Language, OCR language, theme, scan quality, storage, privacy, security, about. Nothing that competes with Home.'],
+  search: ['Search shows why it matched.', 'Thumbnail, name, the matching text from OCR with the term highlighted, then pages and date.'],
+  viewer: ['Open document.', 'Page first; Share, Edit, Text (OCR), More at the bottom.'],
+  share: ['Share = Android share sheet.', 'The PDF goes to the app the user picks. Nothing is uploaded unless they choose a target.'],
+};
+function render() {
+  const x = t();
+  document.getElementById('sub').textContent = x.sub;
+  for (const [g, key] of [['seg-mode', 'mode'], ['seg-lang', 'lang'], ['seg-theme', 'scheme'], ['seg-w', 'w']]) {
+    for (const btn of document.getElementById(g).querySelectorAll('button')) btn.setAttribute('aria-pressed', String(btn.dataset[key === 'scheme' ? 'scheme' : key === 'w' ? 'w' : key] === String(S[key])));
+  }
+  const cur = screens[S.screen].j;
+  document.getElementById('journey').innerHTML = x.j.map((name, i) => `<button class="step" data-jump="${journeyTargets[i]}" aria-current="${S.mode === 'flow' && i === cur}"><b>${i + 1}</b>${name}</button>`).join('');
+  const main = document.getElementById('main');
+  if (S.mode === 'flow') {
+    const n = NOTES[S.screen];
+    main.innerHTML = `<div class="stage"><div class="phone-slot">${device(S.screen, phoneScale())}</div><aside class="notes"><h2>${screens[S.screen].cap.join(' · ')}</h2><p><b style="color:var(--page-ink)">${n[0]}</b> ${n[1]}</p>
+      <ul>${order.map((id) => `<li><a href="#${id}" data-jump="${id}" style="color:${id === S.screen ? 'var(--page-accent)' : 'inherit'}">${screens[id].cap.join(' · ')}</a></li>`).join('')}</ul>
+      <div class="hint">Tap buttons inside the phone to move through the flow. Sample documents are examples.</div></aside></div>`;
+  } else {
+    main.innerHTML = `<div class="board">${order.map((id) => `<figure>${device(id, 0.5)}<figcaption>${screens[id].cap[0]}<span>${screens[id].cap[1]}</span></figcaption></figure>`).join('')}</div>`;
+  }
+}
+function save() { try { localStorage.setItem('onescan-proto', JSON.stringify({ lang: S.lang, scheme: S.scheme, w: S.w, mode: S.mode })); } catch (e) {} }
+
+document.addEventListener('click', (e) => {
+  if (longPressed) { longPressed = false; return; }
+  const seg = e.target.closest('.seg button');
+  if (seg) {
+    if (seg.dataset.mode) S.mode = seg.dataset.mode;
+    if (seg.dataset.lang) S.lang = seg.dataset.lang;
+    if (seg.dataset.scheme) S.scheme = seg.dataset.scheme;
+    if (seg.dataset.w) S.w = Number(seg.dataset.w);
+    save(); render(); return;
+  }
+  const jump = e.target.closest('[data-jump]');
+  if (jump) { e.preventDefault(); S.screen = jump.dataset.jump; S.mode = 'flow'; save(); render(); return; }
+  const app = e.target.closest('.app');
+  if (!app || S.mode !== 'flow') { if (app && S.mode === 'board') { S.screen = app.dataset.screen; S.mode = 'flow'; render(); } return; }
+  const tog = e.target.closest('[data-toggle]');
+  if (tog) { const id = tog.dataset.toggle; S.sel.has(id) ? S.sel.delete(id) : S.sel.add(id); render(); return; }
+  if (e.target.closest('[data-stop]') && !e.target.closest('[data-go]')) return;
+  const go = e.target.closest('[data-go]');
+  if (go) { S.screen = go.dataset.go; render(); }
+});
+// Long press on a document in the grid starts selection, as on the phone.
+let pressTimer = null;
+let longPressed = false;
+document.addEventListener('pointerdown', (e) => {
+  const gi = e.target.closest('.gi[data-go]');
+  if (!gi || S.mode !== 'flow') return;
+  pressTimer = setTimeout(() => { longPressed = true; S.screen = 'select'; render(); }, 500);
+});
+document.addEventListener('pointerup', () => clearTimeout(pressTimer));
+window.addEventListener('resize', () => { if (S.mode === 'flow') render(); });
+const hash = location.hash.slice(1);
+if (screens[hash]) { S.screen = hash; S.mode = 'flow'; }
+render();
+</script>
