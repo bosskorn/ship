@@ -11,6 +11,7 @@ export class DbError extends Error {
  * Business rules live in those SQL functions (ownership checks included); this is transport.
  */
 export async function rpc<T>(env: Env, fn: string, args: Record<string, unknown>, fetcher: typeof fetch = fetch): Promise<T> {
+  if (env.DB_CALL) return (await env.DB_CALL(fn, args)) as T;
   const res = await fetcher(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: 'POST',
     headers: {

@@ -3,8 +3,9 @@ import { Linking, Platform, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TButton, TLoading, TNavigationBar, TScreen, TText, useTheme, useToast } from '@/design-system';
-import { useAccount } from '@/services/auth/accountStore';
+import { SessionLink, useAccount } from '@/services/auth/accountStore';
 import { isAuthError } from '@/services/auth/errors';
+import { takeAuthLink } from '@/services/auth/linkInbox';
 import {
   Checkbox, EmailField, ErrorBanner, normalizeEmail, Notice, openLegal, PasswordField, TextLink, useAuthErrorText, validEmail, validPassword,
 } from './ui';
@@ -376,13 +377,36 @@ export function parseLink(url: string | null | undefined, params: Record<string,
   return { tokenHash, type: type as 'email' | 'recovery' };
 }
 
+const JWT = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+
+/**
+ * Session from Supabase's default email links: `/verify` redirects with
+ * `#access_token=…&refresh_token=…&expires_in=…&type=signup|recovery`, or `#error_code=…` when
+ * the link is used or expired. Returns 'error' for those, null when the URL is not such a link.
+ */
+export function parseSessionLink(url: string | null | undefined, now = Date.now()): SessionLink | 'error' | null {
+  if (!url || !url.includes('#')) return null;
+  const p = new URLSearchParams(url.slice(url.indexOf('#') + 1));
+  if (p.get('error') || p.get('error_code')) return 'error';
+  const accessToken = p.get('access_token') ?? '';
+  const refreshToken = p.get('refresh_token') ?? '';
+  const raw = p.get('type');
+  const type = raw === 'signup' || raw === 'email' ? 'email' : raw === 'recovery' ? 'recovery' : null;
+  if (!type || !JWT.test(accessToken) || accessToken.length > 4096 || !TOKEN.test(refreshToken)) return null;
+  const at = Number(p.get('expires_at'));
+  const inS = Number(p.get('expires_in'));
+  const expiresAt = Number.isFinite(at) && at > 0 ? at * 1000 : now + (Number.isFinite(inS) && inS > 0 ? Math.min(inS, 3600) : 300) * 1000;
+  return { accessToken, refreshToken, expiresAt, type };
+}
+
 export function AuthCallbackScreen() {
   const { t } = useTranslation();
   const { spacing, colors } = useTheme();
   const errorText = useAuthErrorText();
   const params = useLocalSearchParams<Record<string, string>>();
   const completeLink = useAccount((s) => s.completeLink);
-  const [state, setState] = useState<'working' | 'verified' | 'error'>('working');
+  const completeSessionLink = useAccount((s) => s.completeSessionLink);
+  const [state, setState] = useState<'working' | 'verified' | 'verified_signin' | 'error'>('working');
   const [error, setError] = useState<unknown>(null);
   const started = useRef(false);
 
@@ -390,22 +414,24 @@ export function AuthCallbackScreen() {
     if (started.current) return;
     started.current = true;
     void (async () => {
-      const link = parseLink(await Linking.getInitialURL().catch(() => null), params);
-      if (!link) {
+      const url = takeAuthLink() ?? (await Linking.getInitialURL().catch(() => null));
+      const link = parseLink(url, params);
+      const session = link ? null : parseSessionLink(url);
+      if (!link && (!session || session === 'error')) {
         setError(new Error('link'));
         setState('error');
         return;
       }
       try {
-        const r = await completeLink(link.tokenHash, link.type);
+        const r = link ? await completeLink(link.tokenHash, link.type) : await completeSessionLink(session as SessionLink);
         if (r === 'recovery') router.replace('/account/reset');
-        else setState('verified');
+        else setState(r === 'verified_login' || link ? 'verified' : 'verified_signin');
       } catch (e) {
         setError(e);
         setState('error');
       }
     })();
-  }, [completeLink, params]);
+  }, [completeLink, completeSessionLink, params]);
 
   return (
     <TScreen surface="container" header={<TNavigationBar title={t('account.title')} onBack={() => router.dismissTo('/profile')} />} contentStyle={{ padding: spacing.lg, justifyContent: 'center', gap: spacing.md }}>
@@ -416,7 +442,7 @@ export function AuthCallbackScreen() {
             {t('account.verifying')}
           </TText>
         </View>
-      ) : state === 'verified' ? (
+      ) : state === 'verified' || state === 'verified_signin' ? (
         <View testID="callback-verified" style={{ alignItems: 'center', gap: spacing.sm }}>
           <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: colors.successLight ?? colors.brandLight, alignItems: 'center', justifyContent: 'center' }}>
             <TText variant="headline" color="success" accessible={false}>
@@ -427,9 +453,13 @@ export function AuthCallbackScreen() {
             {t('account.verified_title')}
           </TText>
           <TText variant="body" color="textSecondary" align="center">
-            {t('account.verified_body')}
+            {t(state === 'verified' ? 'account.verified_body' : 'account.verified_signin_body')}
           </TText>
-          <TButton label={t('account.go_account')} block onPress={() => router.dismissTo('/profile')} style={{ marginTop: spacing.md }} />
+          {state === 'verified' ? (
+            <TButton label={t('account.go_account')} block onPress={() => router.dismissTo('/profile')} style={{ marginTop: spacing.md }} />
+          ) : (
+            <TButton label={t('account.back_to_login')} block onPress={() => router.replace('/account/login')} style={{ marginTop: spacing.md }} />
+          )}
         </View>
       ) : (
         <View testID="callback-error" style={{ gap: spacing.md }}>

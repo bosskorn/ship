@@ -20,11 +20,18 @@ const imports = (p: string) => [...fs.readFileSync(p, 'utf8').matchAll(/(?:from\
 describe('account isolation (static)', () => {
   const all = files(SRC);
   const ACCOUNT = /^@\/(services\/auth|features\/account)(\/|$)/;
-  const ALLOWED = [/^services\/auth\//, /^features\/account\//, /^features\/profile\/ProfileScreen\.tsx$/, /^app\/account\//, /^app\/auth\//];
+  const ALLOWED = [/^services\/auth\//, /^features\/account\//, /^features\/profile\/ProfileScreen\.tsx$/, /^app\/account\//, /^app\/auth\//, /^app\/\+native-intent\.tsx$/];
 
   it('only the Me tab and account screens import the account layer', () => {
     const offenders = all.filter((f) => imports(f).some((i) => ACCOUNT.test(i)) && !ALLOWED.some((a) => a.test(rel(f)))).map(rel);
     expect(offenders).toEqual([]);
+  });
+
+  it('the deep-link hook only parks email links in memory (no account state, no network)', () => {
+    const hook = all.find((f) => rel(f) === 'app/+native-intent.tsx')!;
+    expect(imports(hook)).toEqual(['@/services/auth/linkInbox']);
+    const inbox = all.find((f) => rel(f) === 'services/auth/linkInbox.ts')!;
+    expect(imports(inbox)).toEqual([]);
   });
 
   it('scanner, document engine, documents, viewer, search, editor and startup are account-free', () => {

@@ -31,6 +31,27 @@
 6. ตรวจ: เปิด `https://onescan-api.<account>.workers.dev/v1/health` ต้องได้ `{"ok":true}`
 7. กลับไปตั้ง Site URL/Redirect URL ของ Supabase (ข้อ 1.6) เป็น `<worker URL>/auth/link`
 
+## 2b. ทางเลือก: OneScan API บน Supabase Edge Functions (ใช้กับ QA ชุดปัจจุบัน)
+
+ใช้แทน Cloudflare Worker ได้โดยไม่ต้องมี secret ใด ๆ — function ต่อฐานข้อมูลด้วย `SUPABASE_DB_URL` ที่ Supabase ใส่ให้เอง
+(ไม่ใช้ service-role key, schema `app` ไม่ต้องเปิดผ่าน REST API)
+
+- Source: `backend/supabase/functions/onescan-api/index.ts` (ใช้ route/กฎเดียวกับ `backend/api`)
+- Build: `cd backend/api && npm ci && cd ../.. && node backend/supabase/functions/build.mjs` → `functions/onescan-api/dist/index.js`
+- Deploy: ชื่อ `onescan-api`, **verify_jwt = false** (API ตรวจ access token เอง และ `/auth/link`, `/legal/*` ต้องเปิดสาธารณะ)
+- URL ของ API = `https://<project>.supabase.co/functions/v1/onescan-api`
+- ข้อจำกัดของ host นี้: Supabase ไม่เสิร์ฟ HTML จาก function → `/auth/link` ตอบ 302 ไป `onescan://auth/callback`
+  (fragment ที่มี token ถูกเบราว์เซอร์พาไปเอง ไม่ถึง server) และหน้า Terms/Privacy เป็นข้อความธรรมดา; rate limit นับต่อ instance
+- อีเมลแม่แบบเริ่มต้นของ Supabase ส่งลิงก์ `/auth/v1/verify` ซึ่ง redirect กลับมาพร้อม session ใน fragment —
+  แอปรองรับทั้งแบบนี้ (`parseSessionLink`, ตรวจ token กับ Supabase `/user` ก่อนใช้ และ login อัตโนมัติเฉพาะอีเมลที่เครื่องนี้รอยืนยันอยู่)
+  และแบบ `token_hash` ของแม่แบบใน `backend/supabase/templates`
+
+ตั้งค่าใน Dashboard (ทำผ่าน MCP ไม่ได้):
+1. Authentication → URL Configuration → **Redirect URLs** เพิ่ม `https://<project>.supabase.co/functions/v1/onescan-api/auth/link`
+   (และตั้ง Site URL เป็นค่าเดียวกันได้)
+2. SMTP เริ่มต้นของ Supabase ส่งอีเมลได้เฉพาะสมาชิกทีมของ Organization — ผู้ทดสอบต้องอยู่ใน Team หรือตั้ง Custom SMTP
+3. แนะนำ: Access token expiry = 900 วินาที, Minimum password length = 8
+
 ## 3. ส่งค่าให้ build แอป QA
 ส่งให้ผม 3 ค่า (ทั้งหมดเป็นค่าสาธารณะที่อยู่ในแอปอยู่แล้ว ไม่ใช่ความลับ):
 ```

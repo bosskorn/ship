@@ -501,6 +501,7 @@ const th: LocaleResource = {
     verifying: 'กำลังยืนยัน…',
     verified_title: 'ยืนยันอีเมลสำเร็จ',
     verified_body: 'บัญชี OneScan ของคุณพร้อมใช้งานแล้ว',
+    verified_signin_body: 'เข้าสู่ระบบเพื่อใช้บัญชีบนเครื่องนี้',
     go_account: 'ไปที่บัญชี',
     forgot_title: 'ลืมรหัสผ่าน',
     forgot_body: 'กรอกอีเมลของบัญชี เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่',

@@ -61,3 +61,19 @@ export function legalPage(which: 'terms' | 'privacy', langParam: string | null):
   const title = which === 'terms' ? (lang === 'th' ? 'ข้อกำหนดการใช้งาน' : 'Terms of Use') : lang === 'th' ? 'นโยบายความเป็นส่วนตัว' : 'Privacy Policy';
   return html(page(title, body, lang));
 }
+
+/** The same text without markup, for hosts that serve no HTML. */
+export function legalText(which: 'terms' | 'privacy', langParam: string | null): Response {
+  const lang: Lang = langParam === 'en' ? 'en' : 'th';
+  const body = (which === 'terms' ? TERMS[lang] : PRIVACY[lang])
+    .replace(/<h1>/g, '')
+    .replace(/<h2>/g, '\n\n')
+    .replace(/<li>/g, '\n• ')
+    .replace(/<\/(h1|small|h2)>/g, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return new Response(`${body}\n`, {
+    headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
+  });
+}

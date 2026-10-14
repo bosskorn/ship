@@ -3,8 +3,8 @@ import { bearer, type Caller, verifyAccessToken } from './auth';
 import { DbError, rpc } from './db';
 import type { Env, RateLimit } from './env';
 import { cleanText, fail, isUuid, json, readJson } from './http';
-import { legalPage } from './legal';
-import { assetLinks, linkPage } from './link';
+import { legalPage, legalText } from './legal';
+import { assetLinks, linkPage, linkRedirect } from './link';
 
 /**
  * OneScan API — the boundary for OneScan's own account logic (spec §4). Credentials, email
@@ -138,10 +138,12 @@ export async function handle(req: Request, env: Env, deps: Deps = {}): Promise<R
 
   if (req.method === 'GET') {
     if (path === '/v1/health') return json({ ok: true });
-    if (path === '/auth/link') return linkPage();
+    if (path === '/auth/link') return env.PLAIN_PAGES ? linkRedirect() : linkPage();
     if (path === '/.well-known/assetlinks.json') return assetLinks(env);
-    if (path === '/legal/terms') return legalPage('terms', url.searchParams.get('lang'));
-    if (path === '/legal/privacy') return legalPage('privacy', url.searchParams.get('lang'));
+    if (path === '/legal/terms' || path === '/legal/privacy') {
+      const which = path === '/legal/terms' ? 'terms' : 'privacy';
+      return (env.PLAIN_PAGES ? legalText : legalPage)(which, url.searchParams.get('lang'));
+    }
   }
 
   const match = routes.map((r) => ({ r, m: path.match(r.path) })).filter((x) => x.m);

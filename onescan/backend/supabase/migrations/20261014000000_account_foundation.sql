@@ -119,7 +119,7 @@ grant select, insert, update, delete on all tables in schema app to service_role
 
 -- Local capabilities are free and never depend on the account (spec §1, PHASE 9).
 create or replace function app.free_capabilities() returns text[]
-language sql immutable as $$ select array['local_scan', 'local_ocr', 'pdf', 'local_search'] $$;
+language sql immutable set search_path = '' as $$ select array['local_scan', 'local_ocr', 'pdf', 'local_search'] $$;
 
 create or replace function app.audit(p_user uuid, p_event text, p_device uuid default null, p_meta jsonb default '{}'::jsonb)
 returns void language sql security definer set search_path = '' as $$
@@ -202,12 +202,9 @@ begin
   return new;
 end $$;
 
-drop trigger if exists onescan_user_insert on auth.users;
-create trigger onescan_user_insert after insert on auth.users for each row execute function app.on_auth_user_insert();
-drop trigger if exists onescan_user_update on auth.users;
-create trigger onescan_user_update after update on auth.users for each row execute function app.on_auth_user_update();
-drop trigger if exists onescan_session_insert on auth.sessions;
-create trigger onescan_session_insert after insert on auth.sessions for each row execute function app.on_auth_session_insert();
+create or replace trigger onescan_user_insert after insert on auth.users for each row execute function app.on_auth_user_insert();
+create or replace trigger onescan_user_update after update on auth.users for each row execute function app.on_auth_user_update();
+create or replace trigger onescan_session_insert after insert on auth.sessions for each row execute function app.on_auth_session_insert();
 
 -- ---------------------------------------------------------------- API functions (service role)
 

@@ -12,6 +12,13 @@ export interface Env {
   /** Rate limiting (Workers Rate Limiting API); optional in local tests. */
   RL_API?: RateLimit;
   RL_SENSITIVE?: RateLimit;
+  /**
+   * Supabase Edge Functions host: calls `app.*` over a direct database connection (the `app`
+   * schema is not exposed through the REST API there), and serves no HTML (Supabase rewrites
+   * `text/html` to `text/plain`), so `/auth/link` redirects and legal pages are plain text.
+   */
+  DB_CALL?: (fn: string, args: Record<string, unknown>) => Promise<unknown>;
+  PLAIN_PAGES?: boolean;
 }
 
 export interface RateLimit {

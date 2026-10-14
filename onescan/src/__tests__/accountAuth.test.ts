@@ -206,6 +206,52 @@ describe('register + email verification', () => {
   });
 });
 
+describe('email links with a session (Supabase default templates)', () => {
+  const link = (email: string, type: 'email' | 'recovery' = 'email') => {
+    const t = tokenPair(email);
+    return { accessToken: t.access_token, refreshToken: t.refresh_token, expiresAt: clock + 900_000, type };
+  };
+
+  it('confirmation for the email this device is waiting on signs in after Supabase confirms the token', async () => {
+    server.routes['GET sb.test/auth/v1/user'] = { status: 200, body: { email: 'alice@example.com' } };
+    await useAccount.getState().init();
+    await useAccount.getState().register('alice@example.com', 'secret123');
+    const r = await useAccount.getState().completeSessionLink(link('alice@example.com'));
+    expect(r).toBe('verified_login');
+    expect(called('GET sb.test/auth/v1/user')).toHaveLength(1);
+    expect(useAccount.getState().status).toBe('AUTHENTICATED');
+    expect(useAccount.getState().pendingEmail).toBeNull();
+    expect(called('POST api.test/v1/devices/register')).toHaveLength(1);
+  });
+
+  it('a link for another account never switches this device to it (login CSRF)', async () => {
+    server.routes['GET sb.test/auth/v1/user'] = { status: 200, body: { email: 'mallory@example.com' } };
+    await useAccount.getState().init();
+    await useAccount.getState().register('alice@example.com', 'secret123');
+    const r = await useAccount.getState().completeSessionLink(link('mallory@example.com'));
+    expect(r).toBe('verified');
+    expect(useAccount.getState().status).toBe('LOCAL');
+    expect(stored()).toBeNull();
+    expect(useAccount.getState().pendingEmail).toBe('alice@example.com');
+  });
+
+  it('a token Supabase rejects is an expired link', async () => {
+    server.routes['GET sb.test/auth/v1/user'] = { status: 403, body: { error_code: 'bad_jwt' } };
+    await useAccount.getState().init();
+    await expect(useAccount.getState().completeSessionLink(link('alice@example.com'))).rejects.toMatchObject({ code: 'expired_link' });
+    expect(stored()).toBeNull();
+  });
+
+  it('recovery session stays in memory until the new password is set', async () => {
+    server.routes['GET sb.test/auth/v1/user'] = { status: 200, body: { email: 'alice@example.com' } };
+    await useAccount.getState().init();
+    expect(await useAccount.getState().completeSessionLink(link('alice@example.com', 'recovery'))).toBe('recovery');
+    expect(stored()).toBeNull();
+    await useAccount.getState().resetPassword('newsecret9');
+    expect(called('POST sb.test/auth/v1/logout?scope=global')).toHaveLength(1);
+  });
+});
+
 describe('login', () => {
   it('stores only the refresh token (secure storage) and keeps the access token in memory', async () => {
     await signedIn();

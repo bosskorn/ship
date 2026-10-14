@@ -40,6 +40,14 @@ a.btn{display:inline-block;margin-top:20px;background:var(--brand);color:#fff;pa
 </script></body></html>`);
 }
 
+/**
+ * Where HTML cannot be served: redirect to the app. The URL fragment (the one-time data) is not
+ * sent to this server, and browsers carry it over to a Location that has none (RFC 9110 §10.2.2).
+ */
+export function linkRedirect(): Response {
+  return new Response(null, { status: 302, headers: { location: 'onescan://auth/callback', 'cache-control': 'no-store', 'referrer-policy': 'no-referrer' } });
+}
+
 /** Digital Asset Links for Android App Links (verified https links open OneScan directly). */
 export function assetLinks(env: Env): Response {
   const certs = (env.ANDROID_CERT_SHA256 ?? '').split(',').map((s) => s.trim()).filter(Boolean);

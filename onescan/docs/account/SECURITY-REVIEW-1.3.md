@@ -49,6 +49,7 @@
 | L5 | Session timebox/inactivity ใน `config.toml` เป็นฟีเจอร์ Supabase Pro | Free plan ยังปลอดภัยเพราะ `app.enforce_session_policy()` (pg_cron) + client บังคับซ้ำ |
 | L6 | ไม่มี certificate pinning | ใช้ TLS ของระบบตามปกติ; ข้อมูลที่ส่งไม่มีเอกสาร |
 | L7 | `TOKEN_REFRESH` ไม่ถูก audit ทุกครั้ง | ตั้งใจ (ปริมาณสูง); การ reuse token ถูกจับโดย Supabase |
+| L9 | Host Supabase Edge Functions (QA): rate limit นับต่อ instance, `/auth/link` เป็น 302 แทนหน้า bridge, ลิงก์อีเมลแม่แบบเริ่มต้นส่ง session (access/refresh token) ใน URL fragment ไปที่ `onescan://` | fragment ไม่ถึง server; แอปตรวจ token กับ Supabase ก่อนใช้ และไม่สลับเครื่องไปบัญชีอื่นที่ไม่ได้รอยืนยัน (กัน login CSRF, มี test); Production ใช้แม่แบบ `token_hash` + App Links (M1) |
 | L8 | Worker endpoint ที่ไม่ต้อง auth (`/auth/link`, `/legal/*`, assetlinks, health) ไม่มี rate limit | เป็นหน้า static ไม่เรียก backend; ใช้ Cloudflare WAF/rate rules ได้ถ้าจำเป็น |
 
 ## ไม่เปลี่ยน (ยืนยัน)

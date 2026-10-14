@@ -100,6 +100,11 @@ interface AccountState {
   resendVerification(email: string): Promise<void>;
   requestPasswordReset(email: string): Promise<void>;
   completeLink(tokenHash: string, type: 'email' | 'recovery'): Promise<'verified' | 'recovery'>;
+  /**
+   * Email link that already carries a session (Supabase's default templates: `/verify` redirects
+   * with tokens in the fragment). `verified_login` = signed in; `verified` = verified, sign in next.
+   */
+  completeSessionLink(link: SessionLink): Promise<'verified' | 'verified_login' | 'recovery'>;
   resetPassword(password: string): Promise<void>;
   refreshAccount(): Promise<CachedAccount | null>;
   logout(): Promise<void>;
@@ -109,6 +114,13 @@ interface AccountState {
   deleteAccount(email: string, password: string): Promise<string>;
   cancelDeletion(): Promise<void>;
   clearPendingEmail(): Promise<void>;
+}
+
+export interface SessionLink {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
+  type: 'email' | 'recovery';
 }
 
 export const useAccount = create<AccountState>((set, get) => {
@@ -248,6 +260,31 @@ export const useAccount = create<AccountState>((set, get) => {
       await adopt(session);
       await afterSignIn();
       return 'verified';
+    },
+
+    async completeSessionLink(link) {
+      // The tokens came in through a deep link that any app could send: confirm them with
+      // Supabase before use, and never let a verification link switch this device to an
+      // account other than the one it is waiting on (login CSRF).
+      const { email } = await goTrue.getUser(link.accessToken, deps);
+      const session: AuthSession = { accessToken: link.accessToken, refreshToken: link.refreshToken, expiresAt: link.expiresAt };
+      if (link.type === 'recovery') {
+        set({ recovery: session });
+        return 'recovery';
+      }
+      const pending = get().pendingEmail;
+      const isPending = !!email && !!pending && email.toLowerCase() === pending.toLowerCase();
+      // Already signed in on this device: keep that session.
+      if (!isPending || (await sessionStore.load())) {
+        if (isPending) {
+          await appMeta.remove(PENDING_EMAIL_KEY).catch(() => undefined);
+          set({ pendingEmail: null });
+        }
+        return 'verified';
+      }
+      await adopt(session);
+      await afterSignIn();
+      return 'verified_login';
     },
 
     async resetPassword(password) {

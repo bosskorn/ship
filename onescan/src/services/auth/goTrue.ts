@@ -91,6 +91,12 @@ export const goTrue = {
     return toSession(t, (deps.now ?? Date.now)());
   },
 
+  /** Asks Supabase who owns an access token (validates it server side; claims alone are not trusted). */
+  async getUser(accessToken: string, deps: GoTrueDeps = {}): Promise<{ email: string | null }> {
+    const u = await call<{ email?: string }>('/user', { method: 'GET', headers: headers(accessToken) }, 'verify', deps);
+    return { email: typeof u?.email === 'string' ? u.email : null };
+  },
+
   async updatePassword(accessToken: string, password: string, deps: GoTrueDeps = {}): Promise<void> {
     await call('/user', { method: 'PUT', headers: headers(accessToken), body: JSON.stringify({ password }) }, 'other', deps);
   },

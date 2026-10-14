@@ -229,3 +229,27 @@ describe('failure handling and hygiene', () => {
     }
   });
 });
+
+describe('Supabase Edge Functions host (no HTML, direct database calls)', () => {
+  it('email link redirects to the app without a fragment of its own (the browser keeps the token)', async () => {
+    const { res } = await call('GET', '/auth/link', { tok: null, e: env({ PLAIN_PAGES: true }) });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('onescan://auth/callback');
+  });
+
+  it('legal pages are plain text with no markup', async () => {
+    const { res } = await call('GET', '/legal/privacy?lang=en', { tok: null, e: env({ PLAIN_PAGES: true }) });
+    const text = await res.text();
+    expect(res.headers.get('content-type')).toContain('text/plain');
+    expect(text).toContain('OneScan Privacy Policy');
+    expect(text).not.toMatch(/<[a-z]/);
+  });
+
+  it('calls app functions through DB_CALL, not the REST API', async () => {
+    const DB_CALL = vi.fn(async () => ({ user_id: 'u1', email: 'alice@example.com' }));
+    const { res, calls } = await call('GET', '/v1/me', { e: env({ DB_CALL }) });
+    expect(res.status).toBe(200);
+    expect(calls).toHaveLength(0);
+    expect(DB_CALL).toHaveBeenCalledWith('me', { p_sub: SUB, p_email: 'alice@example.com', p_confirmed_at: null, p_session: SESSION });
+  });
+});

@@ -7,7 +7,7 @@ import TestRenderer, { act, ReactTestInstance, ReactTestRenderer } from 'react-t
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, TToastProvider } from '@/design-system';
 import { i18n, initI18n } from '@/core/i18n';
-import { ForgotPasswordScreen, LoginScreen, parseLink, RegisterScreen, VerifyEmailScreen } from '@/features/account/AuthScreens';
+import { ForgotPasswordScreen, LoginScreen, parseLink, parseSessionLink, RegisterScreen, VerifyEmailScreen } from '@/features/account/AuthScreens';
 import { ProfileScreen } from '@/features/profile/ProfileScreen';
 import { AuthError } from '@/services/auth/errors';
 
@@ -172,6 +172,16 @@ describe('email links', () => {
     expect(parseLink('onescan://auth/callback?token_hash=<script>&type=email')).toBeNull();
     expect(parseLink('onescan://auth/callback?token_hash=pkce_abc12345&type=magiclink')).toBeNull();
     expect(parseLink('onescan://auth/callback')).toBeNull();
+  });
+
+  it('reads session links from the fragment and rejects junk', () => {
+    const at = 'eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ4In0.c2ln';
+    expect(parseSessionLink(`onescan://auth/callback#access_token=${at}&expires_at=1791990000&expires_in=3600&refresh_token=abcdefgh12&token_type=bearer&type=signup`, 0)).toEqual({ accessToken: at, refreshToken: 'abcdefgh12', expiresAt: 1791990000000, type: 'email' });
+    expect(parseSessionLink(`onescan://auth/callback#access_token=${at}&expires_in=3600&refresh_token=abcdefgh12&type=recovery`, 1000)).toMatchObject({ type: 'recovery', expiresAt: 1000 + 3600_000 });
+    expect(parseSessionLink('onescan://auth/callback#error=access_denied&error_code=otp_expired')).toBe('error');
+    expect(parseSessionLink(`onescan://auth/callback#access_token=${at}&refresh_token=abcdefgh12&type=magiclink`)).toBeNull();
+    expect(parseSessionLink('onescan://auth/callback#access_token=<script>&refresh_token=abcdefgh12&type=signup')).toBeNull();
+    expect(parseSessionLink('onescan://auth/callback?access_token=x')).toBeNull();
   });
 });
 

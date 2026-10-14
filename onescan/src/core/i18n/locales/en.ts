@@ -499,6 +499,7 @@ const en = {
     verifying: 'Confirming…',
     verified_title: 'Email confirmed',
     verified_body: 'Your OneScan account is ready.',
+    verified_signin_body: 'Sign in to use your account on this device.',
     go_account: 'Go to account',
     forgot_title: 'Forgot password',
     forgot_body: "Enter your account email and we'll send a link to set a new password.",
