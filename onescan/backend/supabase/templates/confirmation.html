@@ -1,9 +1,9 @@
 <!-- OneScan: email confirmation. The link opens the OneScan API bridge page, which hands the
-     one-time token to the app (the token itself is never in a URL fragment or logged). -->
+     one-time token to the app. The token is in the URL fragment, so it never reaches a server log. -->
 <div style="font-family:-apple-system,Roboto,'Noto Sans Thai',sans-serif;max-width:480px;margin:auto;color:#1F2633">
   <p style="font-size:22px;font-weight:700;margin:24px 0 8px">One<span style="color:#0052D9">Scan</span></p>
   <p style="font-size:16px">ยืนยันอีเมลของคุณเพื่อเริ่มใช้บัญชี OneScan</p>
-  <p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email"
+  <p><a href="{{ .RedirectTo }}#token_hash={{ .TokenHash }}&type=email"
         style="display:inline-block;background:#0052D9;color:#fff;padding:12px 24px;border-radius:24px;text-decoration:none;font-weight:600">ยืนยันอีเมล</a></p>
   <p style="font-size:14px;color:#5A6273">Confirm your email to start using your OneScan account.</p>
   <p style="font-size:12px;color:#8A90A0">ลิงก์นี้ใช้ได้ครั้งเดียวภายใน 1 ชั่วโมง ถ้าคุณไม่ได้สมัคร OneScan ไม่ต้องทำอะไร<br>

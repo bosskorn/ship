@@ -1,0 +1,28 @@
+# OneScan API — Cloudflare Workers. Secrets (never in this file or the repo):
+#   wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+name = "onescan-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+[vars]
+SUPABASE_URL = "https://YOUR-PROJECT.supabase.co"
+ANDROID_PACKAGE = "app.onescan.mobile"
+# Upload key; add the Play app-signing key fingerprint from Play Console (comma separated).
+ANDROID_CERT_SHA256 = "1C:10:56:5D:4E:EA:96:33:23:5B:78:8C:E0:0B:F3:EF:72:B7:84:61:89:9D:D9:29:69:1F:AF:C0:F0:E9:60:A8"
+
+# 60 requests/minute per user; 5/minute for sign-out-all, device revoke and deletion.
+[[unsafe.bindings]]
+name = "RL_API"
+type = "ratelimit"
+namespace_id = "1001"
+simple = { limit = 60, period = 60 }
+
+[[unsafe.bindings]]
+name = "RL_SENSITIVE"
+type = "ratelimit"
+namespace_id = "1002"
+simple = { limit = 5, period = 60 }
+
+[observability]
+enabled = true
