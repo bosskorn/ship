@@ -45,6 +45,16 @@ function RootStack() {
         <Stack.Screen name="cloud" />
         <Stack.Screen name="pricing" />
         <Stack.Screen name="unavailable" />
+        {/* OneScan Account (1.3): reachable only after onboarding, never in front of the scanner. */}
+        <Stack.Screen name="account/login" />
+        <Stack.Screen name="account/register" />
+        <Stack.Screen name="account/verify" />
+        <Stack.Screen name="account/forgot" />
+        <Stack.Screen name="account/reset" />
+        <Stack.Screen name="account/index" />
+        <Stack.Screen name="account/devices" />
+        <Stack.Screen name="account/delete" />
+        <Stack.Screen name="auth/callback" />
       </Stack.Protected>
     </Stack>
   );

@@ -8,8 +8,7 @@ import {
   Layers, List, ListChecks, Lock, LogOut, LucideIcon, Merge, MessageSquareText, Minimize2, Palette,
   PenLine, Plus, Presentation, QrCode, Receipt, RefreshCw, RotateCw, ScanLine, ScanText, Search,
   Settings, Share2, ShieldCheck, Signature, SlidersHorizontal, Smartphone, Sparkles, Split, Trash,
-  User, WifiOff, X, Zap, ZapOff,
-} from 'lucide-react-native';
+  User, WifiOff, X, Zap, ZapOff, Eye, Mail } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeProvider';
 
 /**
@@ -89,6 +88,9 @@ const registry = {
   rescan: RefreshCw,
   recent: Clock,
   qr: QrCode,
+  eye: Eye,
+  eyeOff: EyeOff,
+  mail: Mail,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof registry;

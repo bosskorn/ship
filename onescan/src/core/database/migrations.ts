@@ -87,4 +87,11 @@ export const migrations: string[] = [
   ALTER TABLE pages ADD COLUMN preview_uri TEXT;
   ALTER TABLE pages ADD COLUMN quad TEXT;
   `,
+  /* v3 (1.3) — device-local app metadata: installation id, signed-in account cache. Additive only:
+     documents, pages, folders and the search index are untouched (ACCOUNT-1.3-SPEC §6, §9). */ `
+  CREATE TABLE IF NOT EXISTS app_meta (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  );
+  `,
 ];

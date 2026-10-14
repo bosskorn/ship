@@ -1,3 +1,4 @@
+import { env } from './env';
 import { create } from 'zustand';
 import { kvStore } from '../storage/kvStorage';
 import { apiClient } from '../networking/apiClient';
@@ -25,7 +26,9 @@ export type FeatureFlag =
   // Production audit (1.2.0): UI that exists but is not shipped yet.
   | 'trash'
   | 'devTools'
-  | 'telemetrySettings';
+  | 'telemetrySettings'
+  /** OneScan Account (1.3): sign-up / sign-in UI under Me. Never gates local features. */
+  | 'account_enabled';
 
 export type AiTask =
   | 'ocr_advanced'
@@ -84,6 +87,9 @@ export const fallbackConfig: RemoteConfig = {
     restore_enabled: false,
     // Dev builds only (production gate below): developer tools.
     devTools: __DEV__,
+    // Safe local default: on only in builds configured with an auth server and the OneScan API.
+    // A remote config can switch it off; nothing at startup waits for that config.
+    account_enabled: !!env.supabaseUrl && !!env.supabaseAnonKey && !!env.accountApiUrl,
   },
   trashRetentionDays: 30,
 };
