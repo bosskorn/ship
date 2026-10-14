@@ -18,13 +18,13 @@
     "android": {
       "package": "app.onescan.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#0052D9",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 11,
+      "versionCode": 12,
       "allowBackup": false,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
