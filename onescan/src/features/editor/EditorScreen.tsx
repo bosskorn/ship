@@ -274,7 +274,7 @@ export function EditorScreen() {
           </ScrollView>
         ) : null}
 
-        {/* Editing tools: Crop, Adjust, Rotate, Delete (revealed when 'แก้ไข' is active) */}
+        {/* Editing tools: Crop, Adjust, Rotate, Delete (shown while the Edit toggle is on) */}
         {editingTools ? (
           <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: spacing.xs, paddingTop: spacing.xs, paddingBottom: spacing.xxs, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider }}>
             {tools.map((tl) => {
@@ -324,7 +324,7 @@ export function EditorScreen() {
           </ScrollView>
         ) : null}
 
-        {/* Mobile Bottom controls: เพิ่มหน้า   แก้ไข   บันทึก */}
+        {/* Bottom controls: add page · edit tools · save */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.sm }}>
           <TButton
             label={t('editor.add_page')}
@@ -338,7 +338,8 @@ export function EditorScreen() {
             style={{ flex: 1 }}
           />
           <TButton
-            label={t('common.rename') === 'เปลี่ยนชื่อ' ? 'แก้ไข' : 'Edit'}
+            testID="editor-edit-tools"
+            label={t('editor.edit_tools')}
             icon="crop"
             variant={editingTools ? 'primary' : 'outline'}
             size="large"

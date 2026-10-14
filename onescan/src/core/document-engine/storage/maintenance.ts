@@ -28,14 +28,12 @@ function ageMs(entry: File | Directory): number {
   }
 }
 
-/** Decrypted copies (`plain/`) always; other cached captures and renders once stale. */
+/**
+ * Stale cached captures and renders. Decrypted copies (`plain/`) are not touched here: they are
+ * reset once per launch by `plainCacheReady()` (native/OneScanVision), which every reader waits for.
+ */
 export async function cleanCache() {
   if (Platform.OS === 'web') return;
-  try {
-    await OneScanVision?.clearPlainCacheAsync?.();
-  } catch {
-    // best effort
-  }
   try {
     const root = new Directory(Paths.cache, 'onescan');
     if (!root.exists) return;

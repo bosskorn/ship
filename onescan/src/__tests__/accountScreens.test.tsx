@@ -37,6 +37,12 @@ const mockRouter = (jest.requireMock('expo-router') as { router: Record<string, 
 
 beforeAll(() => initI18n('th'));
 
+/** Every rendered tree is unmounted after its test (stops timers such as the resend cooldown). */
+const mounted: ReactTestRenderer[] = [];
+afterEach(() => {
+  for (const r of mounted.splice(0)) act(() => r.unmount());
+});
+
 function render(el: React.ReactElement, lang = 'th') {
   void i18n.changeLanguage(lang);
   let r!: ReactTestRenderer;
@@ -49,6 +55,7 @@ function render(el: React.ReactElement, lang = 'th') {
       </SafeAreaProvider>,
     );
   });
+  mounted.push(r);
   return r;
 }
 const byId = (r: ReactTestRenderer, id: string) => r.root.find((n) => n.props.testID === id && typeof n.props.onPress === 'function');

@@ -56,7 +56,7 @@ export function DocumentsScreen() {
   const [filter, setFilter] = useState<Filter>('all');
   const [newFolder, setNewFolder] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [bulk, setBulk] = useState<'move' | 'delete' | null>(null);
+  const [bulk, setBulk] = useState<'move' | 'delete' | 'no_folders' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const view = useSettings((s) => s.documentsView);
   const setView = useSettings((s) => s.setDocumentsView);
@@ -117,19 +117,20 @@ export function DocumentsScreen() {
   const docs = filter === 'recent' ? recent : documents;
   const [selectionMenu, setSelectionMenu] = useState(false);
 
+  // The share engine shares one document at a time: Share is enabled only for a single selection.
+  const canShare = selected.size === 1;
   const onBulkShare = async () => {
     const chosen = selectedDocs();
-    if (!chosen.length) return;
+    if (chosen.length !== 1) return;
     try {
       if (!(await DocumentEngine.export.isShareAvailable())) return toast(t('errors.share_unavailable'), 'error');
-      for (const d of chosen) {
-        await DocumentEngine.share(d);
-        break;
-      }
+      await DocumentEngine.share(chosen[0]);
     } catch {
       toast(t('errors.generic'), 'error');
     }
   };
+  // No folders yet: explain and offer to create one instead of opening an empty menu.
+  const onBulkMove = () => setBulk(folders.length ? 'move' : 'no_folders');
 
   const selectionBar = selecting ? (
     <View
@@ -144,11 +145,13 @@ export function DocumentsScreen() {
       }}
     >
       <Pressable
+        testID="selection-share"
         accessibilityRole="button"
-        accessibilityLabel={t('documents.share')}
+        accessibilityLabel={canShare ? t('documents.share') : `${t('documents.share')} · ${t('documents.share_one_only')}`}
+        accessibilityState={{ disabled: !canShare }}
         onPress={onBulkShare}
-        disabled={selected.size === 0}
-        style={({ pressed }) => ({ alignItems: 'center', opacity: pressed ? 0.6 : 1, minWidth: 64, gap: 2 })}
+        disabled={!canShare}
+        style={({ pressed }) => ({ alignItems: 'center', opacity: !canShare ? 0.38 : pressed ? 0.6 : 1, minWidth: 64, gap: 2 })}
       >
         <TIcon name="share" size="md" color={colors.textPrimary} />
         <TText variant="caption" color="textSecondary">
@@ -156,9 +159,10 @@ export function DocumentsScreen() {
         </TText>
       </Pressable>
       <Pressable
+        testID="selection-move"
         accessibilityRole="button"
         accessibilityLabel={t('documents.move')}
-        onPress={() => setBulk('move')}
+        onPress={onBulkMove}
         disabled={selected.size === 0}
         style={({ pressed }) => ({ alignItems: 'center', opacity: pressed ? 0.6 : 1, minWidth: 64, gap: 2 })}
       >
@@ -314,6 +318,23 @@ export function DocumentsScreen() {
           setSelected(new Set());
           await refresh();
         }}
+      />
+      <TDialog
+        visible={bulk === 'no_folders'}
+        title={t('documents.folders_empty')}
+        content={t('documents.folders_empty_hint')}
+        onRequestClose={() => setBulk(null)}
+        actions={[
+          { label: t('common.cancel'), onPress: () => setBulk(null) },
+          {
+            label: t('documents.create_folder'),
+            tone: 'primary',
+            onPress: () => {
+              setBulk(null);
+              setNewFolder('');
+            },
+          },
+        ]}
       />
       <TDialog
         visible={bulk === 'delete'}

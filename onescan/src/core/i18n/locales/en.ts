@@ -181,6 +181,7 @@ const en = {
     clear: 'Clear',
   },
   editor: {
+    edit_tools: 'Edit',
     no_document: 'No document found',
     pick_edges: 'Choose edges',
     check_edges: 'Check the edges',
@@ -223,6 +224,7 @@ const en = {
     default_name: 'Scan {{date}}',
   },
   documents: {
+    share_one_only: 'Share one document at a time',
     select_all: 'Select all',
     share_pdf: 'Share as PDF',
     move_to_folder: 'Move to folder',

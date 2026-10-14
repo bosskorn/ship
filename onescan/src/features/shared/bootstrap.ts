@@ -3,6 +3,7 @@ import { useRemoteConfig } from '@/core/config/remoteConfig';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { clearReadableUris } from '@/features/shared/SecureImage';
 import { cleanCache, encryptExistingFiles, sweepOrphanFolders } from '@/core/document-engine/storage/maintenance';
+import { plainCacheReady } from '@/native/OneScanVision';
 
 let started = false;
 
@@ -14,6 +15,11 @@ let started = false;
 export async function bootstrapLocalData() {
   if (started) return;
   started = true;
+
+  // 0. Reset last launch's decrypted copies before anything decrypts a file this launch. Readers
+  //    (thumbnails, pages, share) wait for it in DocumentFileStore.readableUri; the list itself
+  //    reads only the database, so it loads in parallel.
+  void plainCacheReady();
 
   // 1. First priority: load local documents into memory immediately.
   const loadDocs = useDocuments.getState().refresh();

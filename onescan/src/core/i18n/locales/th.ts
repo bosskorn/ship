@@ -183,6 +183,7 @@ const th: LocaleResource = {
     clear: 'ล้าง',
   },
   editor: {
+    edit_tools: 'แก้ไข',
     no_document: 'ไม่พบเอกสาร',
     pick_edges: 'เลือกขอบเอง',
     check_edges: 'ตรวจกรอบเอกสาร',
@@ -225,6 +226,7 @@ const th: LocaleResource = {
     default_name: 'สแกน {{date}}',
   },
   documents: {
+    share_one_only: 'แชร์ได้ทีละ 1 เอกสาร',
     select_all: 'เลือกทั้งหมด',
     share_pdf: 'แชร์เป็น PDF',
     move_to_folder: 'ย้ายไปโฟลเดอร์',

@@ -101,4 +101,61 @@ export interface OneScanVisionModule {
   renderPdfAsync(pdfUri: string, maxWidth: number): Promise<{ pages: NativeImage[] }>;
 }
 
-export const OneScanVision = requireOptionalNativeModule<OneScanVisionModule>('OneScanVision');
+const nativeModule = requireOptionalNativeModule<OneScanVisionModule>('OneScanVision');
+
+/**
+ * Native calls that read a stored document file decrypt it into `cache/onescan/plain`. The copies
+ * left by the previous launch are deleted once per launch (`plainCacheReady`), and these calls wait
+ * for that first — so a copy made this launch is never deleted while it is being read.
+ */
+const READS_DOCUMENT_FILES: ReadonlySet<string> = new Set([
+  'plainUriAsync',
+  'grayscaleAsync',
+  'grayscaleRegionAsync',
+  'processPageAsync',
+  'resizeAsync',
+  'imageInfoAsync',
+  'writePdfAsync',
+  'recognizeTextAsync',
+  'redactRegionsAsync',
+  'renderPdfAsync',
+]);
+
+let plainReset: Promise<void> | null = null;
+
+/** Clears the previous launch's decrypted copies, once; every document-file reader awaits it. */
+export function plainCacheReady(): Promise<void> {
+  if (!plainReset) {
+    plainReset = (async () => {
+      try {
+        await nativeModule?.clearPlainCacheAsync?.();
+      } catch {
+        // Best effort: stale copies are also capped by size on the native side.
+      }
+    })();
+  }
+  return plainReset;
+}
+
+/** Tests only. */
+export function resetPlainCacheStateForTests() {
+  plainReset = null;
+}
+
+function gated(target: OneScanVisionModule): OneScanVisionModule {
+  return new Proxy(target, {
+    get(t, prop, receiver) {
+      const value = Reflect.get(t, prop, receiver) as unknown;
+      if (typeof value !== 'function') return value;
+      if (typeof prop === 'string' && READS_DOCUMENT_FILES.has(prop)) {
+        return async (...args: unknown[]) => {
+          await plainCacheReady();
+          return (value as (...a: unknown[]) => unknown).apply(t, args);
+        };
+      }
+      return (value as (...a: unknown[]) => unknown).bind(t);
+    },
+  });
+}
+
+export const OneScanVision: OneScanVisionModule | null = nativeModule ? gated(nativeModule) : null;
