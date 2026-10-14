@@ -132,6 +132,18 @@ export function ScannerScreen() {
   const [flash, setFlash] = useState(0);
   const [preparing, setPreparing] = useState<{ uri: string; aspect: number } | null>(null);
   const [menu, setMenu] = useState(false);
+  /** Multi-page: "Page N added" for a moment after a capture lands in the tray (real page count). */
+  const [added, setAdded] = useState(0);
+  const pageCount = rescanIndex === null ? pages.length : 0;
+  const prevCount = useRef(pageCount);
+  useEffect(() => {
+    const grew = pageCount > prevCount.current;
+    prevCount.current = pageCount;
+    if (!grew) return;
+    setAdded(pageCount);
+    const id = setTimeout(() => setAdded(0), 1200);
+    return () => clearTimeout(id);
+  }, [pageCount]);
   /** HD↔MAX (or a mode that changes it) may rebind the still camera: hold the shutter until it reports ready. */
   const [switching, setSwitching] = useState(false);
   const cameraInfo = useRef<CameraReadyInfo | null>(null);
@@ -474,7 +486,11 @@ export function ScannerScreen() {
         <TierFade visible={switching} />
         {preparing ? null : (
           <View style={{ position: 'absolute', left: 0, right: 0, top: insets.top + TOP_BAR + 16 }} pointerEvents="none">
-            <QualityCoach tone={coach.tone} message={t(coach.key)} sub={coachSub ? t(coachSub) : undefined} chip={chip} />
+            {added ? (
+              <QualityCoach tone="neutral" message={t('scanner.page_added', { n: added })} />
+            ) : (
+              <QualityCoach tone={coach.tone} message={t(coach.key)} sub={coachSub ? t(coachSub) : undefined} chip={chip} />
+            )}
           </View>
         )}
         {showPrivacy && !preparing ? (

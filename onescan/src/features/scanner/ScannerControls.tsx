@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Ellipsis, Images, Layers, Lock, Timer, X, Zap, ZapOff } from 'lucide-react-native';
@@ -167,6 +167,20 @@ export function PagesButton(props: { pages: DraftPage[]; multi: boolean; onToggl
   const { t } = useTranslation();
   const { fontFamily } = useTheme();
   const last = props.pages[props.pages.length - 1];
+  const count = props.pages.length;
+  // A new page lands in the tray: the count bumps once (native driver, never blocks capture).
+  const [bump] = useState(() => new Animated.Value(1));
+  const prev = useRef(count);
+  useEffect(() => {
+    if (count > prev.current) {
+      bump.setValue(1);
+      Animated.sequence([
+        Animated.timing(bump, { toValue: 1.35, duration: 140, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(bump, { toValue: 1, duration: 180, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+      ]).start();
+    }
+    prev.current = count;
+  }, [count, bump]);
   if (!last) {
     return (
       <Pressable
@@ -185,7 +199,6 @@ export function PagesButton(props: { pages: DraftPage[]; multi: boolean; onToggl
       </Pressable>
     );
   }
-  const count = props.pages.length;
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`${t('scanner.pages', { count })} · ${t('scanner.done')}`} onPress={props.onDone} style={styles.side}>
       <View style={styles.sideIcon}>
@@ -194,9 +207,9 @@ export function PagesButton(props: { pages: DraftPage[]; multi: boolean; onToggl
           <SecureImage uri={last.processedUri} resizeMode="cover" resizeMethod="resize" style={StyleSheet.absoluteFill} />
           {last.processing ? <Beam /> : null}
         </View>
-        <View style={styles.badge}>
+        <Animated.View style={[styles.badge, { transform: [{ scale: bump }] }]}>
           <Text style={[styles.badgeText, { fontFamily }]}>{String(count)}</Text>
-        </View>
+        </Animated.View>
       </View>
       <Text style={[styles.sideText, { fontFamily, color: scan.text, fontWeight: '600' }]}>{t('scanner.done')}</Text>
     </Pressable>
@@ -277,7 +290,7 @@ const styles = StyleSheet.create({
   mode: { alignItems: 'center', gap: 2, paddingVertical: 4, paddingHorizontal: 2 },
   modeText: { fontSize: 15, lineHeight: 22 },
   modeDot: { width: 5, height: 5, borderRadius: 3 },
-  pulse: { position: 'absolute', left: -8, top: -8, width: SHUTTER + 16, height: SHUTTER + 16, borderRadius: (SHUTTER + 16) / 2, borderWidth: 2, borderColor: 'rgba(52,195,143,0.6)' },
+  pulse: { position: 'absolute', left: -8, top: -8, width: SHUTTER + 16, height: SHUTTER + 16, borderRadius: (SHUTTER + 16) / 2, borderWidth: 2, borderColor: 'rgba(127,169,255,0.6)' },
   shutterInner: { position: 'absolute', left: 11, top: 11, width: 58, height: 58, borderRadius: 29, backgroundColor: '#FFFFFF' },
   side: { width: 64, alignItems: 'center', gap: 4 },
   sideIcon: { width: 50, height: 50, alignItems: 'center', justifyContent: 'center' },

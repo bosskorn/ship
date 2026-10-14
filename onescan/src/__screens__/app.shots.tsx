@@ -18,16 +18,20 @@ import { DocumentsScreen } from '@/features/documents/DocumentsScreen';
 import { ToolsScreen } from '@/features/tools/ToolsScreen';
 import { ProfileScreen } from '@/features/profile/ProfileScreen';
 import { SearchScreen } from '@/features/search/SearchScreen';
+import { EditorScreen } from '@/features/editor/EditorScreen';
+import { DocumentViewerScreen } from '@/features/viewer/DocumentViewerScreen';
 import { AppTabBar } from '@/navigation/AppTabBar';
 import { useSettings } from '@/core/config/settingsStore';
-import type { DocumentRecord, FolderRecord } from '@/core/document-engine/model';
+import type { DocumentRecord, DraftPage, FolderRecord, PageRecord } from '@/core/document-engine/model';
 
 const OUT = process.env.SHOTS_OUT ?? path.join(__dirname, 'out');
-const mockState: { docs: DocumentRecord[]; folders: FolderRecord[]; ocr: Record<string, string> } = { docs: [], folders: [], ocr: {} };
+const mockState: { docs: DocumentRecord[]; folders: FolderRecord[]; ocr: Record<string, string>; drafts: DraftPage[]; pages: PageRecord[] } = {
+  docs: [], folders: [], ocr: {}, drafts: [], pages: [],
+};
 
 jest.mock('@/core/storage/kvStorage', () => ({ kvStore: { getItem: jest.fn(), setItem: jest.fn(), removeItem: jest.fn() } }));
 jest.mock('@/core/document-engine/ids', () => ({ newId: () => 'shot-id' }));
-jest.mock('@/core/document-engine/DocumentEngine', () => ({ DocumentEngine: {} }));
+jest.mock('@/core/document-engine/DocumentEngine', () => ({ DocumentEngine: { capture: { hasNativeVision: () => true } } }));
 jest.mock('@/core/database/repositories/documentRepository', () => ({
   folderRepository: { create: jest.fn() },
   documentRepository: {
@@ -35,7 +39,16 @@ jest.mock('@/core/database/repositories/documentRepository', () => ({
     ocrText: async (id: string) => mockState.ocr[id] ?? '',
   },
 }));
-jest.mock('@/features/scanner/scanSession', () => ({ useScanSession: { getState: () => ({ start: () => undefined }) } }));
+jest.mock('@/features/scanner/scanSession', () => {
+  const state = () => ({ start: () => undefined, pages: mockState.drafts, docType: 'document', editingDocumentId: null });
+  return { useScanSession: Object.assign(() => state(), { getState: state }) };
+});
+jest.mock('@/features/viewer/useDocument', () => ({ useDocument: () => ({ doc: mockState.docs[2], pages: mockState.pages }) }));
+jest.mock('@/features/viewer/PageZoomView', () => ({ PageZoomView: () => null }));
+jest.mock('@/core/document-engine/storage/diskSpace', () => ({ lowDisk: () => false, isDiskFull: () => false, MIN_FREE_BYTES_SAVE: 0 }));
+jest.mock('@/features/scanner/cropStats', () => ({ noteCropAccepted: jest.fn(), noteCropCorrected: jest.fn() }));
+jest.mock('@/core/document-engine/image/filters', () => ({ cssFilterFor: {}, pageFilters: ['original', 'auto', 'document', 'color', 'gray', 'bw'] }));
+jest.mock('@/features/editor/CropEditor', () => ({ CropEditor: () => null }));
 jest.mock('expo-router', () => ({
   router: { back: jest.fn(), push: jest.fn(), navigate: jest.fn() },
   useFocusEffect: jest.fn(),
@@ -55,8 +68,8 @@ jest.mock('@/features/shared/SecureImage', () => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest.mock factories cannot use imports
   const { View: V } = require('react-native');
   // eslint-disable-next-line react/display-name -- mock component factory
-  const page = (lines: number[], head?: string) => () => (
-    <V style={{ width: '100%', height: '100%', backgroundColor: '#FBFBF8', padding: '9%', gap: 4 }}>
+  const page = (lines: number[], head?: string) => ({ style }: { style?: object }) => (
+    <V style={[{ width: '100%', height: '100%' }, style, { backgroundColor: '#FBFBF8', padding: '9%', gap: 4, overflow: 'hidden' }]}>
       {head ? <V style={{ height: 8, width: '45%', backgroundColor: head, borderRadius: 2, marginBottom: 4 }} /> : null}
       {lines.map((w, i) => (
         <V key={i} style={{ height: 3, width: `${w * 100}%`, backgroundColor: '#C9CED8', borderRadius: 2 }} />
@@ -89,7 +102,7 @@ const FOLDERS: Record<string, FolderRecord[]> = {
   en: [folder('f1', 'Work', 4), folder('f2', 'Home', 2), folder('f3', 'Taxes 2026', 7)],
 };
 
-type Tab = 'index' | 'documents' | 'tools' | 'profile' | 'search';
+type Tab = 'index' | 'documents' | 'tools' | 'profile' | 'search' | 'review' | 'viewer';
 interface Shot {
   lang: 'th' | 'en';
   scheme: 'light' | 'dark';
@@ -104,11 +117,16 @@ interface Shot {
   sheet?: boolean;
   /** Type into the search field. */
   type?: string;
+  /** Review: number of pages in the draft; the second one still processing when set. */
+  draft?: number;
+  processing?: boolean;
 }
 
 function setWidth(width: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
   Object.defineProperty(document.documentElement, 'clientWidth', { configurable: true, value: width });
+  Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: 915 });
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: 915 });
   window.dispatchEvent(new Event('resize'));
 }
 
@@ -124,6 +142,8 @@ const SCREENS: Record<Tab, () => React.ReactElement> = {
   tools: () => <ToolsScreen />,
   profile: () => <ProfileScreen />,
   search: () => <SearchScreen />,
+  review: () => <EditorScreen />,
+  viewer: () => <DocumentViewerScreen />,
 };
 
 async function holdByTestId(id: string) {
@@ -145,6 +165,12 @@ async function render(shot: Shot) {
   mockState.ocr = shot.lang === 'th'
     ? { '3': 'การไฟฟ้านครหลวง ใบแจ้งค่าไฟฟ้า ประจำเดือนตุลาคม 2569 ยอดชำระ 1,284.50 บาท', '7': 'รวมค่าไฟฟ้าและภาษีมูลค่าเพิ่ม 1,102.75 บาท ชำระภายในวันที่ 25 กันยายน' }
     : { '3': 'Metropolitan Electricity Authority, electricity bill for October 2026, amount due 1,284.50 THB', '7': 'Total electricity charge incl. VAT 1,102.75 THB, due by 25 September' };
+  mockState.drafts = Array.from({ length: shot.draft ?? 0 }, (_, i) => ({
+    id: `p${i}`, sourceUri: 's', processedUri: 'p', width: 1240, height: 1754, filter: 'auto', rotation: 0, processing: shot.processing && i === 0,
+  }) as DraftPage);
+  mockState.pages = Array.from({ length: 2 }, (_, i) => ({
+    id: `pg${i}`, documentId: '3', index: i, imageUri: 'i', sourceUri: 's', previewUri: 'v', width: 1240, height: 1754, filter: 'auto', rotation: 0,
+  }) as unknown as PageRecord);
   useSettings.setState({ documentsView: shot.view ?? 'list' });
   setWidth(width);
   const routes = ['index', 'documents', 'scan', 'tools', 'profile'].map((name) => ({ key: name, name }));
@@ -159,7 +185,7 @@ async function render(shot: Shot) {
         <TToastProvider>
           <View style={{ width, height, overflow: 'hidden' }}>
             <View style={{ flex: 1 }}>{SCREENS[shot.tab]()}</View>
-            {shot.tab === 'search' ? null : <AppTabBar {...tabProps} />}
+            {['search', 'review', 'viewer'].includes(shot.tab) ? null : <AppTabBar {...tabProps} />}
           </View>
         </TToastProvider>
       </ThemeProvider>
@@ -210,6 +236,11 @@ const shots: Record<string, Shot> = {
   'app-11-search-th': { lang: 'th', scheme: 'light', tab: 'search', docs: true, type: 'ค่าไฟ' },
   'app-11b-search-en-dark': { lang: 'en', scheme: 'dark', tab: 'search', docs: true, type: 'electricity' },
   'app-12-folder-empty-chip-th': { lang: 'th', scheme: 'light', tab: 'documents', docs: true, press: ['chip-folders'] },
+  'app-13-review-3-th': { lang: 'th', scheme: 'light', tab: 'review', draft: 3 },
+  'app-13b-review-processing-th': { lang: 'th', scheme: 'light', tab: 'review', draft: 1, processing: true },
+  'app-13c-review-filter-en-dark': { lang: 'en', scheme: 'dark', tab: 'review', draft: 2, press: ['tool-filter'] },
+  'app-14-viewer-th': { lang: 'th', scheme: 'light', tab: 'viewer', docs: true },
+  'app-14b-viewer-en-dark': { lang: 'en', scheme: 'dark', tab: 'viewer', docs: true },
   'app-10-home-docs-360-th': { lang: 'th', scheme: 'light', tab: 'index', docs: true, width: 360 },
   'app-10b-home-fresh-360-en': { lang: 'en', scheme: 'light', tab: 'index', width: 360 },
 };

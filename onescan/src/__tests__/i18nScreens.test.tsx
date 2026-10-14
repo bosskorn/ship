@@ -80,9 +80,10 @@ describe.each(['en', 'th', 'en-XA'])('screens in %s', (lang) => {
     expect(shown.length).toBeGreaterThan(0);
     expect(shown.filter((s) => KEY_LIKE.test(s))).toEqual([]);
     if (lang === 'en-XA') {
-      // Every visible word went through translation (pseudo text is bracketed), except brand, version and
+      // Every visible word went through translation (pseudo text is bracketed), except brand (the V2 wordmark
+      // draws "One" + "Scan" in two tones), version and
       // language names (always shown in their own language).
-      const raw = shown.filter((s) => /[A-Za-z]{3,}/.test(s) && !/[\[\]áéíóúçñöüřšž]/i.test(s) && !/^(OneScan|English|\d[\d.]*.*)$/.test(s));
+      const raw = shown.filter((s) => /[A-Za-z]{3,}/.test(s) && !/[\[\]áéíóúçñöüřšž]/i.test(s) && !/^(OneScan|One|Scan|English|\d[\d.]*.*)$/.test(s));
       expect(raw).toEqual([]);
     }
     act(() => r.unmount());

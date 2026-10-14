@@ -5,7 +5,7 @@ import type { Point } from '@/core/document-engine/model';
 import { scan } from './scannerStyle';
 
 const ARM = 22;
-const STROKE = 3;
+const STROKE = 4;
 /** Corner guide when no page is found: a centred A4-ish frame, corners only (mockup A). */
 function guideCorners(w: number, h: number): Point[] {
   const gw = w * 0.74;
@@ -38,8 +38,8 @@ const cornerOffset = [
  * Live edge overlay (mockup A–C). All motion runs on the native driver, so the camera and
  * JS thread never wait on it:
  * - no page: four faint corner hints, no full rectangle;
- * - page found: corners spring to the page corners, thin outline joins them;
- * - ready: corners turn green and a scan line sweeps the page once.
+ * - page found: corners spring to the page corners, a soft blue fill and outline join them;
+ * - ready: a scan line sweeps the page once (design V2: blue throughout, no green).
  */
 export function EdgeOverlay({ points, ready, width, height }: { points: Point[] | null; ready: boolean; width: number; height: number }) {
   const [corners] = useState(() => [0, 1, 2, 3].map(() => new Animated.ValueXY({ x: 0, y: 0 })));
@@ -70,7 +70,7 @@ export function EdgeOverlay({ points, ready, width, height }: { points: Point[] 
     Animated.timing(sweep, { toValue: 1, duration: 650, easing: Easing.inOut(Easing.quad), useNativeDriver: true }).start();
   }, [ready, sweep]);
 
-  const color = ready ? scan.ready : points ? scan.brandText : scan.text;
+  const color = points ? scan.ready : scan.text;
   const top = points ? Math.min(...points.map((p) => p.y)) : 0;
   const bottom = points ? Math.max(...points.map((p) => p.y)) : 0;
   const left = points ? Math.min(...points.map((p) => p.x)) : 0;
@@ -82,11 +82,10 @@ export function EdgeOverlay({ points, ready, width, height }: { points: Point[] 
         <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
           <Polygon
             points={points.map((p) => `${p.x},${p.y}`).join(' ')}
-            fill={ready ? scan.ready : 'none'}
-            fillOpacity={ready ? 0.08 : 0}
-            stroke={color}
-            strokeOpacity={0.7}
-            strokeWidth={1.5}
+            fill={scan.found}
+            fillOpacity={0.13}
+            stroke={scan.found}
+            strokeWidth={2.5}
             strokeLinejoin="round"
           />
         </Svg>

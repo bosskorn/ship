@@ -3,7 +3,10 @@ export const scan = {
   brand: '#0052D9',
   brandLight: '#4C8DFF',
   brandText: '#8FB4FF',
-  ready: '#34C38F',
+  /** Ready / found page (design V2): blue, never green. */
+  ready: '#7FA9FF',
+  found: '#5B93FF',
+  readyPill: '#2E6BF0',
   warn: '#FFB020',
   text: '#FFFFFF',
   textMuted: '#C9CDD4',

@@ -17,13 +17,14 @@ export function QualityCoach({ tone, message, sub, chip }: { tone: CoachTone; me
     fade.setValue(0.4);
     Animated.timing(fade, { toValue: 1, duration: 160, useNativeDriver: true }).start();
   }, [message, fade]);
-  const iconBg = tone === 'ready' ? scan.ready : tone === 'warn' ? scan.warn : 'rgba(255,255,255,0.18)';
+  const ready = tone === 'ready';
+  const iconBg = ready ? 'transparent' : tone === 'warn' ? scan.warn : 'rgba(255,255,255,0.18)';
   return (
     <View style={styles.wrap} pointerEvents="none" accessibilityLiveRegion="polite">
-      <Animated.View style={[styles.pill, { opacity: fade }]}>
+      <Animated.View style={[styles.pill, { opacity: fade }, ready && { backgroundColor: scan.readyPill }]}>
         <View style={[styles.icon, { backgroundColor: iconBg }]}>
           {tone === 'ready' ? (
-            <Check size={13} color="#0B0D11" strokeWidth={3} />
+            <Check size={18} color={scan.text} strokeWidth={2.6} />
           ) : tone === 'warn' ? (
             <Text style={styles.bang}>!</Text>
           ) : (
@@ -32,7 +33,7 @@ export function QualityCoach({ tone, message, sub, chip }: { tone: CoachTone; me
         </View>
         <View style={{ flexShrink: 1 }}>
           <Text style={[styles.msg, { fontFamily }]}>{message}</Text>
-          {sub ? <Text style={[styles.sub, { fontFamily }]}>{sub}</Text> : null}
+          {sub ? <Text style={[styles.sub, { fontFamily }, ready && { color: '#DCE6FF' }]}>{sub}</Text> : null}
         </View>
       </Animated.View>
       {chip ? (

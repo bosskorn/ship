@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  IconName, TActionSheet, TDialog, TIcon, TLoading, TNavigationBar, TProgress, TText, useTheme, useToast,
+  IconName, TActionSheet, TButton, TDialog, TIcon, TIconButton, TLoading, TNavigationBar, TProgress, TText, useTheme, useToast,
 } from '@/design-system';
 import { DocumentEngine, SaveStage } from '@/core/document-engine/DocumentEngine';
 import { cssFilterFor, pageFilters } from '@/core/document-engine/image/filters';
@@ -20,12 +20,13 @@ import { documentRepository } from '@/core/database/repositories/documentReposit
 import { track } from '@/services/analytics/analytics';
 import { SecureImage } from '@/features/shared/SecureImage';
 
-type Tool = 'crop' | 'rotate' | 'filter' | 'clean';
-const tools: { key: Tool; icon: IconName }[] = [
-  { key: 'crop', icon: 'crop' },
-  { key: 'rotate', icon: 'rotate' },
-  { key: 'filter', icon: 'filter' },
-  { key: 'clean', icon: 'clean' },
+type Tool = 'crop' | 'filter' | 'rotate' | 'delete';
+/** Review edits (design V2): Crop · Adjust · Rotate · Delete page. "Clean" is the Document filter under Adjust. */
+const tools: { key: Tool; icon: IconName; label: 'editor.crop' | 'editor.adjust' | 'editor.rotate' | 'editor.delete_page' }[] = [
+  { key: 'crop', icon: 'crop', label: 'editor.crop' },
+  { key: 'filter', icon: 'filter', label: 'editor.adjust' },
+  { key: 'rotate', icon: 'rotate', label: 'editor.rotate' },
+  { key: 'delete', icon: 'delete', label: 'editor.delete_page' },
 ];
 const filterLabelKey: Record<PageFilter, `editor.filter_${string}`> = {
   original: 'editor.filter_original',
@@ -42,12 +43,19 @@ function previewFilter(page: DraftPage) {
   return DocumentEngine.capture.hasNativeVision() ? undefined : ({ filter: cssFilterFor[page.filter] } as object);
 }
 
+/** Largest size of the page's preview that fits the stage, or null before layout / without dimensions. */
+function paperSize(page: DraftPage, maxW: number, maxH: number) {
+  if (!page.width || !page.height || maxW <= 0 || maxH <= 0) return null;
+  const k = Math.min(maxW / page.width, maxH / page.height);
+  return { width: Math.round(page.width * k), height: Math.round(page.height * k) };
+}
+
 export function EditorScreen() {
   const { t, i18n } = useTranslation();
   const { colors, spacing, radius } = useTheme();
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const { width } = useWindowDimensions();
+  const { width, height: windowHeight } = useWindowDimensions();
   const pager = useRef<FlatList<DraftPage>>(null);
   const { pages, docType, replacePage, removePage, duplicatePage, movePage, setRescan, setFromEditor, clear } = useScanSession();
   const [index, setIndex] = useState(() => Math.max(0, useScanSession.getState().pages.findIndex((p) => p.crop?.decision === 'manual' && p.crop.presence !== 'none')));
@@ -57,6 +65,7 @@ export function EditorScreen() {
   const [saving, setSaving] = useState<{ stage: SaveStage; progress: number } | null>(null);
   const [cropping, setCropping] = useState(() => DocumentEngine.capture.hasNativeVision() && useScanSession.getState().pages.some((p) => p.crop?.decision === 'manual' && p.crop.presence !== 'none'));
   const [working, setWorking] = useState(false);
+  const [stage, setStage] = useState({ width: 0, height: 0 });
   const current = pages[Math.min(index, pages.length - 1)];
   const nativeVision = DocumentEngine.capture.hasNativeVision();
 
@@ -94,10 +103,8 @@ export function EditorScreen() {
         return setTool(tool === 'filter' ? null : 'filter');
       case 'crop':
         return setCropping(true);
-      case 'clean':
-        // Shadow + background normalisation with document contrast.
-        if (await update(index, { filter: 'document' })) toast(t('editor.clean_applied'), 'success');
-        return;
+      case 'delete':
+        return deletePage(index);
     }
   };
 
@@ -133,6 +140,14 @@ export function EditorScreen() {
     }
   };
 
+  const deletePage = (i: number) => {
+    removePage(i);
+    if (pages.length <= 1) {
+      clear();
+      router.back();
+    } else setIndex(Math.max(0, Math.min(i, pages.length - 2)));
+  };
+
   const onPageAction = (key: string) => {
     const i = pageMenu;
     setPageMenu(null);
@@ -153,34 +168,23 @@ export function EditorScreen() {
         setFromEditor(true);
         return router.push('/scanner');
       case 'delete':
-        removePage(i);
-        if (pages.length <= 1) {
-          clear();
-          router.back();
-        } else setIndex(Math.max(0, Math.min(i, pages.length - 2)));
+        return deletePage(i);
     }
   };
 
   const progressValue = saving ? { pages: 0.05, pdf: 0.2, ocr: 0.3 + saving.progress * 0.6, index: 0.95 }[saving.stage] : 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bgPage, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: colors.bgSecondary, paddingTop: insets.top }}>
       <TNavigationBar
-        title={t('editor.title')}
+        title={t('editor.title_pages', { n: pages.length })}
         onBack={() => (pages.length ? setConfirmDiscard(true) : router.back())}
         backLabel={t('common.back')}
-        divider
-        right={
-          <Pressable testID="editor-save" accessibilityRole="button" onPress={save} disabled={!pages.length || !!saving} hitSlop={8} style={{ paddingHorizontal: spacing.sm }}>
-            <TText variant="bodyLarge" weight="600" color={pages.length ? 'brand' : 'textDisabled'}>
-              {t('common.save')}
-            </TText>
-          </Pressable>
-        }
+        right={current ? <TIconButton icon="more" accessibilityLabel={t('common.more')} onPress={() => setPageMenu(index)} /> : null}
       />
 
-      {/* Page preview */}
-      <View style={{ flex: 1 }}>
+      {/* The page, as paper on the stage */}
+      <View style={{ flex: 1 }} onLayout={(e) => setStage(e.nativeEvent.layout)}>
         <FlatList
           ref={pager}
           data={pages}
@@ -190,16 +194,29 @@ export function EditorScreen() {
           keyExtractor={(p) => p.id}
           getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
           onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
-          renderItem={({ item }) => (
-            <View style={{ width, flex: 1, padding: spacing.md }}>
-              <SecureImage
-                uri={item.processedUri}
-                resizeMode="contain"
-                style={[{ flex: 1 }, previewFilter(item)]}
-              />
-            </View>
-          )}
+          renderItem={({ item }) => {
+            // Before the stage is measured, estimate it from the window (app bar + controls ≈ 330 dp).
+            const fit = paperSize(item, width - 2 * spacing.xxl, (stage.height || windowHeight - 330) - 40 - spacing.md);
+            return (
+              <View style={{ width, flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 40, paddingBottom: spacing.md }}>
+                {fit ? (
+                  <View style={{ width: fit.width, height: fit.height, borderRadius: 4, backgroundColor: '#FFFFFF', elevation: 6, shadowColor: '#0F1521', shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } }}>
+                    <SecureImage uri={item.processedUri} resizeMode="contain" style={[{ width: fit.width, height: fit.height, borderRadius: 4 }, previewFilter(item)]} />
+                  </View>
+                ) : (
+                  <SecureImage uri={item.processedUri} resizeMode="contain" style={[{ flex: 1, alignSelf: 'stretch', marginHorizontal: spacing.md }, previewFilter(item)]} />
+                )}
+              </View>
+            );
+          }}
         />
+        <View style={styles.pageNo} pointerEvents="none">
+          <View style={{ backgroundColor: colors.bgContainer, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, paddingHorizontal: 10, paddingVertical: 3 }}>
+            <TText variant="bodySmall" color="textSecondary">
+              {current?.processing ? t('scanner.preparing') : t('editor.page_of', { i: Math.min(index, pages.length - 1) + 1, n: pages.length })}
+            </TText>
+          </View>
+        </View>
         {current?.crop && current.crop.decision !== 'auto' && !current.crop.confirmed && nativeVision ? (
           <View style={styles.cropHint} pointerEvents="box-none">
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.mediaOverlay, borderRadius: 999, paddingStart: spacing.sm, paddingEnd: 4, paddingVertical: 4 }}>
@@ -233,49 +250,71 @@ export function EditorScreen() {
             </View>
           </View>
         ) : null}
-        {pages.length > 1 ? (
-          <View style={[styles.pageBadge, { backgroundColor: colors.mediaOverlay, borderRadius: radius.md }]}>
-            <TText variant="bodySmall" color="mediaText">{`${index + 1} / ${pages.length}`}</TText>
-          </View>
-        ) : null}
       </View>
 
-      {/* Filter strip (progressive disclosure) */}
-      {tool === 'filter' && current ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ backgroundColor: colors.bgContainer, flexGrow: 0 }} contentContainerStyle={{ padding: spacing.sm, gap: spacing.sm }}>
-          {pageFilters.map((f) => {
-            const active = current.filter === f;
+      <View style={{ backgroundColor: colors.bgContainer, paddingBottom: insets.bottom }}>
+        {/* Adjust: filter strip (progressive disclosure) */}
+        {tool === 'filter' && current ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider }} contentContainerStyle={{ padding: spacing.sm, gap: spacing.sm }}>
+            {pageFilters.map((f) => {
+              const active = current.filter === f;
+              return (
+                <Pressable key={f} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => update(index, { filter: f })} style={{ alignItems: 'center', gap: 4 }}>
+                  <SecureImage
+                    uri={current.processedUri}
+                    style={[{ width: 52, height: 64, borderRadius: radius.sm, borderWidth: 2, borderColor: active ? colors.brand : 'transparent' }, { filter: cssFilterFor[f] } as object]}
+                  />
+                  <TText variant="bodySmall" color={active ? 'brand' : 'textSecondary'}>
+                    {t(filterLabelKey[f] as 'editor.filter_auto')}
+                  </TText>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
+        {/* Edits */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: spacing.xs, paddingTop: spacing.xxs }}>
+          {tools.map((tl) => {
+            const active = tool === tl.key;
             return (
-              <Pressable key={f} accessibilityRole="button" accessibilityState={{ selected: active }} onPress={() => update(index, { filter: f })} style={{ alignItems: 'center', gap: 4 }}>
-                <SecureImage
-                  uri={current.processedUri}
-                  style={[{ width: 52, height: 64, borderRadius: radius.sm, borderWidth: 2, borderColor: active ? colors.brand : 'transparent' }, { filter: cssFilterFor[f] } as object]}
-                />
-                <TText variant="bodySmall" color={active ? 'brand' : 'textSecondary'}>
-                  {t(filterLabelKey[f] as 'editor.filter_auto')}
+              <Pressable
+                key={tl.key}
+                testID={`tool-${tl.key}`}
+                accessibilityRole="button"
+                accessibilityState={tl.key === 'filter' ? { expanded: active } : undefined}
+                onPress={() => onTool(tl.key)}
+                style={({ pressed }) => ({ minWidth: 72, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 4, borderRadius: 12, backgroundColor: pressed ? colors.bgPressed : 'transparent' })}
+              >
+                <TIcon name={tl.icon} size="md" color={active ? colors.brand : colors.textPrimary} />
+                <TText variant="caption" color={active ? 'brand' : 'textSecondary'}>
+                  {t(tl.label)}
                 </TText>
               </Pressable>
             );
           })}
-        </ScrollView>
-      ) : null}
+        </View>
 
-      {/* Thumbnails: 1 2 3 4 + */}
-      <View style={{ backgroundColor: colors.bgContainer, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ padding: spacing.sm, gap: spacing.xs, alignItems: 'center' }}>
+        {/* Pages: 1 2 3 … + */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 10, alignItems: 'center' }}>
           {pages.map((p, i) => (
             <Pressable
               key={p.id}
               accessibilityRole="button"
+              accessibilityState={{ selected: i === index }}
               accessibilityLabel={t('editor.page_actions', { index: i + 1 })}
               onPress={() => goTo(i)}
               onLongPress={() => setPageMenu(i)}
-              style={{ alignItems: 'center', gap: 2 }}
+              style={{ width: 48, height: 64 }}
             >
-              <SecureImage uri={p.processedUri} style={{ width: 40, height: 52, borderRadius: radius.sm, borderWidth: 2, borderColor: i === index ? colors.brand : colors.divider }} />
-              <TText variant="caption" color={i === index ? 'brand' : 'textSecondary'}>
-                {String(i + 1)}
-              </TText>
+              <View style={{ flex: 1, borderRadius: 6, borderWidth: i === index ? 2.5 : 1, borderColor: i === index ? colors.brand : colors.divider, overflow: 'hidden', backgroundColor: colors.bgSecondary }}>
+                <SecureImage uri={p.processedUri} resizeMode="cover" style={{ flex: 1 }} />
+              </View>
+              <View style={{ position: 'absolute', right: -3, bottom: -3, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.textPrimary, alignItems: 'center', justifyContent: 'center' }}>
+                <TText variant="caption" style={{ color: colors.bgContainer, fontSize: 11, lineHeight: 14 }}>
+                  {String(i + 1)}
+                </TText>
+              </View>
             </Pressable>
           ))}
           <Pressable
@@ -285,25 +324,14 @@ export function EditorScreen() {
               setFromEditor(true);
               router.push('/scanner');
             }}
-            style={{ width: 40, height: 52, borderRadius: radius.sm, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}
+            style={{ width: 48, height: 64, borderRadius: 6, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.textPlaceholder, alignItems: 'center', justifyContent: 'center' }}
           >
             <TIcon name="plus" size="md" color={colors.textSecondary} />
           </Pressable>
         </ScrollView>
 
-        {/* Tools */}
-        <View style={{ flexDirection: 'row', paddingBottom: insets.bottom, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider }}>
-          {tools.map((tl) => {
-            const active = tool === tl.key;
-            return (
-              <Pressable key={tl.key} testID={`tool-${tl.key}`} accessibilityRole="button" onPress={() => onTool(tl.key)} style={{ flex: 1, height: 60, alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                <TIcon name={tl.icon} size="md" color={active ? colors.brand : colors.textPrimary} />
-                <TText variant="caption" color={active ? 'brand' : 'textSecondary'}>
-                  {t(`editor.${tl.key}`)}
-                </TText>
-              </Pressable>
-            );
-          })}
+        <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.sm }}>
+          <TButton testID="editor-save" label={t('editor.save_document')} block onPress={save} disabled={!pages.length || !!saving} style={{ borderRadius: 24 }} />
         </View>
       </View>
 
@@ -377,6 +405,6 @@ export function EditorScreen() {
 }
 
 const styles = StyleSheet.create({
-  cropHint: { position: 'absolute', left: 0, right: 0, top: 12, alignItems: 'center' },
-  pageBadge: { position: 'absolute', bottom: 12, alignSelf: 'center', paddingHorizontal: 10, paddingVertical: 4 },
+  cropHint: { position: 'absolute', left: 0, right: 0, bottom: 12, alignItems: 'center' },
+  pageNo: { position: 'absolute', left: 0, right: 0, top: 10, alignItems: 'center' },
 });
