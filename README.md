@@ -2,8 +2,17 @@
 
 | File | Built from | Notes |
 | --- | --- | --- |
+| `OneScan-v1.2.0-RC2-arm64.apk` | branch `claude/onescan-mobile-v1` @ 64a699e | **1.2.0 RC2** (versionCode 12), arm64-v8a, release build signed with the **Play upload key** — the current build for real-device QA (see `QA-CHECKLIST-RC2.md`). Fresh install, or update over RC1 (same key). Cannot update debug-key builds (1.1.x, RC1-QA). No debug-key copy of RC2 is made. |
 | `OneScan-v1.2.0-RC1-arm64.apk` | branch `claude/onescan-mobile-v1` @ 3a66553 | **1.2.0 RC1** (versionCode 11), arm64-v8a, release build signed with the **Play upload key**. Fresh installs. Cannot update earlier test builds (different signing key): uninstall them first, which deletes their documents. |
-| `OneScan-v1.2.0-RC1-QA-arm64.apk` | same APK, re-signed | Identical app signed with the **debug key**, so it **installs over 1.1.x** and keeps its documents — use it to test the migration of old documents (encryption + database). For QA only. |
+| `OneScan-v1.2.0-RC1-QA-arm64.apk` | same APK, re-signed | Identical app signed with the **debug key**, so it **installs over 1.1.x** and keeps its documents — use it to test the migration of old documents (encryption + database). For QA only — **use only to test migration from 1.1.x** (migration code is unchanged in RC2). |
+
+## Changes in 1.2.0 RC2 (release candidate)
+- Production feature audit: unfinished features (sign-in, plans, cloud, AI, trash, app lock, redaction, auto capture…) are hidden and their links redirect; no "Coming soon".
+- New app icon and logo.
+- Languages: English and ไทย (Settings → Language: System default / English / ไทย); missing text falls back to English, never a raw key.
+- Settings → Text recognition language (separate from the app language): Automatic (Thai + English) — same OCR as RC1, on the device only.
+- Long translated labels wrap instead of being cut off; the back button is announced in the app language.
+- Unchanged from RC1: encryption, database and migration, PDF, native camera module, crop/ML models. Scanner screen: only the "Use system scanner" menu item is hidden once pages are captured, and spacing changes for right-to-left readiness.
 
 ## Changes in 1.2.0 RC1 (release candidate)
 - Your documents are encrypted on the phone: pages, PDFs (AES-256-GCM, key in the Android Keystore) and the database with OCR text and search index (SQLCipher). Documents from earlier versions are encrypted automatically in the background after the first start.
