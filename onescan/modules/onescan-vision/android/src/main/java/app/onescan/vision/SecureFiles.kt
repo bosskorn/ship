@@ -36,6 +36,8 @@ import javax.crypto.spec.SecretKeySpec
  * cache (`cache/onescan/plain`, cleared on start) and the plaintext copy is used.
  */
 internal object SecureFiles {
+  private const val SCOPED = "scoped"
+
   private const val KEK_ALIAS = "onescan.kek.v1"
   private const val CHUNK = 1 shl 20
   private const val PLAIN_CACHE_MAX = 400L * 1024 * 1024
@@ -237,6 +239,28 @@ internal object SecureFiles {
 
   private fun plainDir(): File = File(ctx().cacheDir, "onescan/plain")
 
+  /** Private, short-lived decrypted copies (OCR). Inside the plain cache: wiped at every launch. */
+  private fun scopedDir(): File = File(plainDir(), SCOPED)
+
+  /**
+   * Runs [block] on a readable copy of [file] that exists only for this call. An encrypted file
+   * is decrypted to a private temp file and deleted in `finally`: on success, on failure, when
+   * the JS side gives up (timeout / cancel — this call still runs to its end and cleans up), and
+   * on interruption. A file that is not encrypted is passed through and never deleted. If the
+   * process is killed mid-call, the copy is in the plain cache, which is cleared on next launch.
+   */
+  fun <T> withPlainTemp(file: File, dir: File? = null, block: (File) -> T): T {
+    if (!isEncrypted(file)) return block(file)
+    val d = (dir ?: scopedDir()).apply { mkdirs() }
+    val tmp = File(d, "${java.util.UUID.randomUUID()}.${file.extension.ifEmpty { "bin" }}")
+    try {
+      decrypt(file, tmp)
+      return block(tmp)
+    } finally {
+      tmp.delete()
+    }
+  }
+
   /**
    * A readable file for `file`: itself when not encrypted, else a decrypted copy in the
    * cache (reused while the source is unchanged). `name` sets the copy's file name
@@ -255,7 +279,7 @@ internal object SecureFiles {
 
   /** Decrypted copies beyond `max` bytes: oldest-used removed first (they are re-made on demand). */
   private fun trimPlainCache(max: Long) {
-    val files = plainDir().walkTopDown().filter { it.isFile }.toMutableList()
+    val files = plainDir().walkTopDown().onEnter { it.name != SCOPED }.filter { it.isFile }.toMutableList()
     var total = files.sumOf { it.length() }
     if (total <= max) return
     files.sortBy { it.lastModified() }
