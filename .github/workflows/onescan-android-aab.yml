@@ -2,6 +2,12 @@ name: Build OneScan Android AAB
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - build/onescan-1.2.1-internal
+    paths:
+      - onescan/**
+      - .github/workflows/onescan-android-aab.yml
 
 permissions:
   contents: read
