@@ -1,0 +1,137 @@
+[
+ {
+  "category": "Flat-ish: light wrinkle",
+  "case": "016_wrinkle_light",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "flatish_light_wrinkle__016_wrinkle_light_full.jpg",
+   "flatish_light_wrinkle__016_wrinkle_light_detail.jpg"
+  ]
+ },
+ {
+  "category": "Heavy wrinkle",
+  "case": "161_wrinkle_heavy",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "heavy_wrinkle__161_wrinkle_heavy_full.jpg",
+   "heavy_wrinkle__161_wrinkle_heavy_detail.jpg"
+  ]
+ },
+ {
+  "category": "Folded",
+  "case": "035_fold_multi",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "folded__035_fold_multi_full.jpg",
+   "folded__035_fold_multi_detail.jpg"
+  ]
+ },
+ {
+  "category": "Curled",
+  "case": "004_curl",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "curled__004_curl_full.jpg",
+   "curled__004_curl_detail.jpg"
+  ]
+ },
+ {
+  "category": "Curved edges",
+  "case": "021_curved_edges",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "curved_edges__021_curved_edges_full.jpg",
+   "curved_edges__021_curved_edges_detail.jpg"
+  ]
+ },
+ {
+  "category": "Long receipt",
+  "case": "182_long",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "long_receipt__182_long_full.jpg",
+   "long_receipt__182_long_detail.jpg"
+  ]
+ },
+ {
+  "category": "Crease shadow",
+  "case": "280_crease_shadow",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "crease_shadow__280_crease_shadow_full.jpg",
+   "crease_shadow__280_crease_shadow_detail.jpg"
+  ]
+ },
+ {
+  "category": "Busy background",
+  "case": "187_busy_background",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "busy_background__187_busy_background_full.jpg",
+   "busy_background__187_busy_background_detail.jpg"
+  ]
+ },
+ {
+  "category": "Faded thermal",
+  "case": "087_thermal_faded",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "faded_thermal__087_thermal_faded_full.jpg",
+   "faded_thermal__087_thermal_faded_detail.jpg"
+  ]
+ },
+ {
+  "category": "Uneven light",
+  "case": "025_uneven_light",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "uneven_light__025_uneven_light_full.jpg",
+   "uneven_light__025_uneven_light_detail.jpg"
+  ]
+ },
+ {
+  "category": "Thai",
+  "case": "125_thai",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "thai__125_thai_full.jpg",
+   "thai__125_thai_detail.jpg"
+  ]
+ },
+ {
+  "category": "Thai + English",
+  "case": "126_thai_english",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "thai_plus_english__126_thai_english_full.jpg",
+   "thai_plus_english__126_thai_english_detail.jpg"
+  ]
+ },
+ {
+  "category": "Numeric dense",
+  "case": "127_numeric_dense",
+  "rule": "median persp/oq line curvature of class",
+  "files": [
+   "numeric_dense__127_numeric_dense_full.jpg",
+   "numeric_dense__127_numeric_dense_detail.jpg"
+  ]
+ },
+ {
+  "category": "Failure DocSeg boundary",
+  "case": "118_long",
+  "rule": "largest DocSeg corner error",
+  "files": [
+   "failure_docseg_boundary__118_long_full.jpg",
+   "failure_docseg_boundary__118_long_detail.jpg"
+  ]
+ },
+ {
+  "category": "Failure UVDoc with true boundary",
+  "case": "122_tilted",
+  "rule": "largest uvdoc/oq line curvature",
+  "files": [
+   "failure_uvdoc_with_true_boundary__122_tilted_full.jpg",
+   "failure_uvdoc_with_true_boundary__122_tilted_detail.jpg"
+  ]
+ }
+]

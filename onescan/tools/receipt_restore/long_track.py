@@ -194,7 +194,7 @@ def main():
     ctrl = [cases[cases.index(c) + 1] for c in longs if cases.index(c) + 1 < len(cases)]
     with Pool(a.workers) as pool, open(a.out, 'w') as f:
         for r in pool.imap_unordered(work, longs + ctrl):
-            f.write(json.dumps(r) + '\n')
+            f.write(json.dumps(r, default=float) + '\n')
             f.flush()
             print(r['case'], flush=True)
 
