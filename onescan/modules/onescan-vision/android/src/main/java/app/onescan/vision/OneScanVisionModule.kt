@@ -204,7 +204,9 @@ class OneScanVisionModule : Module() {
     }
 
     AsyncFunction("recognizeTextAsync") { uri: String, languages: List<String> ->
-      TextRecognizer.recognize(context, ImageIO.fileFromUri(uri), languages)
+      // OCR reads a private decrypted copy that is deleted when recognition ends, whatever the
+      // outcome — not the shared plain cache, which keeps copies until trimmed or relaunched.
+      SecureFiles.withPlainTemp(ImageIO.rawFileFromUri(uri)) { TextRecognizer.recognize(context, it, languages) }
     }
 
     AsyncFunction("redactRegionsAsync") { uri: String, boxes: List<BoxRecord> ->
