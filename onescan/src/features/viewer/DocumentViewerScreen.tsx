@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -32,10 +32,10 @@ export function DocumentViewerScreen() {
   const [more, setMore] = useState(false);
   const [zoomPage, setZoomPage] = useState<PageRecord | null>(null);
   // FlatList requires the same callback for its whole life.
-  const onViewable = useRef(({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
+  const [onViewable] = useState(() => ({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
     const first = viewableItems[0]?.index;
     if (typeof first === 'number') setCurrent(first);
-  }).current;
+  });
 
   if (doc === undefined) return <View style={{ flex: 1, backgroundColor: colors.bgPage, paddingTop: insets.top }}><TLoading /></View>;
   if (doc === null) {
