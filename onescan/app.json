@@ -3,7 +3,7 @@
     "name": "OneScan",
     "slug": "onescan",
     "scheme": "onescan",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -24,7 +24,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "versionCode": 13,
+      "versionCode": 14,
       "allowBackup": false,
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
