@@ -1,0 +1,78 @@
+name: Build OneScan Android AAB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: onescan
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: onescan/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean --no-install
+        env:
+          CI: "1"
+
+      - name: Restore upload key
+        shell: bash
+        run: |
+          printf '%s' "$ONESCAN_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/onescan-upload-key.jks"
+          chmod 600 "$RUNNER_TEMP/onescan-upload-key.jks"
+        env:
+          ONESCAN_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ONESCAN_UPLOAD_KEYSTORE_BASE64 }}
+
+      - name: Build signed release bundle
+        run: ./gradlew bundleRelease --no-daemon
+        working-directory: onescan/android
+        env:
+          ONESCAN_UPLOAD_STORE_FILE: ${{ runner.temp }}/onescan-upload-key.jks
+          ONESCAN_UPLOAD_STORE_PASSWORD: ${{ secrets.ONESCAN_UPLOAD_STORE_PASSWORD }}
+          ONESCAN_UPLOAD_KEY_ALIAS: ${{ secrets.ONESCAN_UPLOAD_KEY_ALIAS }}
+          ONESCAN_UPLOAD_KEY_PASSWORD: ${{ secrets.ONESCAN_UPLOAD_KEY_PASSWORD }}
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          mkdir -p ../artifacts
+          cp android/app/build/outputs/bundle/release/app-release.aab ../artifacts/OneScan-v1.2.1-Internal-Testing.aab
+          sha256sum ../artifacts/OneScan-v1.2.1-Internal-Testing.aab > ../artifacts/OneScan-v1.2.1-Internal-Testing.aab.sha256
+
+      - name: Upload Android App Bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: OneScan-v1.2.1-Internal-Testing
+          path: |
+            artifacts/OneScan-v1.2.1-Internal-Testing.aab
+            artifacts/OneScan-v1.2.1-Internal-Testing.aab.sha256
+          if-no-files-found: error
+          retention-days: 30

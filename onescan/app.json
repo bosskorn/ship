@@ -16,7 +16,7 @@
       "buildNumber": "6"
     },
     "android": {
-      "package": "app.onescan.mobile",
+      "package": "com.tharawat.onescan",
       "adaptiveIcon": {
         "backgroundColor": "#0052D9",
         "foregroundImage": "./assets/android-icon-foreground.png",
