@@ -38,7 +38,8 @@ export async function cleanCache() {
   if (!root.exists) return;
   for (const e of root.list()) {
     try {
-      if (e instanceof Directory && e.name === 'plain') continue;
+      // plain/: cleared above; share/: aged by its own rule (export/shareTemp.ts).
+      if (e instanceof Directory && (e.name === 'plain' || e.name === 'share')) continue;
       if (ageMs(e) > CACHE_MIN_AGE_MS) e.delete();
     } catch {
       // in use or already gone

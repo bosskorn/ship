@@ -66,6 +66,18 @@ class OneScanVisionModule : Module() {
       ImageIO.uriOf(SecureFiles.plain(ImageIO.rawFileFromUri(uri), name))
     }
 
+    /** Plaintext copy for one share (own folder, outside the plain cache); see SecureFiles.shareCopy. */
+    AsyncFunction("shareCopyAsync") { uri: String, name: String ->
+      SecureFiles.init(context)
+      ImageIO.uriOf(SecureFiles.shareCopy(ImageIO.rawFileFromUri(uri), name))
+    }
+
+    /** Removes share copies at least `minAgeMs` old; returns the number removed. */
+    AsyncFunction("sweepShareCopiesAsync") { minAgeMs: Double ->
+      SecureFiles.init(context)
+      SecureFiles.sweepShareCopies(minAgeMs.toLong())
+    }
+
     AsyncFunction("isEncryptedAsync") { uri: String -> SecureFiles.isEncrypted(ImageIO.rawFileFromUri(uri)) }
 
     /** Encrypts a plaintext file in place (verified, atomic); false if it already was. */

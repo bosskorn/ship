@@ -2,7 +2,9 @@ import { DocumentEngine } from '@/core/document-engine/DocumentEngine';
 import { useRemoteConfig } from '@/core/config/remoteConfig';
 import { useDocuments } from '@/features/documents/documentsStore';
 import { clearReadableUris } from '@/features/shared/SecureImage';
+import { AppState } from 'react-native';
 import { cleanCache, encryptExistingFiles, sweepOrphanFolders } from '@/core/document-engine/storage/maintenance';
+import { sweepShareCopies } from '@/core/document-engine/export/shareTemp';
 
 let started = false;
 
@@ -15,6 +17,11 @@ export async function bootstrapLocalData() {
   if (started) return;
   started = true;
   await cleanCache();
+  await sweepShareCopies();
+  // Share copies also age out while the app stays alive: check whenever it comes back.
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') void sweepShareCopies();
+  });
   try {
     await DocumentEngine.emptyExpiredTrash(useRemoteConfig.getState().config.trashRetentionDays);
   } catch {

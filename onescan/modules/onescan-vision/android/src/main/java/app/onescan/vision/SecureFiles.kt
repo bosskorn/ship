@@ -271,6 +271,45 @@ internal object SecureFiles {
   }
 
   /**
+   * Share copies live outside the reusable plain cache: one folder per share,
+   * `cache/onescan/share/<createdMillis>-<uuid>/<name>`, never reused, never trimmed by the LRU.
+   * The receiving app may read the file after the share sheet closes (mail on send, background
+   * uploads), so a copy is only removed by [sweepShareCopies] once it is older than the
+   * caller's minimum age.
+   */
+  private fun shareDir(): File = File(ctx().cacheDir, "onescan/share")
+
+  /** Plaintext copy of [file] (decrypted when encrypted) made for exactly one share. */
+  fun shareCopy(file: File, name: String, dir: File? = null, now: Long = System.currentTimeMillis()): File {
+    val safe = name.replace(Regex("[\\\\/:*?\"<>|\\n\\r]+"), " ").trim().take(120).ifEmpty { "OneScan" }
+    val d = File(dir ?: shareDir(), "$now-${java.util.UUID.randomUUID()}")
+    if (!d.mkdirs()) throw IllegalStateException("Could not create share folder")
+    val out = File(d, safe)
+    try {
+      if (isEncrypted(file)) decrypt(file, out) else file.copyTo(out, overwrite = true)
+      return out
+    } catch (e: Throwable) {
+      d.deleteRecursively()
+      throw e
+    }
+  }
+
+  /**
+   * Deletes share copies created at least [minAgeMs] ago. Age comes from the creation time in
+   * the folder name; anything without one (or dated in the future after a clock change) falls
+   * back to its last-modified time. Returns how many folders were removed.
+   */
+  fun sweepShareCopies(minAgeMs: Long, dir: File? = null, now: Long = System.currentTimeMillis()): Int {
+    val root = dir ?: shareDir()
+    var removed = 0
+    for (e in root.listFiles() ?: return 0) {
+      val created = e.name.substringBefore('-').toLongOrNull()?.takeIf { it <= now } ?: e.lastModified()
+      if (now - created >= minAgeMs && e.deleteRecursively()) removed++
+    }
+    return removed
+  }
+
+  /**
    * Plaintext → encrypted in place, kill-safe: encrypt to a temp file, verify it decrypts
    * to the same bytes (SHA-256), then atomically replace. Returns false when the file was
    * already encrypted (so a migration can simply be re-run after an interruption).

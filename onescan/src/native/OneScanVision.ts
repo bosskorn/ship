@@ -55,6 +55,10 @@ export interface OneScanVisionModule {
   encryptFileAsync?(src: string, dst: string): Promise<string>;
   /** Readable URI: decrypted cache copy of an encrypted file, or the file itself. */
   plainUriAsync?(uri: string, name: string | null): Promise<string>;
+  /** Plaintext copy made for one share, in its own folder outside the plain cache (Android). */
+  shareCopyAsync?(uri: string, name: string): Promise<string>;
+  /** Deletes share copies at least `minAgeMs` old; resolves with how many were removed. */
+  sweepShareCopiesAsync?(minAgeMs: number): Promise<number>;
   isEncryptedAsync?(uri: string): Promise<boolean>;
   /** Encrypt a plaintext file in place (verified, atomic). False if already encrypted. */
   migrateFileAsync?(uri: string): Promise<boolean>;
