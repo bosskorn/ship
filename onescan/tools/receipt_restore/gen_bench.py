@@ -123,6 +123,11 @@ def make_content(rng, cls):
     return lines, fields, qr_payload, rno, english
 
 
+# Ground-truth extras (R2): filled from values the generator already computes; no random draws,
+# so the images are byte-identical with or without them.
+_EXTRAS = {}
+
+
 def render_receipt(rng, cls, lines, qr_payload, rno):
     """Flat receipt: 80 mm thermal paper at ~2x 203 dpi (1152 px wide)."""
     W = 1152
@@ -183,6 +188,9 @@ def render_receipt(rng, cls, lines, qr_payload, rno):
     bw = min(W - 2 * margin, b.width)
     b = b.resize((bw, bc_h), Image.NEAREST)
     img.paste(b, ((W - bw) // 2, y))
+    _EXTRAS['line_boxes'] = boxes
+    _EXTRAS['qr_box'] = [(W - qr_size) // 2, y - qr_size - 40 + 20, (W + qr_size) // 2, y - 40 + 20]
+    _EXTRAS['barcode_box'] = [(W - bw) // 2, y, (W + bw) // 2, y + bc_h]
     return np.array(img), text_lines
 
 
@@ -345,6 +353,16 @@ def capture(rng, ref, cls, bgs):
     out = np.clip(out, 0, 255).astype(np.uint8)
     # slight colour cast (phones save colour)
     col = cv2.merge([np.clip(out * c, 0, 255).astype(np.uint8) for c in (rng.uniform(0.9, 1.0), rng.uniform(0.95, 1.0), rng.uniform(0.98, 1.05))])
+    # frame -> flat-paper map (dense oracle) and the exact paper mask, at 1/4 frame resolution
+    q = 4
+    gy, gx = np.mgrid[0:FH:q, 0:FW:q].astype(np.float32)
+    Hi = np.linalg.inv(H)
+    den = Hi[2, 0] * gx + Hi[2, 1] * gy + Hi[2, 2]
+    u = ((Hi[0, 0] * gx + Hi[0, 1] * gy + Hi[0, 2]) / den).astype(np.float32)
+    v = ((Hi[1, 0] * gx + Hi[1, 1] * gy + Hi[1, 2]) / den).astype(np.float32)
+    fx = cv2.remap(xx + dx, u, v, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=-1)
+    fy = cv2.remap(yy + dy, u, v, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=-1)
+    _EXTRAS.update(map_q=q, flat_x=fx, flat_y=fy, mask=(m[::q, ::q] > 0.5), frame=(FW, FH))
     return col, np.float32(corners).tolist()
 
 
@@ -354,6 +372,7 @@ def main():
     ap.add_argument('--n', type=int, default=300)
     ap.add_argument('--seed', type=int, default=7)
     ap.add_argument('--bg', default=None)
+    ap.add_argument('--extras', default=None, help='also write ground-truth extras (R2) to this folder')
     ap.add_argument('--classes', default=None, help='comma list (default: all 16); "flat" = control set, no warp')
     a = ap.parse_args()
     bgs = [os.path.join(a.bg, f) for f in sorted(os.listdir(a.bg))] if a.bg else []
@@ -374,10 +393,33 @@ def main():
               'corners': corners, 'ref_size': [int(ref.shape[1]), int(ref.shape[0])]}
         with open(os.path.join(d, 'gt.json'), 'w', encoding='utf-8') as f:
             json.dump(gt, f, ensure_ascii=False, indent=1)
+        if a.extras:
+            write_extras(os.path.join(a.extras, os.path.basename(d)), ref)
         index.append(os.path.basename(d))
         print(index[-1], flush=True)
     with open(os.path.join(a.out, 'index.json'), 'w') as f:
         json.dump(index, f, indent=1)
+
+
+def write_extras(d, ref):
+    """True boundary (where the flat paper's border lands in the photo), true corners, text-line
+    and code boxes in the flat reference, and the dense photo->flat map (oracle dewarp)."""
+    os.makedirs(d, exist_ok=True)
+    e = _EXTRAS
+    q = e['map_q']
+    h, w = ref.shape
+    fx, fy, mask = e['flat_x'], e['flat_y'], e['mask']
+    corners = []
+    for (cx, cy) in [(0, 0), (w, 0), (w, h), (0, h)]:
+        dist = np.where(mask, (fx - cx) ** 2 + (fy - cy) ** 2, np.inf)
+        k = np.unravel_index(np.argmin(dist), dist.shape)
+        corners.append([float(k[1] * q), float(k[0] * q)])
+    cnts, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contour = (max(cnts, key=cv2.contourArea).reshape(-1, 2) * q).tolist() if cnts else []
+    np.savez_compressed(os.path.join(d, 'oracle_map.npz'), flat_x=fx.astype(np.float32), flat_y=fy.astype(np.float32), mask=mask, q=q)
+    with open(os.path.join(d, 'extras.json'), 'w') as f:
+        json.dump({'true_corners': corners, 'boundary': contour[::4], 'line_boxes': e['line_boxes'], 'qr_box': e['qr_box'],
+                   'barcode_box': e['barcode_box'], 'frame': e['frame'], 'ref_size': [w, h]}, f)
 
 
 class _RngAdapter:
