@@ -1,0 +1,164 @@
+[
+ {
+  "category": "Easy",
+  "case": "016_flat",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "easy__016_flat_full.jpg",
+   "easy__016_flat_detail.jpg"
+  ]
+ },
+ {
+  "category": "Medium",
+  "case": "112_wrinkle_light",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "medium__112_wrinkle_light_full.jpg",
+   "medium__112_wrinkle_light_detail.jpg"
+  ]
+ },
+ {
+  "category": "Hard",
+  "case": "152_crease_shadow",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "hard__152_crease_shadow_full.jpg",
+   "hard__152_crease_shadow_detail.jpg"
+  ]
+ },
+ {
+  "category": "Very crumpled",
+  "case": "097_wrinkle_heavy",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "very_crumpled__097_wrinkle_heavy_full.jpg",
+   "very_crumpled__097_wrinkle_heavy_detail.jpg"
+  ]
+ },
+ {
+  "category": "Folded",
+  "case": "163_fold_multi",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "folded__163_fold_multi_full.jpg",
+   "folded__163_fold_multi_detail.jpg"
+  ]
+ },
+ {
+  "category": "Curled",
+  "case": "164_curl",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "curled__164_curl_full.jpg",
+   "curled__164_curl_detail.jpg"
+  ]
+ },
+ {
+  "category": "Long receipt",
+  "case": "230_long",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "long_receipt__230_long_full.jpg",
+   "long_receipt__230_long_detail.jpg"
+  ]
+ },
+ {
+  "category": "Faded thermal",
+  "case": "295_thermal_faded",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "faded_thermal__295_thermal_faded_full.jpg",
+   "faded_thermal__295_thermal_faded_detail.jpg"
+  ]
+ },
+ {
+  "category": "Uneven lighting",
+  "case": "153_uneven_light",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "uneven_lighting__153_uneven_light_full.jpg",
+   "uneven_lighting__153_uneven_light_detail.jpg"
+  ]
+ },
+ {
+  "category": "Thai-heavy",
+  "case": "109_thai",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "thai-heavy__109_thai_full.jpg",
+   "thai-heavy__109_thai_detail.jpg"
+  ]
+ },
+ {
+  "category": "Thai + English",
+  "case": "222_thai_english",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "thai_plus_english__222_thai_english_full.jpg",
+   "thai_plus_english__222_thai_english_detail.jpg"
+  ]
+ },
+ {
+  "category": "Numeric dense",
+  "case": "239_numeric_dense",
+  "rule": "median classical_crisp CER of class",
+  "files": [
+   "numeric_dense__239_numeric_dense_full.jpg",
+   "numeric_dense__239_numeric_dense_detail.jpg"
+  ]
+ },
+ {
+  "category": "QR and barcode",
+  "case": "122_tilted",
+  "rule": "median CER among cases whose QR decodes before restore",
+  "files": [
+   "qr_and_barcode__122_tilted_full.jpg",
+   "qr_and_barcode__122_tilted_detail.jpg"
+  ]
+ },
+ {
+  "category": "Failure classical_crisp numbers",
+  "case": "006_long",
+  "rule": "most numbers newly misread by classical_crisp",
+  "files": [
+   "failure_classical_crisp_numbers__006_long_full.jpg",
+   "failure_classical_crisp_numbers__006_long_detail.jpg"
+  ]
+ },
+ {
+  "category": "Failure uvdoc numbers",
+  "case": "006_long",
+  "rule": "most numbers newly misread by uvdoc",
+  "files": [
+   "failure_uvdoc_numbers__006_long_full.jpg",
+   "failure_uvdoc_numbers__006_long_detail.jpg"
+  ]
+ },
+ {
+  "category": "Failure dewarpnet numbers",
+  "case": "166_long",
+  "rule": "most numbers newly misread by dewarpnet",
+  "files": [
+   "failure_dewarpnet_numbers__166_long_full.jpg",
+   "failure_dewarpnet_numbers__166_long_detail.jpg"
+  ]
+ },
+ {
+  "category": "Failure QR lost by uvdoc",
+  "case": "002_fold_half",
+  "rule": "first case where uvdoc loses a QR that decodes before",
+  "files": [
+   "failure_qr_lost_by_uvdoc__002_fold_half_full.jpg",
+   "failure_qr_lost_by_uvdoc__002_fold_half_detail.jpg"
+  ]
+ },
+ {
+  "category": "Failure uvdoc geometry",
+  "case": "207_numeric_dense",
+  "rule": "largest uvdoc local distortion",
+  "files": [
+   "failure_uvdoc_geometry__207_numeric_dense_full.jpg",
+   "failure_uvdoc_geometry__207_numeric_dense_detail.jpg"
+  ]
+ }
+]
