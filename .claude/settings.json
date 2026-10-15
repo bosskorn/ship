@@ -1,0 +1,24 @@
+{
+  "enabledPlugins": {
+    "expo@anthropic-plugin-directory": true
+  },
+  "env": {
+    "DO_NOT_TRACK": "1",
+    "EXPO_SKILLS_TELEMETRY": "0",
+    "EXPO_NO_TELEMETRY": "1"
+  },
+  "permissions": {
+    "deny": [
+      "mcp__plugin_expo_expo",
+      "Bash(npx --yes submit-expo-feedback:*)",
+      "Bash(npx -y submit-expo-feedback:*)",
+      "Bash(npx submit-expo-feedback:*)",
+      "Bash(eas:*)",
+      "Bash(npx eas-cli:*)",
+      "Bash(npx -y eas-cli:*)",
+      "Bash(npx --yes eas-cli:*)",
+      "Bash(npx eas-cli@latest:*)",
+      "Bash(npx -y eas-cli@latest:*)"
+    ]
+  }
+}
