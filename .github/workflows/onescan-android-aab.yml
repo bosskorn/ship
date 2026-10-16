@@ -63,12 +63,23 @@ jobs:
           ONESCAN_UPLOAD_KEY_ALIAS: ${{ secrets.ONESCAN_UPLOAD_KEY_ALIAS }}
           ONESCAN_UPLOAD_KEY_PASSWORD: ${{ secrets.ONESCAN_UPLOAD_KEY_PASSWORD }}
 
+      - name: Verify upload certificate
+        shell: bash
+        run: |
+          cert_info="$(keytool -printcert -jarfile android/app/build/outputs/bundle/release/app-release.aab)"
+          printf '%s\n' "$cert_info" | tee "$RUNNER_TEMP/onescan-upload-certificate.txt"
+          printf '%s\n' "$cert_info" | grep -Fq "SHA1: 17:D0:74:46:9D:FE:CE:8D:90:64:53:4C:98:E9:02:6A:29:37:08:5F"
+          printf '%s\n' "$cert_info" | grep -Fq "SHA256: 71:4B:D4:52:0C:65:84:42:06:4E:8B:15:6E:05:D6:9A:08:F7:8A:34:A7:11:C0:5E:33:E3:93:52:F1:79:35:99"
+          keytool -printcert -rfc -jarfile android/app/build/outputs/bundle/release/app-release.aab > "$RUNNER_TEMP/onescan-upload-certificate.pem"
+
       - name: Prepare artifact
         shell: bash
         run: |
           mkdir -p ../artifacts
           cp android/app/build/outputs/bundle/release/app-release.aab ../artifacts/OneScan-v1.2.1-Internal-Testing.aab
           sha256sum ../artifacts/OneScan-v1.2.1-Internal-Testing.aab > ../artifacts/OneScan-v1.2.1-Internal-Testing.aab.sha256
+          cp "$RUNNER_TEMP/onescan-upload-certificate.txt" ../artifacts/OneScan-upload-certificate.txt
+          cp "$RUNNER_TEMP/onescan-upload-certificate.pem" ../artifacts/OneScan-upload-certificate.pem
 
       - name: Upload Android App Bundle
         uses: actions/upload-artifact@v4
@@ -77,5 +88,7 @@ jobs:
           path: |
             artifacts/OneScan-v1.2.1-Internal-Testing.aab
             artifacts/OneScan-v1.2.1-Internal-Testing.aab.sha256
+            artifacts/OneScan-upload-certificate.txt
+            artifacts/OneScan-upload-certificate.pem
           if-no-files-found: error
           retention-days: 30
